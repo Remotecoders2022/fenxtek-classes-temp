@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reset password — FenxTek Shorthand Classes</title>
+<meta name="description" content="Forgot your FenxTek password? Enter your email and we will send a secure reset link.">
+<meta name="theme-color" content="#F5F1E8">
+<meta name="robots" content="noindex">
+<link rel="icon" href="fenxtek-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/portal.css?v=3">
+<noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
+</head>
+<body data-page="forgot">
+<main class="portal">
+  <section class="auth-shell">
+    <aside class="auth-aside">
+      <span class="eyebrow eyebrow--lime">Account recovery</span>
+      <h1>Back to<br><em>practice.</em></h1>
+      <p>A reset link lets you set a new password and get straight back into your batches, dictations and mock tests.</p>
+
+      <ul class="auth-points">
+        <li><svg><use href="#i-mail"/></svg>We email a secure link — no password is ever shown to us</li>
+        <li><svg><use href="#i-keyboard"/></svg>Your practice records and batches stay untouched</li>
+        <li><svg><use href="#i-zap"/></svg>Sign in again with Google if that is how you joined</li>
+      </ul>
+
+      <div class="auth-foot">
+        <a href="tel:+917309082749">+91 73090 82749</a>
+        <a href="mailto:fenxtekshorthandclasses20@gmail.com">Email us</a>
+        <a href="contact.html">Need help?</a>
+      </div>
+    </aside>
+
+    <section class="auth-panel">
+      <div class="auth-card">
+        <span class="eyebrow">Password reset</span>
+        <h2>Forgot your <em>password?</em></h2>
+        <p class="auth-sub">Enter the email you signed up with and we will send a link to choose a new password.</p>
+
+        <div class="p-alert" id="resetAlert" role="alert" aria-live="polite" hidden></div>
+
+        <form id="resetForm" novalidate>
+          <label class="p-field">
+            <span class="p-label">Email address</span>
+            <input class="p-input" type="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+          </label>
+          <button class="p-btn p-btn--block" type="submit"><span>Send reset link</span><svg><use href="#i-send"/></svg></button>
+        </form>
+
+        <div class="reset-sent" id="resetSent" hidden>
+          <span class="reset-icon" aria-hidden="true"><svg><use href="#i-mail"/></svg></span>
+          <h3>Check your inbox</h3>
+          <p>We sent a password reset link to <b id="resetEmail">your email</b>. Open it on the same device to set a new password.</p>
+          <div class="reset-actions">
+            <button class="p-btn p-btn--ghost p-btn--sm" id="resendBtn" type="button"><span>Resend link</span><svg><use href="#i-zap"/></svg></button>
+            <a class="p-btn p-btn--lime p-btn--sm" href="auth.html"><span>Back to sign in</span><svg><use href="#i-arr"/></svg></a>
+          </div>
+          <ul class="reset-tips">
+            <li><svg><use href="#i-check"/></svg>Nothing after a minute? Check spam, promotions and your other inboxes.</li>
+            <li><svg><use href="#i-check"/></svg>The link is single-use and expires — request a fresh one if it stops working.</li>
+            <li><svg><use href="#i-check"/></svg>Joined with Google? Use “Continue with Google” instead of a reset link.</li>
+          </ul>
+        </div>
+
+        <div class="p-alert p-alert--warn" id="configNotice" hidden>
+          <span><b>Firebase not configured.</b> Add your project keys in <code>assets/js/firebase-config.js</code>, then serve the site over HTTP.</span>
+        </div>
+
+        <div class="auth-alt">
+          <span>Remembered it?</span>
+          <a class="p-link" href="auth.html">Back to sign in</a>
+          <span>·</span>
+          <a class="p-link" href="contact.html">Contact support</a>
+        </div>
+      </div>
+    </section>
+  </section>
+</main>
+
+<script src="assets/js/chrome.js?v=2"></script>
+<script src="assets/js/site.js"></script>
+<script type="module" src="assets/js/content.js?v=6"></script>
+<script type="module" src="assets/js/forgot.js?v=1"></script>
+</body>
+</html>

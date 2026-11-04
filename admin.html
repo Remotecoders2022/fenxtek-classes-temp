@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin CRM — FenxTek Shorthand Classes</title>
+<meta name="description" content="FenxTek admin CRM — edit site content, batches, fees, FAQs, testimonials, students and leads.">
+<meta name="theme-color" content="#F5F1E8">
+<link rel="icon" href="fenxtek-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/portal.css?v=3">
+<noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
+</head>
+<body data-page="admin">
+<main class="portal crm">
+  <div class="wrap">
+
+    <div id="crmLoading" class="dash-card">
+      <div class="dash-skeleton" style="width:30%"></div>
+      <div class="dash-skeleton" style="width:64%;height:26px"></div>
+      <div class="dash-skeleton" style="width:48%"></div>
+    </div>
+
+    <div id="crmDenied" class="crm-access" hidden>
+      <div class="crm-card">
+        <span class="eyebrow">Admin CRM</span>
+        <h1 id="crmDeniedTitle">Sign in required</h1>
+        <p id="crmDeniedText">This control room is restricted to the academy admin account.</p>
+        <div class="crm-actions" style="justify-content:center;border:0;padding:0">
+          <a class="p-btn p-btn--lime" id="crmDeniedPrimary" href="auth.html?next=admin.html"><span>Sign in</span><svg><use href="#i-arr"/></svg></a>
+          <a class="p-btn p-btn--ghost" href="index.html"><span>Back to site</span></a>
+        </div>
+      </div>
+    </div>
+
+    <div id="crmBody" hidden>
+      <header class="crm-top">
+        <div>
+          <span class="eyebrow">Admin CRM</span>
+          <h1>Control <em>room.</em></h1>
+          <p>Edit the live website, manage batches and fees, read student accounts and capture leads — every save writes straight to Firebase Realtime Database.</p>
+        </div>
+        <div class="crm-top-actions">
+          <span class="crm-user"><i></i><span id="crmEmail">—</span></span>
+          <a class="p-btn p-btn--ghost p-btn--sm" href="index.html" target="_blank" rel="noopener"><span>View site</span><svg><use href="#i-arr-ur"/></svg></a>
+          <button class="p-btn p-btn--sm" id="crmSignOut" type="button"><span>Sign out</span><svg><use href="#i-logout"/></svg></button>
+        </div>
+      </header>
+
+      <div class="crm-layout">
+        <nav class="crm-side" aria-label="CRM sections">
+          <button class="crm-nav" data-crm-tab="overview" aria-current="true">Overview <span>01</span></button>
+          <button class="crm-nav" data-crm-tab="content">Site content <span>02</span></button>
+          <button class="crm-nav" data-crm-tab="batches">Batches <span>03</span></button>
+          <button class="crm-nav" data-crm-tab="fees">Fees <span>04</span></button>
+          <button class="crm-nav" data-crm-tab="faqs">FAQs <span>05</span></button>
+          <button class="crm-nav" data-crm-tab="testimonials">Testimonials <span>06</span></button>
+          <button class="crm-nav" data-crm-tab="students">Students <span>07</span></button>
+          <button class="crm-nav" data-crm-tab="leads">Leads <span>08</span></button>
+          <div class="crm-side-foot">
+            <button class="crm-add" id="seedBtn" type="button">Load starter content</button>
+            <button class="crm-add" id="crmSignOut2" type="button">Sign out</button>
+          </div>
+        </nav>
+
+        <div class="crm-main">
+          <div class="p-alert" id="crmAlert" role="status" aria-live="polite" hidden></div>
+
+          <!-- OVERVIEW -->
+          <section class="crm-panel" data-crm-panel="overview">
+            <div class="crm-panel-head">
+              <div>
+                <h2>Overview</h2>
+                <p>A quick read of what is live right now. Everything here is stored under <code>site/</code> in Realtime Database.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="refreshStats" type="button"><span>Refresh</span><svg><use href="#i-zap"/></svg></button>
+            </div>
+
+            <div class="crm-stats">
+              <div class="crm-stat"><b id="statBatches">0</b><span>Batches</span></div>
+              <div class="crm-stat"><b id="statFees">0</b><span>Fee plans</span></div>
+              <div class="crm-stat"><b id="statFaqs">0</b><span>FAQs</span></div>
+              <div class="crm-stat"><b id="statTestimonials">0</b><span>Testimonials</span></div>
+              <div class="crm-stat"><b id="statStudents">0</b><span>Students</span></div>
+              <div class="crm-stat"><b id="statLeads">0</b><span>Leads</span></div>
+              <div class="crm-stat"><b id="statPrice">—</b><span>Starting price</span></div>
+              <div class="crm-stat"><b id="statAnnounce">—</b><span>Announcement</span></div>
+            </div>
+
+            <div class="crm-card" style="margin-top:16px">
+              <span class="eyebrow">Live announcement</span>
+              <h2 id="overviewAnnounce">No announcement yet</h2>
+              <p id="overviewAnnounceText">Open “Site content” to publish a message to every student dashboard.</p>
+            </div>
+
+            <div class="crm-card" style="margin-top:16px">
+              <span class="eyebrow">Setup checklist</span>
+              <ul class="dash-list" style="margin-top:14px">
+                <li><span>Firebase project keys in <code>firebase-config.js</code></span><span id="checkConfig">Done</span></li>
+                <li><span>Email/Password + Google providers enabled</span><span>Console</span></li>
+                <li><span>Realtime Database rules deployed</span><span>database.rules.json</span></li>
+                <li><span>Admin email added to <code>ADMIN_EMAILS</code></span><span>Config</span></li>
+              </ul>
+            </div>
+          </section>
+
+          <!-- CONTENT -->
+          <section class="crm-panel" data-crm-panel="content" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Site content</h2>
+                <p>These values appear across the public site — hero copy, counters, price, contact handles and the student announcement.</p>
+              </div>
+            </div>
+            <form class="crm-card" id="contentForm" novalidate>
+              <div class="crm-form">
+                <label class="p-field p-field--wide">
+                  <span class="p-label">Hero lead paragraph</span>
+                  <textarea class="p-textarea" name="heroLead" rows="3"></textarea>
+                </label>
+                <label class="p-field p-field--wide">
+                  <span class="p-label">Student dashboard announcement</span>
+                  <textarea class="p-textarea" name="announcement" rows="2"></textarea>
+                </label>
+
+                <label class="p-field">
+                  <span class="p-label">Starting price (₹)</span>
+                  <input class="p-input" name="price" inputmode="numeric" placeholder="549">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Director name</span>
+                  <input class="p-input" name="directorName" placeholder="Mohd. Kaif">
+                </label>
+
+                <div class="crm-grid-3 p-field--wide" style="grid-column:1/-1">
+                  <label class="p-field">
+                    <span class="p-label">Aspirants counter</span>
+                    <input class="p-input" name="students" inputmode="numeric" placeholder="3000">
+                  </label>
+                  <label class="p-field">
+                    <span class="p-label">Dictations counter</span>
+                    <input class="p-input" name="dictations" inputmode="numeric" placeholder="500">
+                  </label>
+                  <label class="p-field">
+                    <span class="p-label">Exam patterns counter</span>
+                    <input class="p-input" name="patterns" inputmode="numeric" placeholder="50">
+                  </label>
+                </div>
+
+                <label class="p-field">
+                  <span class="p-label">Phone</span>
+                  <input class="p-input" name="phone" placeholder="+91 73090 82749">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Email</span>
+                  <input class="p-input" type="email" name="email" placeholder="fenxtekshorthandclasses20@gmail.com">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Telegram handle</span>
+                  <input class="p-input" name="telegram" placeholder="@fenxtekshorthand_classes">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Instagram handle</span>
+                  <input class="p-input" name="instagram" placeholder="@fenxtek_shorthand_classes">
+                </label>
+
+                <label class="p-field p-field--wide">
+                  <span class="p-label">Director message</span>
+                  <textarea class="p-textarea" name="directorMessage" rows="3"></textarea>
+                </label>
+              </div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="contentState">Not saved yet</span>
+                <button class="p-btn p-btn--lime" type="submit"><span>Save content</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </form>
+          </section>
+
+          <!-- BATCHES -->
+          <section class="crm-panel" data-crm-panel="batches" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Batches</h2>
+                <p>Shown on the Courses page and in every student dashboard, in the order listed here.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="batchAdd" type="button"><span>Add batch</span><svg><use href="#i-plus"/></svg></button>
+            </div>
+            <div class="crm-card">
+              <div class="crm-editor" id="batchEditor"></div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="batchState">Not saved yet</span>
+                <button class="p-btn p-btn--lime" id="batchSave" type="button"><span>Save batches</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </div>
+          </section>
+
+          <!-- FEES -->
+          <section class="crm-panel" data-crm-panel="fees" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Fee plans</h2>
+                <p>The plan grid under “Courses &amp; fees”. Leave the struck-through price blank to hide it.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="feeAdd" type="button"><span>Add plan</span><svg><use href="#i-plus"/></svg></button>
+            </div>
+            <div class="crm-card">
+              <div class="crm-editor" id="feeEditor"></div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="feeState">Not saved yet</span>
+                <button class="p-btn p-btn--lime" id="feeSave" type="button"><span>Save plans</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </div>
+          </section>
+
+          <!-- FAQS -->
+          <section class="crm-panel" data-crm-panel="faqs" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>FAQs</h2>
+                <p>Answers on the Membership page. Keep them short and practical.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="faqAdd" type="button"><span>Add question</span><svg><use href="#i-plus"/></svg></button>
+            </div>
+            <div class="crm-card">
+              <div class="crm-editor" id="faqEditor"></div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="faqState">Not saved yet</span>
+                <button class="p-btn p-btn--lime" id="faqSave" type="button"><span>Save FAQs</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </div>
+          </section>
+
+          <!-- TESTIMONIALS -->
+          <section class="crm-panel" data-crm-panel="testimonials" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Testimonials</h2>
+                <p>Student voices shown on the home page and About page.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="testimonialAdd" type="button"><span>Add testimonial</span><svg><use href="#i-plus"/></svg></button>
+            </div>
+            <div class="crm-card">
+              <div class="crm-editor" id="testimonialEditor"></div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="testimonialState">Not saved yet</span>
+                <button class="p-btn p-btn--lime" id="testimonialSave" type="button"><span>Save testimonials</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </div>
+          </section>
+
+          <!-- STUDENTS -->
+          <section class="crm-panel" data-crm-panel="students" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Students</h2>
+                <p>Accounts created through the student portal. Passwords are handled by Firebase and are never visible here.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="studentsRefresh" type="button"><span>Refresh</span><svg><use href="#i-zap"/></svg></button>
+            </div>
+            <div class="crm-table-wrap">
+              <table class="crm-table">
+                <thead>
+                  <tr><th>Name</th><th>Email</th><th>Phone</th><th>Target exam</th><th>Joined</th></tr>
+                </thead>
+                <tbody id="studentsBody">
+                  <tr><td colspan="5" class="crm-table-empty">Loading students…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- LEADS -->
+          <section class="crm-panel" data-crm-panel="leads" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Leads</h2>
+                <p>Email addresses captured by the “Join now” form on the public site.</p>
+              </div>
+              <div class="crm-top-actions">
+                <button class="p-btn p-btn--ghost p-btn--sm" id="leadsExport" type="button"><span>Export CSV</span><svg><use href="#i-arr-d"/></svg></button>
+                <button class="p-btn p-btn--ghost p-btn--sm" id="leadsRefresh" type="button"><span>Refresh</span><svg><use href="#i-zap"/></svg></button>
+              </div>
+            </div>
+            <div class="crm-table-wrap">
+              <table class="crm-table">
+                <thead>
+                  <tr><th>Email</th><th>Source</th><th>Captured</th><th class="actions">Action</th></tr>
+                </thead>
+                <tbody id="leadsBody">
+                  <tr><td colspan="4" class="crm-table-empty">Loading leads…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="assets/js/chrome.js?v=2"></script>
+<script src="assets/js/site.js"></script>
+<script type="module" src="assets/js/content.js?v=6"></script>
+<script type="module" src="assets/js/admin.js?v=4"></script>
+</body>
+</html>
