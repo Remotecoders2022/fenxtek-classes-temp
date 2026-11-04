@@ -4,19 +4,19 @@
    Editorial / kinetic build. Warm paper, deep navy, marigold accents.
    ============================================================ */
 :root{
-  --paper:#F5F1E8;
-  --paper-2:#EEE9DC;
-  --paper-3:#E5DFCF;
-  --ink:#0D0F1E;
-  --ink-2:#161933;
-  --ink-3:#20243F;
-  --violet:#4F46E5;
-  --violet-soft:#E3E0FF;
-  --lime:#FFC233;
+  --paper:#F3F0E8;
+  --paper-2:#ECE8DD;
+  --paper-3:#E4DFD2;
+  --ink:#0B0B10;
+  --ink-2:#14141B;
+  --ink-3:#1D1D26;
+  --violet:#5A4BFF;
+  --violet-soft:#DDD8FF;
+  --lime:#D9FF57;
   --sky:#8FE3FF;
-  --muted:#5F5C57;
+  --muted:#6C6A66;
   --muted-d:rgba(255,255,255,.58);
-  --line:rgba(13,15,30,.14);
+  --line:rgba(11,11,16,.14);
   --line-d:rgba(255,255,255,.16);
   --sans:'Inter Tight',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --serif:'Instrument Serif',Georgia,'Times New Roman',serif;
