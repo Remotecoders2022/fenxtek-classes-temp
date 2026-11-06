@@ -6,7 +6,7 @@
    is missing (or Firebase is not set up) the static HTML stays.
    ============================================================ */
 
-import { configured, dbWatch, dbGet, dbPush, onAuthChange, toList } from "./firebase.js?v=4";
+import { configured, dbWatch, dbGet, dbPush, onAuthChange, toList } from "./firebase.js?v=5";
 import {
   esc,
   pad,

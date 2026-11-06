@@ -4,7 +4,7 @@
    so the public site keeps working without credentials.
    ============================================================ */
 
-import { firebaseConfig, ADMIN_EMAILS, isFirebaseConfigured } from "./firebase-config.js?v=2";
+import { firebaseConfig, ADMIN_EMAILS, isFirebaseConfigured } from "./firebase-config.js?v=3";
 
 const CDN = "https://www.gstatic.com/firebasejs/10.12.5";
 
@@ -167,20 +167,40 @@ export async function updateDisplayName(name) {
   return f.a.updateProfile(f.auth.currentUser, { displayName: name });
 }
 
-const emailList = ADMIN_EMAILS.map((e) => String(e).toLowerCase());
+const emailList = ADMIN_EMAILS.map((e) => String(e).trim().toLowerCase());
+
+/* True when the account's email is one of ADMIN_EMAILS (verified or not). */
+export function isAdminEmail(user) {
+  return Boolean(user && user.email && emailList.includes(String(user.email).trim().toLowerCase()));
+}
+
+/* Sends the "verify your email" link to the signed-in user. */
+export async function sendVerification() {
+  const f = await requireConfigured();
+  if (!f.auth || !f.auth.currentUser) return;
+  return f.a.sendEmailVerification(f.auth.currentUser);
+}
 
 export async function isAdmin(user) {
   if (!user) return false;
   const f = await initFirebase().catch(() => null);
   if (!f || !f.db) return false;
 
-  const email = String(user.email || "").toLowerCase();
   const ownRef = f.d.ref(f.db, `admins/${user.uid}`);
 
-  if (emailList.includes(email)) {
+  if (isAdminEmail(user)) {
     try {
       const snap = await f.d.get(ownRef);
       if (snap.val() === true) return true;
+
+      /* The rules only let a *verified* admin email claim the seat, so
+         nobody can register the address with a password first. Google
+         sign-in is verified automatically; after clicking an email link
+         the cached token is stale, so reload + refresh it first. */
+      if (!user.emailVerified && typeof user.reload === "function") await user.reload().catch(() => {});
+      const current = (f.auth && f.auth.currentUser) || user;
+      if (!current.emailVerified) return false;
+      if (typeof current.getIdToken === "function") await current.getIdToken(true).catch(() => {});
 
       await f.d.set(ownRef, true);
 

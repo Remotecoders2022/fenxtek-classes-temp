@@ -74,9 +74,8 @@ Still to do in the Firebase console:
 1. **Authentication → Sign-in method → Google**: turn it on (Email/Password is already enabled).
 2. **Authentication → Settings → Authorized domains**: add `127.0.0.1` if you browse via that address
    (`localhost` is allowed by default, `127.0.0.1` is not) and add your production domain after deploy.
-3. Admin owner: `ADMIN_EMAILS` and the rules still use `admin@example.com`. Create an account with that
-   address on `auth.html` (Firebase does not require inbox verification), or change both files to a real
-   Gmail and republish the rules.
+3. Admin owner: `ADMIN_EMAILS` and the rules use **`admin.kaif.fenxtek@gmail.com`**. Republish the rules, then
+   sign in on `auth.html` with that Gmail (see **Admin access** below).
 
 ### From scratch
 
@@ -100,14 +99,22 @@ export const firebaseConfig = {
 export const ADMIN_EMAILS = ["your-admin@gmail.com"];
 ```
 
-6. Open `database.rules.json` and replace **both** `admin@example.com` references with the same admin email. In the Firebase console go to **Realtime Database → Rules**, paste the file contents and publish.
+6. Open `database.rules.json` and replace the admin email in the `admins` rule with the same address. In the Firebase console go to **Realtime Database → Rules**, paste the file contents and publish.
 7. **Authentication → Settings → Authorized domains**: add `localhost` (already default) and your production domain.
 
 > The config values are not secrets; the database rules are what protect the data. Never commit a service-account key.
 
 ### Admin access
 
-The first sign-in with the email listed in `ADMIN_EMAILS` self-claims `admins/{uid}` (the rules allow exactly that email to do it). After that the CRM opens from `admin.html`, and the header link changes to **CRM**.
+The admin account is **`admin.kaif.fenxtek@gmail.com`** (`ADMIN_EMAILS` in `assets/js/firebase-config.js` and the
+`admins` rule in `database.rules.json`). Signing in with it always opens the CRM (`admin.html`) — even from a link
+that pointed at the student portal — and the header link changes to **CRM**.
+
+The first sign-in self-claims `admins/{uid}`. The rules allow that only for this address **with a verified email**,
+so nobody can register the address with a password before you and take the seat:
+
+- **Continue with Google** using that Gmail — verified automatically, the CRM opens straight away (recommended).
+- Email + password — the CRM sends a verification link to the inbox; open it, then reload `admin.html`.
 
 To make another account an admin, open **Realtime Database → Data** and add:
 
