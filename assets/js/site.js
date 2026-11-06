@@ -21,31 +21,57 @@ function toast(msg){
   toastT = setTimeout(() => toastEl.classList.remove('show'), 3000);
 }
 
-/* ---------- preloader ---------- */
+/* ---------- loading screen ---------- */
 const pre = $('#preloader');
 const revealPage = () => document.body.classList.add('loaded');
+const unlock = () => document.documentElement.classList.remove('is-loading');
 if (pre && !reduce){
-  const plNum = $('#plNum'), plBar = $('#plBar');
+  const quick = pre.dataset.quick === '1';
+  const dur = quick ? 850 : 1750;
+  const pct = $('#plPct'), spd = $('#plSpeed'), bar = $('#plBar'), ring = $('#plRing');
+  const words = [...pre.querySelectorAll('.pl-words span')];
+  const C = 2 * Math.PI * 54;
+  const ease = (t) => 1 - Math.pow(1 - t, 3);
+  let pageLoaded = document.readyState === 'complete';
+  addEventListener('load', () => { pageLoaded = true; }, { once: true });
   let start = null, finished = false;
+
+  const paint = (v) => {
+    pct.textContent = String(Math.round(v * 100)).padStart(2, '0');
+    spd.textContent = String(Math.round(v * 160)).padStart(3, '0');
+    bar.style.transform = 'scaleX(' + v + ')';
+    ring.style.strokeDashoffset = (C * (1 - v)).toFixed(2);
+    words.forEach((w) => w.classList.toggle('on', v >= +w.dataset.at));
+  };
   const finish = () => {
     if (finished) return;
     finished = true;
+    paint(1);
+    try { sessionStorage.setItem('fx:intro', '1'); } catch (e) {}
     pre.classList.add('done');
-    revealPage();
-    setTimeout(() => pre.remove(), 800);
+    unlock();
+    setTimeout(revealPage, 380);
+    setTimeout(() => pre.remove(), 1600);
   };
   const step = (t) => {
-    if (!start) start = t;
-    const p = Math.min(1, (t - start) / 1500);
-    plNum.textContent = Math.round(p * 100);
-    plBar.style.transform = 'scaleX(' + p + ')';
-    if (p < 1) requestAnimationFrame(step);
-    else setTimeout(finish, 200);
+    if (finished) return;
+    if (start === null) start = t;
+    const raw = Math.min(1, (t - start) / dur);
+    let v = ease(raw);
+    if (!pageLoaded) v = Math.min(v, 0.92);   // hold near the end until the page has loaded
+    paint(v);
+    if (raw < 1 || !pageLoaded) requestAnimationFrame(step);
+    else setTimeout(finish, quick ? 120 : 320);
   };
+  ring.style.strokeDasharray = C.toFixed(2);
+  ring.style.strokeDashoffset = C.toFixed(2);
   requestAnimationFrame(step);
-  setTimeout(finish, 3400);
+  pre.addEventListener('click', finish);
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') finish(); });
+  setTimeout(finish, 4500);                  // never block the page for long
 } else {
   if (pre) pre.remove();
+  unlock();
   revealPage();
 }
 
