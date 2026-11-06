@@ -15,6 +15,7 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=3";
+import { membershipStatus, daysLeft, formatDate } from "./media.js?v=1";
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (value) =>
@@ -109,6 +110,45 @@ function renderBatches(value) {
     .join("");
 }
 
+function paintMembership(rec) {
+  const st = membershipStatus(rec);
+  const title = $("#dashMemberTitle");
+  const text = $("#dashMemberText");
+  const info = $("#dashMemberInfo");
+  const status = $("#dashMemberStatus");
+  const bar = $("#dashMemberBar");
+  const link = $("#dashMemberLink");
+  const badge = $("#dashMemberBadge");
+  if (st.key === "none") {
+    if (title) title.textContent = "No membership yet";
+    if (info) info.hidden = true;
+    return;
+  }
+  const left = daysLeft(rec);
+  if (title) title.textContent = rec.planName || "Membership";
+  if (text) {
+    const from = formatDate(Number(rec.startAt));
+    const till = rec.endAt ? formatDate(Number(rec.endAt)) : "";
+    text.textContent = till ? `Valid ${from} – ${till}` + (st.key === "active" && left != null ? ` · ${left} day${left === 1 ? "" : "s"} left` : "") : `Started ${from} · open-ended`;
+  }
+  if (info) info.hidden = false;
+  if (status) {
+    status.textContent = st.label;
+    status.className = "p-badge" + (st.key === "active" ? " p-badge--ok" : "");
+  }
+  if (bar) {
+    const start = Number(rec.startAt) || 0;
+    const end = Number(rec.endAt) || 0;
+    const pct = end > start ? Math.min(100, Math.max(0, ((Date.now() - start) / (end - start)) * 100)) : 0;
+    bar.style.width = pct.toFixed(1) + "%";
+  }
+  if (link) {
+    const label = link.querySelector("span");
+    if (label) label.textContent = st.key === "active" ? "Compare plans" : "Renew membership";
+  }
+  if (badge && st.key === "active") badge.textContent = `${rec.planName || "Member"} · active`;
+}
+
 function showProfileAlert(kind, message) {
   const box = $("#profileAlert");
   if (!box) return;
@@ -196,6 +236,9 @@ async function init() {
       });
     }
   });
+
+  /* membership (members/{uid} is written by the admin CRM) */
+  dbWatch(`members/${user.uid}`, (rec) => paintMembership(rec));
 
   /* batches */
   dbWatch("site/batches", (value, snapshot) => {

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/site.css?v=2">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.hero-head .l>span{transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="home">
@@ -130,9 +130,9 @@
       <span class="eyebrow">Explore FenxTek</span>
       <h2 class="h2">Everything in <em>one place.</em></h2>
       <p class="lead">Courses, exam patterns, the method and the people behind the practice - each with its own page.</p>
-      <span class="sec-note"><b>07</b>pages<br>one academy</span>
+      <span class="sec-note"><b>08</b>pages<br>one academy</span>
     </div>
-    <div class="explore-grid">
+    <div class="explore-grid explore-grid--4">
       <a class="explore-card" href="courses.html" data-reveal>
         <span class="ec-n">01 / Courses</span>
         <span class="ec-arr"><svg><use href="#i-arr-ur"/></svg></span>
@@ -157,19 +157,43 @@
         <h3>The people</h3>
         <p>Meet the director and the students who turned daily practice into results.</p>
       </a>
-      <a class="explore-card" href="membership.html" data-reveal style="--d:.1s">
-        <span class="ec-n">05 / Membership</span>
+      <a class="explore-card" href="achievements.html" data-reveal style="--d:.15s">
+        <span class="ec-n">05 / Achievements</span>
         <span class="ec-arr"><svg><use href="#i-arr-ur"/></svg></span>
-        <h3>One plan</h3>
-        <p>All courses, dictations and mock tests from a single monthly membership.</p>
+        <h3>Results wall</h3>
+        <p>Selections and skill-test clearances from our students, posted by the academy.</p>
       </a>
-      <a class="explore-card" href="contact.html" data-reveal style="--d:.15s">
-        <span class="ec-n">06 / Contact</span>
+      <a class="explore-card" href="membership.html" data-reveal>
+        <span class="ec-n">06 / Membership</span>
+        <span class="ec-arr"><svg><use href="#i-arr-ur"/></svg></span>
+        <h3>Pick a plan</h3>
+        <p>All courses, dictations and mock tests — choose the validity that fits your exam date.</p>
+      </a>
+      <a class="explore-card" href="contact.html" data-reveal style="--d:.05s">
+        <span class="ec-n">07 / Contact</span>
         <span class="ec-arr"><svg><use href="#i-arr-ur"/></svg></span>
         <h3>Talk to us</h3>
         <p>Phone, email, Telegram or Instagram - start with a free demo passage.</p>
       </a>
+      <a class="explore-card" href="auth.html" data-reveal style="--d:.1s">
+        <span class="ec-n">08 / Portal</span>
+        <span class="ec-arr"><svg><use href="#i-arr-ur"/></svg></span>
+        <h3>Student portal</h3>
+        <p>Sign in to see your batches, membership validity and academy announcements.</p>
+      </a>
     </div>
+  </div>
+</section>
+<section class="section ach-preview" id="achievements" data-ach-preview hidden>
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <span class="eyebrow">Achievements</span>
+      <h2 class="h2">Fresh off the <em>results board.</em></h2>
+      <p class="lead">The latest selections and milestones from FenxTek students.</p>
+      <span class="sec-note"><b>New</b>posted by<br>the academy</span>
+    </div>
+    <div class="ach-grid ach-grid--3" data-ach-preview-grid></div>
+    <div class="ach-more-row"><a class="btn btn--ghost" href="achievements.html"><span>See all achievements</span> <svg><use href="#i-arr"/></svg></a></div>
   </div>
 </section>
 <section class="section section--ink on-dark" id="voices">
@@ -220,9 +244,9 @@
   </div>
 </section>
 </main>
-<script src="assets/js/chrome.js?v=2"></script>
-<script src="assets/js/site.js"></script>
-<script type="module" src="assets/js/content.js?v=6"></script>
+<script src="assets/js/chrome.js?v=3"></script>
+<script src="assets/js/site.js?v=2"></script>
+<script type="module" src="assets/js/content.js?v=7"></script>
 <script type="module" src="assets/js/auth-ui.js?v=3"></script>
 </body>
 </html>

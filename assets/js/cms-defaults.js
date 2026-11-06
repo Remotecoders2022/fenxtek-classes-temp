@@ -102,3 +102,30 @@ export const defaultTestimonials = [
     order: 3
   }
 ];
+
+/* Membership plans (membership.html). Features are one line each.
+   Matches the plan that shipped in the static HTML; add more plans
+   from the CRM "Memberships" tab. */
+export const defaultMemberships = [
+  {
+    name: "Unlimited Membership",
+    tagline: "All courses, dictations and mock tests in one plan.",
+    price: "549",
+    was: "",
+    duration: "3 months",
+    durationDays: 90,
+    features: [
+      "Shorthand typing software included",
+      "Tests for 400, 500, 800 & 1000 word passages",
+      "All dictation courses — Ramdhari Gupta, editorials & more",
+      "50+ exam patterns — SSC, UPSSSC, AHC & state govt",
+      "Speed & accuracy tracking after every session",
+      "Personal mentorship & progress reviews"
+    ],
+    highlight: true,
+    badge: "Most popular",
+    cta: "Choose plan",
+    active: true,
+    order: 1
+  }
+];

@@ -25,12 +25,57 @@
         ".read": true,
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
       },
+      "memberships": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$plan": {
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 120",
+          "price": { ".validate": "newData.isString() || newData.isNumber()" },
+          "durationDays": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "highlight": { ".validate": "newData.isBoolean()" },
+          "active": { ".validate": "newData.isBoolean()" }
+        }
+      },
+      "achievements": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$post": {
+          ".validate": "newData.hasChildren(['caption', 'imageSource']) && (newData.child('imageSource').val() === 'upload' || (newData.child('imageSource').val() === 'link' && newData.child('imageUrl').isString() && newData.child('imageUrl').val().matches(/^https?:\\/\\/\\S+$/)))",
+          "caption": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1200" },
+          "title": { ".validate": "newData.isString() && newData.val().length <= 160" },
+          "tag": { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "published": { ".validate": "newData.isBoolean()" },
+          "order": { ".validate": "newData.isNumber()" }
+        }
+      },
+      "achievementImages": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$post": {
+          ".validate": "newData.isString() && newData.val().length < 1500000 && newData.val().matches(/^data:image\\/(png|jpe?g|webp|gif);base64,/)"
+        }
+      },
       "leads": {
         ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "$lead": {
           ".write": "(!data.exists() && newData.exists() && newData.child('email').isString()) || auth != null && root.child('admins').child(auth.uid).val() === true",
-          ".validate": "newData.hasChild('email') && newData.child('email').isString() && newData.child('email').val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/)"
+          ".validate": "newData.hasChild('email') && newData.child('email').isString() && newData.child('email').val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/)",
+          "plan": { ".validate": "newData.isString() && newData.val().length <= 200" }
         }
+      }
+    },
+
+    "members": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.hasChildren(['planId', 'planName', 'startAt', 'status'])",
+        "planId": { ".validate": "newData.isString()" },
+        "planName": { ".validate": "newData.isString()" },
+        "startAt": { ".validate": "newData.isNumber()" },
+        "endAt": { ".validate": "newData.isNumber()" },
+        "status": { ".validate": "newData.val() === 'active' || newData.val() === 'paused' || newData.val() === 'cancelled'" }
       }
     },
 

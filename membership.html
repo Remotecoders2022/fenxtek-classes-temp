@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Membership & FAQ - FenxTek Shorthand Classes</title>
-<meta name="description" content="Unlimited access to all courses, dictations and mock tests from Rs 549, plus answers to common questions.">
+<title>Membership Plans & FAQ - FenxTek Shorthand Classes</title>
+<meta name="description" content="FenxTek membership plans: unlimited access to all courses, dictations and mock tests from Rs 549, plus answers to common questions.">
 <meta name="theme-color" content="#F5F1E8">
 <link rel="icon" href="fenxtek-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/site.css?v=2">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.hero-head .l>span{transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="membership">
@@ -21,7 +21,7 @@
       <span class="eyebrow" style="color:rgba(13,15,30,.6)">08 — Membership</span>
       <h2 class="h2">One membership. <em style="color:var(--ink)">Every exam.</em></h2>
       <p class="lead" style="color:rgba(13,15,30,.68)">All courses, all dictations, all mock tests — unlimited access.</p>
-      <span class="sec-note" style="color:rgba(13,15,30,.55)"><b style="color:var(--ink)">₹549</b>starting from<br>multiple plans</span>
+      <span class="sec-note" style="color:rgba(13,15,30,.55)"><b style="color:var(--ink)">₹<span data-cms="planFrom">549</span></b>starting from<br><span data-cms="planCount">01</span> plan(s)</span>
     </div>
 
     <div class="price-grid">
@@ -40,7 +40,10 @@
       <div class="pricing-aside" data-reveal style="--d:.08s">
         <p class="hindi">अभ्यास ही <em>सफलता</em> है।</p>
         <p>Practice is the only shortcut. Join 3,000+ aspirants practising daily — start with a free demo dictation, no sign-up and no payment.</p>
-        <a class="btn" href="contact.html"><span>Start free demo</span> <svg><use href="#i-arr"/></svg></a>
+        <div class="cta-actions" style="margin-top:26px">
+          <a class="btn" href="#plans"><span>See plans</span> <svg><use href="#i-arr-d"/></svg></a>
+          <a class="btn btn--ghost" href="contact.html"><span>Start free demo</span></a>
+        </div>
         <div class="avatars">
           <span>RK</span><span>PS</span><span>AV</span><span>+4</span>
           <span style="width:auto;height:auto;border:0;background:none;color:inherit;margin-left:6px;letter-spacing:.12em">joined this month</span>
@@ -49,13 +52,47 @@
     </div>
   </div>
 </section>
+<section class="section plans-sec" id="plans">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <span class="eyebrow">08.1 — Plans</span>
+      <h2 class="h2">Pick your <em>plan.</em></h2>
+      <p class="lead">Every plan unlocks the full practice room. Choose the validity that matches your exam date — the academy activates it on your student account.</p>
+      <span class="sec-note"><b data-cms="planCount">01</b>live plan(s)<br>updated by the academy</span>
+    </div>
+
+    <div class="my-membership" data-my-membership hidden></div>
+
+    <div class="plan-grid" data-plan-grid data-count="1">
+      <article class="plan plan--hot" data-plan="s1">
+        <span class="plan-flag">Most popular</span>
+        <span class="plan-n">01 / Plan</span>
+        <h3 class="plan-name">Unlimited Membership</h3>
+        <p class="plan-tag">All courses, dictations and mock tests in one plan.</p>
+        <div class="plan-price"><b><small>₹</small><span data-cms="price">549</span></b></div>
+        <span class="plan-dur">3 months validity</span>
+        <ul class="plan-feats">
+          <li><svg><use href="#i-check"/></svg><span>Shorthand typing software included</span></li>
+          <li><svg><use href="#i-check"/></svg><span>Tests for 400, 500, 800 &amp; 1000 word passages</span></li>
+          <li><svg><use href="#i-check"/></svg><span>All dictation courses — Ramdhari Gupta, editorials &amp; more</span></li>
+          <li><svg><use href="#i-check"/></svg><span>50+ exam patterns — SSC, UPSSSC, AHC &amp; state govt</span></li>
+          <li><svg><use href="#i-check"/></svg><span>Speed &amp; accuracy tracking after every session</span></li>
+          <li><svg><use href="#i-check"/></svg><span>Personal mentorship &amp; progress reviews</span></li>
+        </ul>
+        <a class="btn btn--lime plan-cta" href="contact.html"><span>Choose plan</span> <svg><use href="#i-arr"/></svg></a>
+      </article>
+    </div>
+
+    <p class="plans-note">Already paid? Sign in to the <a href="auth.html">student portal</a> — your plan and validity appear on your dashboard once the academy activates it.</p>
+  </div>
+</section>
 <section class="section" id="faq">
   <div class="wrap">
     <div class="sec-head" data-reveal>
       <span class="eyebrow">09 — FAQ</span>
       <h2 class="h2">Asked <em>often.</em></h2>
       <p class="lead">The practical details — speeds, transcription time, fonts and what a membership includes.</p>
-      <span class="sec-note"><b>06</b>answers<br>before you join</span>
+      <span class="sec-note"><b data-cms="faqCount">06</b>answers<br>before you join</span>
     </div>
 
     <div class="faq-list">
@@ -122,9 +159,9 @@
   </div>
 </section>
 </main>
-<script src="assets/js/chrome.js?v=2"></script>
-<script src="assets/js/site.js"></script>
-<script type="module" src="assets/js/content.js?v=6"></script>
+<script src="assets/js/chrome.js?v=3"></script>
+<script src="assets/js/site.js?v=2"></script>
+<script type="module" src="assets/js/content.js?v=7"></script>
 <script type="module" src="assets/js/auth-ui.js?v=3"></script>
 </body>
 </html>

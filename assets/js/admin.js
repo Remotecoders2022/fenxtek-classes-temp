@@ -1,6 +1,7 @@
 /* ============================================================
    FENXTEK — admin CRM
-   Guarded editor for site content, collections, students, leads.
+   Guarded editor for site content, collections, membership plans,
+   student memberships, achievements, students and leads.
    ============================================================ */
 
 import {
@@ -10,6 +11,7 @@ import {
   isAdmin,
   dbGet,
   dbSet,
+  dbUpdate,
   dbRemove,
   toList,
   friendlyError
@@ -20,22 +22,31 @@ import {
   defaultBatches,
   defaultFees,
   defaultFaqs,
-  defaultTestimonials
-} from "./cms-defaults.js";
+  defaultTestimonials,
+  defaultMemberships
+} from "./cms-defaults.js?v=2";
+
+import {
+  esc,
+  pad,
+  rupees,
+  toLines,
+  safeImageUrl,
+  safeDataImage,
+  membershipStatus,
+  fileToDataImage,
+  prettyBytes,
+  createAchievementImageLoader,
+  achievementSource,
+  hydrateAchievementImages,
+  formatDate as formatAnyDate
+} from "./media.js?v=1";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-const esc = (value) =>
-  String(value == null ? "" : value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-
-const pad = (n) => String(n).padStart(2, "0");
 const uid = () => "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const DAY = 86400000;
 
 const state = {
   user: null,
@@ -44,6 +55,9 @@ const state = {
   fees: [],
   faqs: [],
   testimonials: [],
+  memberships: [],
+  members: {},
+  achievements: [],
   students: [],
   leads: []
 };
@@ -104,21 +118,50 @@ function formatDate(value) {
   return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/* yyyy-mm-dd <-> epoch ms (local midnight) */
+const toDateInput = (ms) => {
+  const d = new Date(Number(ms) || Date.now());
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const fromDateInput = (v, endOfDay) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(v || ""))) return 0;
+  const d = new Date(v + (endOfDay ? "T23:59:59" : "T00:00:00"));
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+};
+
+async function withBusy(btn, label, fn) {
+  const old = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = label;
+  }
+  try {
+    return await fn();
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = old;
+    }
+  }
+}
+
 /* ---------------- tabs ---------------- */
+
+function openTab(name) {
+  $$("[data-crm-tab]").forEach((b) => b.setAttribute("aria-current", String(b.dataset.crmTab === name)));
+  $$("[data-crm-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.crmPanel !== name;
+  });
+  if (name === "students") loadStudents();
+  if (name === "leads") loadLeads();
+  if (name === "memberships") loadMembers();
+  if (name === "overview") paintOverview();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 function bindTabs() {
   $$("[data-crm-tab]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const name = btn.dataset.crmTab;
-      $$("[data-crm-tab]").forEach((b) => b.setAttribute("aria-current", String(b === btn)));
-      $$("[data-crm-panel]").forEach((panel) => {
-        panel.hidden = panel.dataset.crmPanel !== name;
-      });
-      if (name === "students") loadStudents();
-      if (name === "leads") loadLeads();
-      if (name === "overview") paintOverview();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
+    btn.addEventListener("click", () => openTab(btn.dataset.crmTab));
   });
 }
 
@@ -192,22 +235,18 @@ function bindContentForm() {
       return;
     }
 
-    const old = btn.innerHTML;
-    btn.disabled = true;
-    btn.textContent = "Saving…";
-    try {
-      await dbSet("site/content", payload);
-      state.content = payload;
-      setState("#contentState", "Saved · live on the site", "ok");
-      showAlert("ok", "Site content saved. Public pages update in real time.");
-      paintOverview();
-    } catch (err) {
-      setState("#contentState", "Save failed", "err");
-      showAlert("err", friendlyError(err));
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = old;
-    }
+    await withBusy(btn, "Saving…", async () => {
+      try {
+        await dbSet("site/content", payload);
+        state.content = payload;
+        setState("#contentState", "Saved · live on the site", "ok");
+        showAlert("ok", "Site content saved. Public pages update in real time.");
+        paintOverview();
+      } catch (err) {
+        setState("#contentState", "Save failed", "err");
+        showAlert("err", friendlyError(err));
+      }
+    });
   });
 }
 
@@ -247,6 +286,65 @@ const EDITORS = {
     ],
     blank: () => ({ label: "", note: "", price: "", was: "", order: state.fees.length + 1 })
   },
+  memberships: {
+    path: "site/memberships",
+    key: "memberships",
+    editor: "#planEditor",
+    add: "#planAdd",
+    save: "#planSave",
+    state: "#planState",
+    noun: "Membership plan",
+    fields: [
+      { key: "name", label: "Plan name", placeholder: "Quarterly Membership" },
+      { key: "badge", label: "Highlight badge text", placeholder: "Most popular" },
+      { key: "tagline", label: "Short description", wide: true, placeholder: "All courses, dictations and mock tests in one plan." },
+      { key: "price", label: "Price (₹)", placeholder: "549" },
+      { key: "was", label: "Original price (optional)", placeholder: "799" },
+      { key: "duration", label: "Validity label", placeholder: "3 months" },
+      { key: "durationDays", label: "Validity in days (for student memberships)", type: "number", placeholder: "90" },
+      { key: "features", label: "Features — one per line", type: "lines", wide: true, rows: 5 },
+      { key: "cta", label: "Button text", placeholder: "Choose plan" },
+      { key: "order", label: "Order", type: "number" },
+      { key: "highlight", label: "Highlight this plan (dark card + badge)", type: "checkbox" },
+      { key: "active", label: "Visible on site", type: "checkbox" }
+    ],
+    blank: () => ({
+      name: "",
+      badge: "Most popular",
+      tagline: "",
+      price: "",
+      was: "",
+      duration: "1 month",
+      durationDays: 30,
+      features: [],
+      cta: "Choose plan",
+      highlight: false,
+      active: true,
+      order: state.memberships.length + 1
+    }),
+    clean: (item, i) => {
+      const name = String(item.name || "").trim();
+      if (!name) throw new Error(`Plan ${pad(i + 1)} needs a name.`);
+      const out = {
+        id: item.id,
+        name,
+        badge: String(item.badge || "").trim(),
+        tagline: String(item.tagline || "").trim(),
+        price: String(item.price == null ? "" : item.price).replace(/[^\d.]/g, ""),
+        was: String(item.was == null ? "" : item.was).replace(/[^\d.]/g, ""),
+        duration: String(item.duration || "").trim(),
+        features: toLines(item.features),
+        cta: String(item.cta || "").trim() || "Choose plan",
+        highlight: Boolean(item.highlight),
+        active: item.active !== false,
+        order: item.order
+      };
+      const days = Number(item.durationDays);
+      if (item.durationDays !== "" && item.durationDays != null && isFinite(days) && days >= 0) out.durationDays = Math.round(days);
+      return out;
+    },
+    after: () => populateMemberSelects()
+  },
   faqs: {
     path: "site/faqs",
     key: "faqs",
@@ -281,6 +379,30 @@ const EDITORS = {
   }
 };
 
+function renderField(f, item) {
+  const raw = item[f.key];
+  const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : "";
+  if (f.type === "checkbox") {
+    const checked = f.key === "active" ? raw !== false : Boolean(raw);
+    return `<label class="p-check p-field${f.wide ? " p-field--wide" : ""}"><input type="checkbox" data-field="${f.key}"${checked ? " checked" : ""}><span>${esc(f.label)}</span></label>`;
+  }
+  const label = `<span class="p-label">${esc(f.label)}</span>`;
+  let control;
+  if (f.type === "lines") {
+    control = `<textarea class="p-textarea" data-field="${f.key}" rows="${f.rows || 4}"${ph}>${esc(toLines(raw).join("\n"))}</textarea>`;
+  } else if (f.type === "textarea") {
+    control = `<textarea class="p-textarea" data-field="${f.key}" rows="${f.rows || 3}"${ph}>${esc(raw == null ? "" : raw)}</textarea>`;
+  } else {
+    control = `<input class="p-input" type="${f.type || "text"}" data-field="${f.key}" value="${esc(raw == null ? "" : raw)}"${ph}>`;
+  }
+  const value = raw == null ? "" : raw;
+  const preview =
+    f.key === "banner" && value && safeImageUrl(value)
+      ? `<span class="crm-banner-preview"><img src="${esc(safeImageUrl(value))}" alt="Banner preview" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.dataset.bad='1'"><em>Preview unavailable — check the link</em></span>`
+      : "";
+  return `<label class="p-field${f.wide ? " p-field--wide" : ""}">${label}${control}${preview}</label>`;
+}
+
 function renderEditor(kind) {
   const spec = EDITORS[kind];
   const wrap = $(spec.editor);
@@ -297,26 +419,13 @@ function renderEditor(kind) {
       (item, i) => `
       <div class="crm-item" data-idx="${i}">
         <div class="crm-item-top">
-          <b>${spec.noun} ${pad(i + 1)}</b>
+          <b>${spec.noun} ${pad(i + 1)}${kind === "memberships" && item.name ? " · " + esc(item.name) : ""}${
+            kind === "memberships" && item.active === false ? ' <em class="crm-pill crm-pill--off">Hidden</em>' : ""
+          }</b>
           <button class="crm-remove" type="button" data-remove="${i}" aria-label="Remove ${spec.noun.toLowerCase()} ${i + 1}">×</button>
         </div>
         <div class="crm-form">
-          ${spec.fields
-            .map((f) => {
-              const value = item[f.key] == null ? "" : item[f.key];
-              const label = `<span class="p-label">${esc(f.label)}</span>`;
-              const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : "";
-              const control =
-                f.type === "textarea"
-                  ? `<textarea class="p-textarea" data-field="${f.key}" rows="${f.rows || 3}"${ph}>${esc(value)}</textarea>`
-                  : `<input class="p-input" type="${f.type || "text"}" data-field="${f.key}" value="${esc(value)}"${ph}>`;
-              const preview =
-                f.key === "banner" && value
-                  ? `<span class="crm-banner-preview"><img src="${esc(value)}" alt="Banner preview" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.dataset.bad='1'"><em>Preview unavailable — check the link</em></span>`
-                  : "";
-              return `<label class="p-field${f.wide ? " p-field--wide" : ""}">${label}${control}${preview}</label>`;
-            })
-            .join("")}
+          ${spec.fields.map((f) => renderField(f, item)).join("")}
         </div>
       </div>`
     )
@@ -336,6 +445,7 @@ async function loadEditor(kind) {
   });
   setState(spec.state, snap && snap.exists && snap.exists() ? "Live values loaded" : "Nothing published yet");
   renderEditor(kind);
+  if (spec.after) spec.after();
 }
 
 function setDirty(kind) {
@@ -350,21 +460,22 @@ function bindEditor(kind) {
   const saveBtn = $(spec.save);
   if (!wrap) return;
 
-  wrap.addEventListener("input", (e) => {
+  const onEdit = (e) => {
     const field = e.target.dataset ? e.target.dataset.field : "";
     const itemEl = e.target.closest(".crm-item");
     if (!field || !itemEl) return;
     const idx = Number(itemEl.dataset.idx);
     const def = spec.fields.find((f) => f.key === field);
     if (!state[spec.key][idx]) return;
-    state[spec.key][idx][field] =
-      def && def.type === "number"
-        ? e.target.value === ""
-          ? ""
-          : Number(e.target.value)
-        : e.target.value;
+    let value = e.target.value;
+    if (def && def.type === "number") value = e.target.value === "" ? "" : Number(e.target.value);
+    if (def && def.type === "checkbox") value = e.target.checked;
+    if (def && def.type === "lines") value = toLines(e.target.value);
+    state[spec.key][idx][field] = value;
     setDirty(kind);
-  });
+  };
+  wrap.addEventListener("input", onEdit);
+  wrap.addEventListener("change", onEdit);
 
   wrap.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-remove]");
@@ -390,37 +501,647 @@ function bindEditor(kind) {
   }
 
   if (saveBtn) {
-    saveBtn.addEventListener("click", async () => {
-      const old = saveBtn.innerHTML;
-      saveBtn.disabled = true;
-      saveBtn.textContent = "Saving…";
+    saveBtn.addEventListener("click", () =>
+      withBusy(saveBtn, "Saving…", async () => {
+        try {
+          const payload = {};
+          state[spec.key].forEach((item, i) => {
+            if (!item.id) item.id = uid();
+            item.order = item.order === "" || item.order == null ? i + 1 : Number(item.order);
+            const clean = spec.clean ? spec.clean(item, i) : { ...item };
+            payload[item.id] = clean;
+          });
+          await dbSet(spec.path, payload);
+          setState(spec.state, "Saved · live on the site", "ok");
+          showAlert("ok", `${spec.noun}s saved. The public pages are updated.`);
+          if (spec.after) spec.after();
+          renderEditor(kind);
+          paintOverview();
+        } catch (err) {
+          setState(spec.state, "Save failed", "err");
+          showAlert("err", err && !err.code && err.message ? err.message : friendlyError(err));
+        }
+      })
+    );
+  }
+}
+
+/* ---------------- student memberships ---------------- */
+
+function studentLabel(s) {
+  if (!s) return "Unknown student";
+  return (s.name || "Student") + (s.email ? " — " + s.email : "");
+}
+
+function populateMemberSelects(preserve = true) {
+  const studentSel = $("#memberStudent");
+  const planSel = $("#memberPlan");
+  if (studentSel) {
+    const keep = preserve ? studentSel.value : "";
+    studentSel.innerHTML = state.students.length
+      ? '<option value="">Choose a student</option>' +
+        state.students.map((s) => `<option value="${esc(s.id)}">${esc(studentLabel(s))}</option>`).join("")
+      : '<option value="">No student accounts yet</option>';
+    if (keep) studentSel.value = keep;
+  }
+  if (planSel) {
+    const keep = preserve ? planSel.value : "";
+    const plans = state.memberships.filter((p) => p.name);
+    planSel.innerHTML = plans.length
+      ? '<option value="">Choose a plan</option>' +
+        plans
+          .map(
+            (p) =>
+              `<option value="${esc(p.id)}">${esc(p.name)}${p.price ? " · ₹" + esc(rupees(p.price)) : ""}${
+                p.duration ? " · " + esc(p.duration) : ""
+              }${p.active === false ? " (hidden)" : ""}</option>`
+          )
+          .join("")
+      : '<option value="">Create a plan first</option>';
+    if (keep) planSel.value = keep;
+  }
+}
+
+function autoEndDate() {
+  const form = $("#memberForm");
+  if (!form) return;
+  const plan = state.memberships.find((p) => p.id === form.elements.planId.value);
+  const start = fromDateInput(form.elements.start.value);
+  const days = plan ? Number(plan.durationDays) : 0;
+  if (plan && start && days > 0) {
+    form.elements.end.value = toDateInput(start + (days - 1) * DAY);
+    if (!form.elements.paid.value && plan.price) form.elements.paid.placeholder = String(plan.price);
+  }
+}
+
+async function loadMembers() {
+  const body = $("#membersBody");
+  if (!state.students.length) await loadStudents({ silent: true });
+  const snap = await dbGet("members").catch((err) => {
+    console.warn("[admin] members read", err);
+    return null;
+  });
+  state.members = (snap && snap.exists && snap.exists() && snap.val()) || {};
+  populateMemberSelects();
+  paintOverview();
+  paintStudentsTable();
+
+  if (!body) return;
+  const ids = Object.keys(state.members);
+  if (!ids.length) {
+    body.innerHTML = '<tr><td colspan="6" class="crm-table-empty">No memberships yet. Use the form above to activate a plan for a student.</td></tr>';
+    return;
+  }
+  ids.sort((a, b) => Number(state.members[b].updatedAt || 0) - Number(state.members[a].updatedAt || 0));
+  body.innerHTML = ids
+    .map((id) => {
+      const m = state.members[id] || {};
+      const s = state.students.find((x) => x.id === id);
+      const st = membershipStatus(m);
+      return (
+        `<tr><td><b>${esc((s && s.name) || m.name || "—")}</b><br><span class="muted">${esc((s && s.email) || m.email || id)}</span></td>` +
+        `<td>${esc(m.planName || "—")}${m.paid ? `<br><span class="muted">Paid ₹${esc(rupees(m.paid))}</span>` : ""}</td>` +
+        `<td class="muted">${formatDate(m.startAt)}</td>` +
+        `<td class="muted">${m.endAt ? formatDate(m.endAt) : "Open-ended"}</td>` +
+        `<td><span class="crm-pill crm-pill--${st.key}">${esc(st.label)}</span></td>` +
+        `<td class="actions"><button class="crm-mini" type="button" data-member-edit="${esc(id)}">Edit</button> ` +
+        `<button class="crm-remove" type="button" data-member-remove="${esc(id)}" aria-label="Remove membership">×</button></td></tr>`
+      );
+    })
+    .join("");
+}
+
+function fillMemberForm(id) {
+  const form = $("#memberForm");
+  if (!form) return;
+  const m = state.members[id] || {};
+  populateMemberSelects(false);
+  form.elements.uid.value = id;
+  form.elements.planId.value = m.planId || "";
+  form.elements.start.value = toDateInput(m.startAt || Date.now());
+  form.elements.end.value = m.endAt ? toDateInput(m.endAt) : "";
+  form.elements.status.value = m.status || "active";
+  form.elements.paid.value = m.paid || "";
+  form.elements.note.value = m.note || "";
+  if (!m.planId) autoEndDate();
+  setState("#memberState", m.planId ? "Editing an existing membership" : "New membership for this student");
+  form.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
+function bindMembers() {
+  const form = $("#memberForm");
+  if (!form) return;
+  form.elements.start.value = toDateInput(Date.now());
+
+  form.elements.planId.addEventListener("change", autoEndDate);
+  form.elements.start.addEventListener("change", autoEndDate);
+  form.elements.uid.addEventListener("change", () => {
+    const id = form.elements.uid.value;
+    if (id && state.members[id]) fillMemberForm(id);
+  });
+  form.addEventListener("reset", () =>
+    setTimeout(() => {
+      form.elements.start.value = toDateInput(Date.now());
+      setState("#memberState", "Pick a student and a plan — “Valid till” fills from the plan length.");
+    })
+  );
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const id = form.elements.uid.value;
+    const plan = state.memberships.find((p) => p.id === form.elements.planId.value);
+    const startAt = fromDateInput(form.elements.start.value);
+    const endAt = fromDateInput(form.elements.end.value, true);
+    if (!id) return showAlert("err", "Choose a student.");
+    if (!plan) return showAlert("err", "Choose a membership plan (save new plans first).");
+    if (!startAt) return showAlert("err", "Pick a start date.");
+    if (endAt && endAt < startAt) return showAlert("err", "“Valid till” must be after the start date.");
+
+    const s = state.students.find((x) => x.id === id) || {};
+    const record = {
+      planId: plan.id,
+      planName: plan.name,
+      startAt,
+      status: form.elements.status.value || "active",
+      name: s.name || "",
+      email: s.email || "",
+      updatedAt: Date.now(),
+      updatedBy: (state.user && state.user.email) || "admin"
+    };
+    if (endAt) record.endAt = endAt;
+    const paid = String(form.elements.paid.value || "").replace(/[^\d.]/g, "");
+    if (paid) record.paid = paid;
+    const note = String(form.elements.note.value || "").trim();
+    if (note) record.note = note;
+
+    await withBusy(btn, "Saving…", async () => {
       try {
-        const payload = {};
-        state[spec.key].forEach((item, i) => {
-          if (!item.id) item.id = uid();
-          item.order = item.order === "" || item.order == null ? i + 1 : Number(item.order);
-          payload[item.id] = { ...item };
-        });
-        await dbSet(spec.path, payload);
-        setState(spec.state, "Saved · live on the site", "ok");
-        showAlert("ok", `${spec.noun}s saved. The public pages are updated.`);
-        paintOverview();
+        await dbSet(`members/${id}`, record);
+        setState("#memberState", `Saved · ${record.planName} active for ${s.name || s.email || "student"}`, "ok");
+        showAlert("ok", "Membership saved. The student sees it on their dashboard right away.");
+        await loadMembers();
       } catch (err) {
-        setState(spec.state, "Save failed", "err");
+        setState("#memberState", "Save failed", "err");
         showAlert("err", friendlyError(err));
-      } finally {
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = old;
+      }
+    });
+  });
+
+  const body = $("#membersBody");
+  if (body) {
+    body.addEventListener("click", async (e) => {
+      const edit = e.target.closest("[data-member-edit]");
+      if (edit) return fillMemberForm(edit.dataset.memberEdit);
+      const rm = e.target.closest("[data-member-remove]");
+      if (!rm) return;
+      if (!confirm("Remove this student’s membership?")) return;
+      rm.disabled = true;
+      try {
+        await dbRemove(`members/${rm.dataset.memberRemove}`);
+        showAlert("ok", "Membership removed.");
+        await loadMembers();
+      } catch (err) {
+        rm.disabled = false;
+        showAlert("err", friendlyError(err));
       }
     });
   }
 }
 
+/* ---------------- achievements ---------------- */
+
+let loadAchImage = createAchievementImageLoader(dbGet);
+const draft = { source: "upload", dataUrl: "", url: "", editingId: "", imageChanged: false, width: 0, height: 0 };
+
+async function loadAchievements() {
+  const snap = await dbGet("site/achievements").catch((err) => {
+    console.warn("[admin] achievements read", err);
+    return null;
+  });
+  state.achievements = snap && snap.exists && snap.exists() ? toList(snap.val()) : [];
+  loadAchImage = createAchievementImageLoader(dbGet);
+  renderAchievementList();
+  paintOverview();
+}
+
+function renderAchievementList() {
+  const wrap = $("#achList");
+  const count = $("#achListCount");
+  if (count) count.textContent = state.achievements.length;
+  const tags = $("#achTags");
+  if (tags) {
+    tags.innerHTML = Array.from(new Set(state.achievements.map((a) => a.tag).filter(Boolean)))
+      .map((t) => `<option value="${esc(t)}">`)
+      .join("");
+  }
+  if (!wrap) return;
+  if (!state.achievements.length) {
+    wrap.innerHTML = '<p class="cms-empty">No achievement posts yet. Drop a photo above and add a caption to publish the first one.</p>';
+    return;
+  }
+  const last = state.achievements.length - 1;
+  wrap.innerHTML = state.achievements
+    .map((a, i) => {
+      const src = achievementSource(a);
+      const img =
+        src.kind === "link"
+          ? `<img src="${esc(src.url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('[data-ach-card]').classList.add('is-broken')">`
+          : src.kind === "upload"
+          ? `<img data-ach-img="${esc(src.id)}" alt="">`
+          : "";
+      return (
+        `<article class="ach-row${a.published === false ? " is-hidden" : ""}${src.kind === "upload" ? " is-loading" : ""}" data-ach-card data-id="${esc(a.id)}">` +
+        `<span class="ach-thumb">${img}<em>${src.kind === "link" ? "Link" : "Base64"}</em></span>` +
+        `<div class="ach-row-body">` +
+        `<span class="ach-row-meta">${esc([a.tag, formatAnyDate(a.date)].filter(Boolean).join(" · ") || "No tag")}` +
+        `${a.published === false ? ' <em class="crm-pill crm-pill--off">Hidden</em>' : ' <em class="crm-pill crm-pill--active">Live</em>'}</span>` +
+        (a.title ? `<b>${esc(a.title)}</b>` : "") +
+        `<p>${esc(a.caption || "")}</p></div>` +
+        `<div class="ach-row-actions">` +
+        `<button class="crm-mini" type="button" data-ach-act="up" ${i === 0 ? "disabled" : ""} aria-label="Move up"><svg><use href="#i-arr-u"/></svg></button>` +
+        `<button class="crm-mini" type="button" data-ach-act="down" ${i === last ? "disabled" : ""} aria-label="Move down"><svg><use href="#i-arr-d"/></svg></button>` +
+        `<button class="crm-mini" type="button" data-ach-act="edit">Edit</button>` +
+        `<button class="crm-mini" type="button" data-ach-act="toggle">${a.published === false ? "Show" : "Hide"}</button>` +
+        `<button class="crm-remove" type="button" data-ach-act="delete" aria-label="Delete post">×</button>` +
+        `</div></article>`
+      );
+    })
+    .join("");
+  hydrateAchievementImages(wrap, loadAchImage);
+}
+
+function setAchSource(source) {
+  draft.source = source;
+  $$(".ach-src").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === source)));
+  const linkRow = $("#achLinkRow");
+  if (linkRow) linkRow.hidden = source !== "link";
+  const drop = $("#achDrop");
+  if (drop) drop.classList.toggle("is-link", source === "link");
+  paintAchPreview();
+}
+
+function paintAchPreview() {
+  const img = $("#achPreview");
+  const drop = $("#achDrop");
+  const clear = $("#achClear");
+  const meta = $("#achMeta");
+  const src = draft.source === "link" ? safeImageUrl(draft.url) : draft.dataUrl;
+  if (img) {
+    if (src) img.src = src;
+    else img.removeAttribute("src");
+    img.hidden = !src;
+  }
+  if (drop) drop.classList.toggle("has-img", Boolean(src));
+  if (clear) clear.hidden = !src;
+  if (meta) {
+    if (draft.source === "upload" && draft.dataUrl) {
+      meta.textContent = `Ready · ${draft.width}×${draft.height}px · ${prettyBytes(draft.dataUrl.length)} as base64 in Realtime Database`;
+    } else if (draft.source === "link" && draft.url) {
+      meta.textContent = "The link is stored as-is. Make sure the picture is public (Google Drive “anyone with the link”, Imgur, your site…).";
+    } else {
+      meta.textContent =
+        draft.source === "link"
+          ? "Paste a direct image link (ending in .jpg, .png, .webp…) and press Preview."
+          : "Large photos are resized to 1600 px and compressed before saving.";
+    }
+  }
+}
+
+async function takeFile(file) {
+  if (!file) return;
+  setAchSource("upload");
+  setState("#achState", "Processing image…");
+  const drop = $("#achDrop");
+  if (drop) drop.classList.add("is-busy");
+  try {
+    const out = await fileToDataImage(file);
+    draft.dataUrl = out.dataUrl;
+    draft.width = out.width;
+    draft.height = out.height;
+    draft.imageChanged = true;
+    setState("#achState", out.resized ? "Image compressed and ready." : "Image ready.", "ok");
+  } catch (err) {
+    setState("#achState", err.message || "Could not read that image.", "err");
+    showAlert("err", err.message || "Could not read that image.");
+  } finally {
+    if (drop) drop.classList.remove("is-busy");
+    paintAchPreview();
+  }
+}
+
+function takeUrl(url) {
+  const safe = safeImageUrl(url);
+  if (!safe || !/^https?:\/\//i.test(safe)) {
+    setState("#achState", "Use a full https:// picture link.", "err");
+    return false;
+  }
+  setAchSource("link");
+  draft.url = safe;
+  draft.imageChanged = true;
+  const input = $("#achUrl");
+  if (input) input.value = safe;
+  setState("#achState", "Link attached — check the preview.", "ok");
+  paintAchPreview();
+  return true;
+}
+
+function resetComposer() {
+  const form = $("#achForm");
+  if (form) form.reset();
+  Object.assign(draft, { source: "upload", dataUrl: "", url: "", editingId: "", imageChanged: false, width: 0, height: 0 });
+  const url = $("#achUrl");
+  if (url) url.value = "";
+  if (form) form.elements.date.value = toDateInput(Date.now());
+  const mode = $("#achFormMode");
+  if (mode) mode.textContent = "New post";
+  const submit = $("#achSubmit span");
+  if (submit) submit.textContent = "Publish post";
+  const cancel = $("#achCancel");
+  if (cancel) cancel.hidden = true;
+  setAchSource("upload");
+  setState("#achState", "Add a picture and a caption.");
+}
+
+async function editAchievement(id) {
+  const a = state.achievements.find((x) => x.id === id);
+  const form = $("#achForm");
+  if (!a || !form) return;
+  resetComposer();
+  draft.editingId = id;
+  form.elements.caption.value = a.caption || "";
+  form.elements.title.value = a.title || "";
+  form.elements.tag.value = a.tag || "";
+  form.elements.date.value = a.date || "";
+  form.elements.published.checked = a.published !== false;
+  if (a.imageSource === "link") {
+    draft.url = a.imageUrl || "";
+    const url = $("#achUrl");
+    if (url) url.value = draft.url;
+    setAchSource("link");
+  } else {
+    setAchSource("upload");
+    draft.dataUrl = await loadAchImage(id);
+    draft.width = a.width || 0;
+    draft.height = a.height || 0;
+    paintAchPreview();
+  }
+  draft.imageChanged = false;
+  const mode = $("#achFormMode");
+  if (mode) mode.textContent = "Editing post";
+  const submit = $("#achSubmit span");
+  if (submit) submit.textContent = "Update post";
+  const cancel = $("#achCancel");
+  if (cancel) cancel.hidden = false;
+  setState("#achState", "Editing — drop a new picture to replace it.");
+  form.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
+function bindAchievements() {
+  const form = $("#achForm");
+  const drop = $("#achDrop");
+  const file = $("#achFile");
+  if (!form || !drop || !file) return;
+  form.elements.date.value = toDateInput(Date.now());
+
+  $$(".ach-src").forEach((b) => b.addEventListener("click", () => setAchSource(b.dataset.src)));
+
+  drop.addEventListener("click", (e) => {
+    if (e.target.closest("#achClear")) return;
+    if (draft.source === "link") return;
+    file.click();
+  });
+  drop.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && draft.source !== "link") {
+      e.preventDefault();
+      file.click();
+    }
+  });
+  file.addEventListener("change", () => {
+    takeFile(file.files && file.files[0]);
+    file.value = "";
+  });
+
+  let depth = 0;
+  drop.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    depth++;
+    drop.classList.add("is-over");
+  });
+  drop.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  });
+  drop.addEventListener("dragleave", () => {
+    depth = Math.max(0, depth - 1);
+    if (!depth) drop.classList.remove("is-over");
+  });
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    depth = 0;
+    drop.classList.remove("is-over");
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    const files = Array.from(dt.files || []).filter((f) => /^image\//.test(f.type));
+    if (files.length) {
+      if (files.length > 1) showAlert("info", "One picture per post — using the first image you dropped.");
+      takeFile(files[0]);
+      return;
+    }
+    /* An image dragged from another web page arrives as a link. */
+    const html = dt.getData("text/html") || "";
+    const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    const link = (m && m[1]) || (dt.getData("text/uri-list") || "").split(/\r?\n/).find((l) => l && !l.startsWith("#")) || dt.getData("text/plain");
+    if (link && /^data:image\//i.test(link)) {
+      fetch(link)
+        .then((r) => r.blob())
+        .then((b) => takeFile(new File([b], "dropped", { type: b.type })))
+        .catch(() => showAlert("err", "Could not read that dropped image."));
+      return;
+    }
+    if (link && takeUrl(link.trim())) return;
+    showAlert("err", "Drop an image file (PNG, JPG, WEBP or GIF).");
+  });
+
+  /* Paste a screenshot / copied image while the panel is open. */
+  document.addEventListener("paste", (e) => {
+    const panel = $('[data-crm-panel="achievements"]');
+    if (!panel || panel.hidden) return;
+    const items = Array.from((e.clipboardData && e.clipboardData.items) || []);
+    const img = items.find((it) => it.kind === "file" && /^image\//.test(it.type));
+    if (img) {
+      e.preventDefault();
+      takeFile(img.getAsFile());
+    }
+  });
+
+  $("#achClear").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (draft.source === "link") {
+      draft.url = "";
+      $("#achUrl").value = "";
+    } else {
+      draft.dataUrl = "";
+    }
+    draft.imageChanged = true;
+    paintAchPreview();
+  });
+
+  const urlInput = $("#achUrl");
+  $("#achUrlUse").addEventListener("click", () => takeUrl(urlInput.value.trim()));
+  urlInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      takeUrl(urlInput.value.trim());
+    }
+  });
+  $("#achPreview").addEventListener("error", () => {
+    if (draft.source === "link" && draft.url) setState("#achState", "Preview failed to load — the link may be private or not a direct image.", "err");
+  });
+
+  $("#achNew").addEventListener("click", () => {
+    resetComposer();
+    form.scrollIntoView({ block: "start", behavior: "smooth" });
+    form.elements.caption.focus();
+  });
+  $("#achCancel").addEventListener("click", resetComposer);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("#achSubmit");
+    const caption = String(form.elements.caption.value || "").trim();
+    const title = String(form.elements.title.value || "").trim();
+    const tag = String(form.elements.tag.value || "").trim();
+    const date = String(form.elements.date.value || "").trim();
+    const published = form.elements.published.checked;
+
+    if (draft.source === "link" && urlInput.value.trim() && urlInput.value.trim() !== draft.url) {
+      if (!takeUrl(urlInput.value.trim())) return;
+    }
+    const hasImage = draft.source === "link" ? Boolean(safeImageUrl(draft.url)) : Boolean(safeDataImage(draft.dataUrl));
+    if (!hasImage) {
+      setState("#achState", draft.source === "link" ? "Attach a picture link first." : "Drop or choose a picture first.", "err");
+      return showAlert("err", "Every achievement post needs a picture.");
+    }
+    if (!caption) {
+      form.elements.caption.focus();
+      setState("#achState", "Write a caption.", "err");
+      return showAlert("err", "Add a caption — it is shown under the picture.");
+    }
+
+    const editing = draft.editingId ? state.achievements.find((a) => a.id === draft.editingId) : null;
+    const id = editing ? editing.id : uid();
+    const orders = state.achievements.map((a) => Number(a.order)).filter((n) => isFinite(n));
+    const meta = {
+      caption,
+      title,
+      tag,
+      date,
+      published,
+      imageSource: draft.source,
+      order: editing ? Number(editing.order) || 0 : (orders.length ? Math.min.apply(null, orders) : 1) - 1,
+      createdAt: editing ? editing.createdAt || Date.now() : Date.now(),
+      updatedAt: Date.now(),
+      createdBy: editing ? editing.createdBy || "" : (state.user && state.user.email) || "admin"
+    };
+    if (draft.source === "link") meta.imageUrl = draft.url;
+    else if (draft.width) {
+      meta.width = draft.width;
+      meta.height = draft.height;
+    }
+
+    const updates = { [`achievements/${id}`]: meta };
+    if (draft.source === "upload") {
+      if (!editing || draft.imageChanged || editing.imageSource !== "upload") updates[`achievementImages/${id}`] = draft.dataUrl;
+    } else {
+      updates[`achievementImages/${id}`] = null;
+    }
+
+    await withBusy(btn, editing ? "Updating…" : "Publishing…", async () => {
+      try {
+        await dbUpdate("site", updates);
+        showAlert("ok", editing ? "Post updated." : published ? "Achievement published on the website." : "Saved as hidden post.");
+        resetComposer();
+        await loadAchievements();
+      } catch (err) {
+        setState("#achState", "Save failed", "err");
+        showAlert("err", friendlyError(err));
+      }
+    });
+  });
+
+  $("#achList").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-ach-act]");
+    if (!btn) return;
+    const row = btn.closest("[data-id]");
+    const id = row && row.dataset.id;
+    const i = state.achievements.findIndex((a) => a.id === id);
+    if (i < 0) return;
+    const a = state.achievements[i];
+    const act = btn.dataset.achAct;
+    try {
+      if (act === "edit") return editAchievement(id);
+      btn.disabled = true;
+      if (act === "toggle") {
+        await dbUpdate(`site/achievements/${id}`, { published: a.published === false, updatedAt: Date.now() });
+        showAlert("ok", a.published === false ? "Post is visible again." : "Post hidden from the website.");
+      } else if (act === "delete") {
+        if (!confirm("Delete this achievement post and its picture?")) {
+          btn.disabled = false;
+          return;
+        }
+        await dbUpdate("site", { [`achievements/${id}`]: null, [`achievementImages/${id}`]: null });
+        if (draft.editingId === id) resetComposer();
+        showAlert("ok", "Post deleted.");
+      } else if (act === "up" || act === "down") {
+        const j = act === "up" ? i - 1 : i + 1;
+        const b = state.achievements[j];
+        if (!b) return;
+        /* Normalise order to the current list position, then swap. */
+        const upd = {};
+        state.achievements.forEach((x, k) => (upd[`${x.id}/order`] = k));
+        upd[`${a.id}/order`] = j;
+        upd[`${b.id}/order`] = i;
+        await dbUpdate("site/achievements", upd);
+      }
+      await loadAchievements();
+    } catch (err) {
+      btn.disabled = false;
+      showAlert("err", friendlyError(err));
+    }
+  });
+}
+
 /* ---------------- students ---------------- */
 
-async function loadStudents() {
+function paintStudentsTable() {
   const body = $("#studentsBody");
-  if (body) body.innerHTML = '<tr><td colspan="5" class="crm-table-empty">Loading students…</td></tr>';
+  if (!body) return;
+  if (!state.students.length) {
+    body.innerHTML = '<tr><td colspan="7" class="crm-table-empty">No student accounts yet. They appear here as soon as someone signs up.</td></tr>';
+    return;
+  }
+  body.innerHTML = state.students
+    .map((s) => {
+      const m = state.members[s.id];
+      const st = membershipStatus(m);
+      const plan = m && m.planId ? `${esc(m.planName || "Plan")}<br><span class="crm-pill crm-pill--${st.key}">${esc(st.label)}</span>` : '<span class="muted">—</span>';
+      return (
+        `<tr><td><b>${esc(s.name || "—")}</b></td>` +
+        `<td class="muted">${esc(s.email || "—")}</td>` +
+        `<td class="muted">${esc(s.phone || "—")}</td>` +
+        `<td>${esc(s.exam || "—")}</td>` +
+        `<td>${plan}</td>` +
+        `<td class="muted">${formatDate(s.createdAt)}</td>` +
+        `<td class="actions"><button class="crm-mini" type="button" data-assign="${esc(s.id)}">${m && m.planId ? "Manage plan" : "Assign plan"}</button></td></tr>`
+      );
+    })
+    .join("");
+}
+
+async function loadStudents(opts = {}) {
+  const body = $("#studentsBody");
+  if (body && !opts.silent) body.innerHTML = '<tr><td colspan="7" class="crm-table-empty">Loading students…</td></tr>';
 
   const snap = await dbGet("users").catch((err) => {
     console.warn("[admin] users read", err);
@@ -435,32 +1156,27 @@ async function loadStudents() {
     });
   }
   state.students = list.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
-
-  if (!body) return;
-  if (!state.students.length) {
-    body.innerHTML = '<tr><td colspan="5" class="crm-table-empty">No student accounts yet. They appear here as soon as someone signs up.</td></tr>';
-    paintOverview();
-    return;
-  }
-
-  body.innerHTML = state.students
-    .map(
-      (s) =>
-        `<tr><td><b>${esc(s.name || "—")}</b></td>` +
-        `<td class="muted">${esc(s.email || "—")}</td>` +
-        `<td class="muted">${esc(s.phone || "—")}</td>` +
-        `<td>${esc(s.exam || "—")}</td>` +
-        `<td class="muted">${formatDate(s.createdAt)}</td></tr>`
-    )
-    .join("");
+  populateMemberSelects();
+  paintStudentsTable();
   paintOverview();
+}
+
+function bindStudents() {
+  const body = $("#studentsBody");
+  if (!body) return;
+  body.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-assign]");
+    if (!btn) return;
+    openTab("memberships");
+    setTimeout(() => fillMemberForm(btn.dataset.assign), 50);
+  });
 }
 
 /* ---------------- leads ---------------- */
 
 async function loadLeads() {
   const body = $("#leadsBody");
-  if (body) body.innerHTML = '<tr><td colspan="4" class="crm-table-empty">Loading leads…</td></tr>';
+  if (body) body.innerHTML = '<tr><td colspan="5" class="crm-table-empty">Loading leads…</td></tr>';
 
   const snap = await dbGet("site/leads").catch((err) => {
     console.warn("[admin] leads read", err);
@@ -471,14 +1187,14 @@ async function loadLeads() {
   if (snap && snap.forEach) {
     snap.forEach((child) => {
       const value = child.val() || {};
-      list.push({ id: child.key, email: value.email || "", source: value.source || "", at: value.at || 0 });
+      list.push({ id: child.key, email: value.email || "", plan: value.plan || "", source: value.source || "", at: value.at || 0 });
     });
   }
   state.leads = list.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
 
   if (!body) return;
   if (!state.leads.length) {
-    body.innerHTML = '<tr><td colspan="4" class="crm-table-empty">No leads captured yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="5" class="crm-table-empty">No leads captured yet.</td></tr>';
     paintOverview();
     return;
   }
@@ -487,6 +1203,7 @@ async function loadLeads() {
     .map(
       (lead) =>
         `<tr><td><b>${esc(lead.email)}</b></td>` +
+        `<td>${lead.plan ? `<span class="crm-pill crm-pill--active">${esc(lead.plan)}</span>` : '<span class="muted">—</span>'}</td>` +
         `<td class="muted">${esc(lead.source || "—")}</td>` +
         `<td class="muted">${formatDate(lead.at)}</td>` +
         `<td class="actions"><button class="crm-remove" type="button" data-lead="${esc(lead.id)}" aria-label="Delete lead">×</button></td></tr>`
@@ -522,8 +1239,8 @@ function bindLeads() {
         showAlert("err", "There are no leads to export yet.");
         return;
       }
-      const rows = [["Email", "Source", "Captured"]].concat(
-        state.leads.map((l) => [l.email, l.source, formatDate(l.at)])
+      const rows = [["Email", "Plan enquiry", "Source", "Captured"]].concat(
+        state.leads.map((l) => [l.email, l.plan, l.source, formatDate(l.at)])
       );
       const csv = rows
         .map((row) => row.map((cell) => `"${String(cell == null ? "" : cell).replace(/"/g, '""')}"`).join(","))
@@ -557,6 +1274,10 @@ function paintOverview() {
   set("#statTestimonials", state.testimonials.length);
   set("#statStudents", state.students.length);
   set("#statLeads", state.leads.length);
+  set("#statPlans", state.memberships.filter((p) => p.active !== false).length);
+  set("#statMembers", Object.keys(state.members).filter((k) => membershipStatus(state.members[k]).key === "active").length);
+  set("#statAchievements", state.achievements.length);
+  set("#statEnquiries", state.leads.filter((l) => l.plan).length);
   set("#statPrice", state.content.price ? "₹" + state.content.price : "—");
   set("#statAnnounce", state.content.announcement ? "Live" : "—");
 
@@ -584,11 +1305,17 @@ function keyed(list) {
 }
 
 async function seedAll() {
-  if (!confirm("Replace the live content and all collections with the starter content from this website?")) return;
+  if (
+    !confirm(
+      "Replace the live site content, batches, fees, membership plans, FAQs and testimonials with the starter content?\n\nAchievement posts, student memberships, students and leads are NOT touched."
+    )
+  )
+    return;
   try {
     await dbSet("site/content", { ...defaultContent, updatedAt: Date.now() });
     await dbSet("site/batches", keyed(defaultBatches));
     await dbSet("site/fees", keyed(defaultFees));
+    await dbSet("site/memberships", keyed(defaultMemberships));
     await dbSet("site/faqs", keyed(defaultFaqs));
     await dbSet("site/testimonials", keyed(defaultTestimonials));
     showAlert("ok", "Starter content published. Every page now reads from the database.");
@@ -601,7 +1328,18 @@ async function seedAll() {
 /* ---------------- boot ---------------- */
 
 async function loadAll() {
-  await Promise.all([loadContent(), loadEditor("batches"), loadEditor("fees"), loadEditor("faqs"), loadEditor("testimonials"), loadStudents(), loadLeads()]);
+  await Promise.all([
+    loadContent(),
+    loadEditor("batches"),
+    loadEditor("fees"),
+    loadEditor("memberships"),
+    loadEditor("faqs"),
+    loadEditor("testimonials"),
+    loadStudents(),
+    loadLeads(),
+    loadAchievements()
+  ]);
+  await loadMembers();
   paintOverview();
 }
 
@@ -662,8 +1400,15 @@ async function init() {
   bindTabs();
   bindContentForm();
   Object.keys(EDITORS).forEach(bindEditor);
+  bindMembers();
+  bindAchievements();
+  bindStudents();
   bindLeads();
   paintOverview();
+
+  /* Deep links: admin.html#achievements opens that tab. */
+  const hash = location.hash.replace("#", "");
+  if (hash && $(`[data-crm-panel="${hash}"]`)) openTab(hash);
 
   const signOut = async () => {
     try {
@@ -684,7 +1429,7 @@ async function init() {
   if (refresh) refresh.addEventListener("click", loadAll);
 
   const studentsRefresh = $("#studentsRefresh");
-  if (studentsRefresh) studentsRefresh.addEventListener("click", loadStudents);
+  if (studentsRefresh) studentsRefresh.addEventListener("click", () => loadStudents().then(loadMembers));
 
   /* Never let a data hiccup tear down the whole CRM. */
   try {
