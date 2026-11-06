@@ -3,185 +3,105 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My Dashboard — FenxTek Shorthand Classes</title>
-<meta name="description" content="Your FenxTek student dashboard — profile, batch details, announcements and academy links.">
+<title>Student Portal — FenxTek Shorthand Classes</title>
+<meta name="description" content="Your FenxTek student portal — buy courses, apply coupons, download receipts and continue learning.">
 <meta name="theme-color" content="#F5F1E8">
 <link rel="icon" href="fenxtek-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css?v=5">
+<link rel="stylesheet" href="assets/css/site.css?v=7">
 <link rel="stylesheet" href="assets/css/portal.css?v=5">
+<link rel="stylesheet" href="assets/css/store.css?v=1">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
-<body data-page="dashboard">
-<main class="portal dash">
-  <div class="wrap">
+<body data-page="dashboard" class="sp-body">
+<main class="portal dash sp-root">
 
-    <div id="dashLoading" class="dash-card">
-      <div class="dash-skeleton" style="width:32%"></div>
-      <div class="dash-skeleton" style="width:68%;height:26px"></div>
-      <div class="dash-skeleton" style="width:52%"></div>
-      <div class="dash-skeleton" style="width:44%;margin-top:26px"></div>
-      <div class="dash-skeleton" style="width:76%"></div>
+  <div id="dashLoading" class="sp-boot" aria-live="polite">
+    <div class="sp-boot-card">
+      <img src="fenxtek-logo.png" alt="" width="54" height="54">
+      <b>Opening your learning space</b>
+      <span class="sp-boot-bar"><i></i></span>
     </div>
+  </div>
 
-    <div id="dashDenied" class="crm-access" hidden>
+  <div id="dashDenied" class="crm-access" hidden>
+    <div class="wrap">
       <div class="crm-card">
         <span class="eyebrow">Student portal</span>
         <h1>Sign in to continue</h1>
-        <p id="dashDeniedText">This dashboard is private. Sign in with your FenxTek account to see your profile, batches and announcements.</p>
+        <p id="dashDeniedText">This dashboard is private. Sign in with your FenxTek account to see your courses, orders and profile.</p>
         <a class="p-btn p-btn--lime" href="auth.html?next=dashboard.html"><span>Go to sign in</span><svg><use href="#i-arr"/></svg></a>
       </div>
     </div>
-
-    <div id="dashBody" hidden>
-
-      <section class="dash-hero">
-        <div class="dash-hero-top">
-          <div>
-            <span class="eyebrow">Student dashboard</span>
-            <h1>Hello, <em id="dashFirstName">there.</em></h1>
-            <p>Everything about your FenxTek preparation in one place. Keep the daily dictation going — that is the whole method.</p>
-            <div class="dash-chips">
-              <span class="p-badge p-badge--lime" id="dashExamBadge">Target exam · not set</span>
-              <span class="p-badge" id="dashMemberBadge">Member</span>
-              <span class="p-badge" id="dashAdminBadge" hidden>Admin</span>
-            </div>
-          </div>
-          <div class="dash-user">
-            <span class="dash-avatar" id="dashAvatar">FX</span>
-            <span>
-              <b id="dashName">Student</b>
-              <span id="dashEmail">—</span>
-            </span>
-            <button class="p-btn p-btn--ghost p-btn--sm" id="signOutBtn" type="button"><span>Sign out</span></button>
-          </div>
-        </div>
-      </section>
-
-      <div class="dash-grid">
-        <div>
-          <section class="dash-card dash-announce" id="dashAnnounce" hidden>
-            <span class="eyebrow">Announcement</span>
-            <h2>From the academy</h2>
-            <p id="dashAnnounceText"></p>
-          </section>
-
-          <section class="dash-card" style="margin-top:16px" id="dashMembership">
-            <span class="eyebrow">Membership</span>
-            <h2 id="dashMemberTitle">No membership yet</h2>
-            <p id="dashMemberText">Pick a plan on the Membership page — once the academy confirms your payment, your plan and validity show up here.</p>
-            <div class="dash-member" id="dashMemberInfo" hidden>
-              <span class="p-badge" id="dashMemberStatus">Active</span>
-              <div class="dash-member-bar" aria-hidden="true"><i id="dashMemberBar" style="width:0%"></i></div>
-            </div>
-            <div class="dash-body">
-              <a class="p-btn p-btn--ghost p-btn--sm" href="membership.html#plans" id="dashMemberLink"><span>See membership plans</span><svg><use href="#i-arr-ur"/></svg></a>
-            </div>
-          </section>
-
-          <section class="dash-card" style="margin-top:16px">
-            <span class="eyebrow">Your preparation</span>
-            <h2>Active batches</h2>
-            <p>Live, exam-focused batches currently running at FenxTek.</p>
-            <div class="dash-body">
-              <ul class="dash-list" id="dashBatches">
-                <li><span>Loading batches…</span><span></span></li>
-              </ul>
-            </div>
-            <div class="dash-body">
-              <a class="p-btn p-btn--ghost p-btn--sm" href="courses.html"><span>See courses &amp; fees</span><svg><use href="#i-arr-ur"/></svg></a>
-            </div>
-          </section>
-
-          <section class="dash-card" style="margin-top:16px">
-            <span class="eyebrow">Profile</span>
-            <h2>Your details</h2>
-            <p>Keep this up to date so the academy can reach you about batches and results.</p>
-            <div class="dash-body">
-              <div class="p-alert" id="profileAlert" role="status" aria-live="polite" hidden></div>
-              <form class="dash-form" id="profileForm" novalidate>
-                <div class="p-row">
-                  <label class="p-field">
-                    <span class="p-label">Full name</span>
-                    <input class="p-input" type="text" name="name" autocomplete="name" required>
-                  </label>
-                  <label class="p-field">
-                    <span class="p-label">Phone</span>
-                    <input class="p-input" type="tel" name="phone" autocomplete="tel" placeholder="+91 …">
-                  </label>
-                </div>
-                <div class="p-row">
-                  <label class="p-field">
-                    <span class="p-label">Target exam</span>
-                    <select class="p-select" name="exam">
-                      <option value="">Choose an exam</option>
-                      <option>SSC Stenographer</option>
-                      <option>UPSSSC Stenographer</option>
-                      <option>AHC Stenographer</option>
-                      <option>AHC APS</option>
-                      <option>UPPCL APS</option>
-                      <option>UPPSC APS</option>
-                      <option>Parliamentary Reporter</option>
-                      <option>Other</option>
-                    </select>
-                  </label>
-                  <label class="p-field">
-                    <span class="p-label">Target speed (WPM)</span>
-                    <input class="p-input" type="number" name="speed" min="30" max="200" step="5" placeholder="100">
-                  </label>
-                </div>
-                <button class="p-btn" type="submit"><span>Save profile</span><svg><use href="#i-check"/></svg></button>
-              </form>
-            </div>
-          </section>
-        </div>
-
-        <aside>
-          <section class="dash-card">
-            <span class="eyebrow">Shortcuts</span>
-            <h2>Keep going</h2>
-            <div class="dash-body dash-links">
-              <a class="dash-link" href="courses.html"><span>Courses &amp; fees</span><svg><use href="#i-arr-ur"/></svg></a>
-              <a class="dash-link" href="exams.html"><span>Exam patterns</span><svg><use href="#i-arr-ur"/></svg></a>
-              <a class="dash-link" href="method.html"><span>The method</span><svg><use href="#i-arr-ur"/></svg></a>
-              <a class="dash-link" href="membership.html#plans"><span>Membership plans</span><svg><use href="#i-arr-ur"/></svg></a>
-              <a class="dash-link" href="achievements.html"><span>Student achievements</span><svg><use href="#i-arr-ur"/></svg></a>
-              <a class="dash-link" href="contact.html"><span>Book a demo</span><svg><use href="#i-arr-ur"/></svg></a>
-              <a class="dash-link" id="adminLink" href="admin.html" hidden><span>Open admin CRM</span><svg><use href="#i-grid"/></svg></a>
-            </div>
-          </section>
-
-          <section class="dash-card" style="margin-top:16px">
-            <span class="eyebrow">Need help?</span>
-            <h2>Talk to us</h2>
-            <p>Batch changes, fee questions or a practice doubt — message the academy directly.</p>
-            <div class="dash-body dash-links">
-              <a class="dash-link" href="tel:+917309082749"><span>+91 73090 82749</span><svg><use href="#i-phone"/></svg></a>
-              <a class="dash-link" href="mailto:fenxtekshorthandclasses20@gmail.com"><span>Email the academy</span><svg><use href="#i-mail"/></svg></a>
-              <a class="dash-link" href="https://t.me/fenxtekshorthand_classes" target="_blank" rel="noopener"><span>Telegram</span><svg><use href="#i-send"/></svg></a>
-            </div>
-          </section>
-
-          <section class="dash-card" style="margin-top:16px">
-            <span class="eyebrow">Session</span>
-            <h2>Account</h2>
-            <p id="dashSessionNote">Signed in securely with Firebase Authentication.</p>
-            <div class="dash-body">
-              <button class="p-btn p-btn--danger p-btn--block p-btn--sm" id="signOutBtn2" type="button"><span>Sign out</span><svg><use href="#i-logout"/></svg></button>
-            </div>
-          </section>
-        </aside>
-      </div>
-    </div>
-
   </div>
+
+  <div id="dashBody" class="sp-app" hidden>
+
+    <!-- ===== sidebar ===== -->
+    <aside class="sp-side" id="spSide" aria-label="Student portal">
+      <div class="sp-side-head">
+        <a class="sp-brand" href="index.html" aria-label="FenxTek — back to website">
+          <img src="fenxtek-logo.png" alt="" width="38" height="38">
+          <span><b>FenxTek</b><small>Student portal</small></span>
+        </a>
+        <button class="sp-icon-btn sp-side-close" type="button" data-sp-drawer="close" aria-label="Close menu"><svg><use href="#i-x"/></svg></button>
+      </div>
+
+      <a class="sp-user" href="#profile">
+        <span class="sp-avatar" id="dashAvatar">FX</span>
+        <span class="sp-user-txt"><b id="dashName">Student</b><small id="dashEmail">—</small></span>
+        <svg class="sp-user-go"><use href="#i-chev-r"/></svg>
+      </a>
+
+      <nav class="sp-nav" id="spNav" aria-label="Portal sections"></nav>
+
+      <div class="sp-side-foot">
+        <div class="sp-help">
+          <b>Need help?</b>
+          <span>Fees, batches or a practice doubt — we reply fast.</span>
+          <div class="sp-help-row">
+            <a class="sp-chip-link" data-sp-tel href="tel:+917309082749"><svg><use href="#i-phone"/></svg>Call</a>
+            <a class="sp-chip-link" href="https://t.me/fenxtekshorthand_classes" target="_blank" rel="noopener"><svg><use href="#i-send"/></svg>Telegram</a>
+          </div>
+        </div>
+        <a class="sp-side-link" id="adminLink" href="admin.html" hidden><svg><use href="#i-grid"/></svg><span>Open admin CRM</span></a>
+        <a class="sp-side-link" href="index.html"><svg><use href="#i-arr-ur"/></svg><span>Back to website</span></a>
+        <button class="sp-side-link sp-side-link--out" type="button" id="signOutBtn"><svg><use href="#i-logout"/></svg><span>Sign out</span></button>
+      </div>
+    </aside>
+    <div class="sp-scrim" data-sp-drawer="close" hidden></div>
+
+    <!-- ===== main ===== -->
+    <section class="sp-main">
+      <header class="sp-top">
+        <button class="sp-icon-btn sp-menu-btn" type="button" data-sp-drawer="open" aria-label="Open menu"><svg><use href="#i-menu"/></svg></button>
+        <div class="sp-crumb">
+          <span class="sp-crumb-k" id="spCrumbK">Student portal</span>
+          <h1 class="sp-crumb-t" id="spTitle">Home</h1>
+        </div>
+        <div class="sp-top-tools">
+          <a class="sp-top-search" href="#store" aria-label="Browse courses"><svg><use href="#i-search"/></svg><span>Search courses</span></a>
+          <a class="sp-icon-btn sp-cart-btn" href="#cart" aria-label="Cart"><svg><use href="#i-cart"/></svg><b class="sp-count" data-cart-count hidden>0</b></a>
+          <a class="sp-avatar sp-avatar--sm" id="spTopAvatar" href="#profile" aria-label="Profile">FX</a>
+        </div>
+      </header>
+
+      <div class="sp-view" id="spView" tabindex="-1"></div>
+    </section>
+
+    <!-- ===== mobile tab bar ===== -->
+    <nav class="sp-tabbar" id="spTabbar" aria-label="Quick navigation"></nav>
+  </div>
+
+  <div class="sp-modal-root" id="spModal" hidden></div>
+  <div class="sp-toast" id="spToast" role="status" aria-live="polite" hidden></div>
 </main>
 
-<script src="assets/js/chrome.js?v=5"></script>
-<script src="assets/js/site.js?v=2"></script>
+<script src="assets/js/chrome.js?v=7"></script>
+<script src="assets/js/site.js?v=3"></script>
 <script type="module" src="assets/js/content.js?v=10"></script>
-<script type="module" src="assets/js/dashboard.js?v=7"></script>
+<script type="module" src="assets/js/dashboard.js?v=8"></script>
 </body>
 </html>

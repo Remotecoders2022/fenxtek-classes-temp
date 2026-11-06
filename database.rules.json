@@ -30,10 +30,18 @@
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "$plan": {
           ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 120",
-          "price": { ".validate": "newData.isString() || newData.isNumber()" },
-          "durationDays": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-          "highlight": { ".validate": "newData.isBoolean()" },
-          "active": { ".validate": "newData.isBoolean()" }
+          "price": {
+            ".validate": "newData.isString() || newData.isNumber()"
+          },
+          "durationDays": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "highlight": {
+            ".validate": "newData.isBoolean()"
+          },
+          "active": {
+            ".validate": "newData.isBoolean()"
+          }
         }
       },
       "achievements": {
@@ -41,11 +49,21 @@
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "$post": {
           ".validate": "newData.hasChildren(['caption', 'imageSource']) && (newData.child('imageSource').val() === 'upload' || (newData.child('imageSource').val() === 'link' && newData.child('imageUrl').isString() && newData.child('imageUrl').val().matches(/^https?:\\/\\/\\S+$/)))",
-          "caption": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1200" },
-          "title": { ".validate": "newData.isString() && newData.val().length <= 160" },
-          "tag": { ".validate": "newData.isString() && newData.val().length <= 60" },
-          "published": { ".validate": "newData.isBoolean()" },
-          "order": { ".validate": "newData.isNumber()" }
+          "caption": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1200"
+          },
+          "title": {
+            ".validate": "newData.isString() && newData.val().length <= 160"
+          },
+          "tag": {
+            ".validate": "newData.isString() && newData.val().length <= 60"
+          },
+          "published": {
+            ".validate": "newData.isBoolean()"
+          },
+          "order": {
+            ".validate": "newData.isNumber()"
+          }
         }
       },
       "achievementImages": {
@@ -60,42 +78,252 @@
         "$lead": {
           ".write": "(!data.exists() && newData.exists() && newData.child('email').isString()) || auth != null && root.child('admins').child(auth.uid).val() === true",
           ".validate": "newData.hasChild('email') && newData.child('email').isString() && newData.child('email').val().matches(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/)",
-          "plan": { ".validate": "newData.isString() && newData.val().length <= 200" }
+          "plan": {
+            ".validate": "newData.isString() && newData.val().length <= 200"
+          }
+        }
+      },
+      "courses": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$course": {
+          ".validate": "newData.hasChildren(['title', 'price', 'validityDays'])",
+          "title": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 140"
+          },
+          "subtitle": {
+            ".validate": "newData.isString() && newData.val().length <= 240"
+          },
+          "description": {
+            ".validate": "newData.isString() && newData.val().length <= 6000"
+          },
+          "price": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+          },
+          "mrp": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "validityDays": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3650"
+          },
+          "published": {
+            ".validate": "newData.isBoolean()"
+          },
+          "order": {
+            ".validate": "newData.isNumber()"
+          },
+          "thumbUrl": {
+            ".validate": "newData.isString() && (newData.val() === '' || newData.val().matches(/^https?:\\/\\/\\S+$/))"
+          }
+        }
+      },
+      "courseImages": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$course": {
+          ".validate": "newData.isString() && newData.val().length < 1500000 && newData.val().matches(/^data:image\\/(png|jpe?g|webp|gif);base64,/)"
+        }
+      },
+      "payments": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "upiEnabled": {
+          ".validate": "newData.isBoolean()"
+        },
+        "razorpayEnabled": {
+          ".validate": "newData.isBoolean()"
+        },
+        "upiId": {
+          ".validate": "newData.isString() && (newData.val() === '' || newData.val().matches(/^[A-Za-z0-9._-]{2,64}@[A-Za-z0-9.-]{2,64}$/))"
+        },
+        "razorpayKey": {
+          ".validate": "newData.isString() && (newData.val() === '' || newData.val().matches(/^rzp_(test|live)_[A-Za-z0-9]{6,}$/))"
+        }
+      },
+      "offers": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$code": {
+          ".validate": "newData.hasChildren(['code', 'label']) && newData.child('code').val() === $code"
         }
       }
     },
-
     "members": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         ".validate": "newData.hasChildren(['planId', 'planName', 'startAt', 'status'])",
-        "planId": { ".validate": "newData.isString()" },
-        "planName": { ".validate": "newData.isString()" },
-        "startAt": { ".validate": "newData.isNumber()" },
-        "endAt": { ".validate": "newData.isNumber()" },
-        "status": { ".validate": "newData.val() === 'active' || newData.val() === 'paused' || newData.val() === 'cancelled'" }
+        "planId": {
+          ".validate": "newData.isString()"
+        },
+        "planName": {
+          ".validate": "newData.isString()"
+        },
+        "startAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "endAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "status": {
+          ".validate": "newData.val() === 'active' || newData.val() === 'paused' || newData.val() === 'cancelled'"
+        }
       }
     },
-
     "users": {
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['email'])",
-        "email": { ".validate": "newData.isString()" },
-        "name": { ".validate": "newData.isString()" },
-        "phone": { ".validate": "newData.isString()" },
-        "exam": { ".validate": "newData.isString()" },
-        "speed": { ".validate": "newData.isNumber()" },
-        "createdAt": { ".validate": "newData.isNumber()" },
-        "lastLogin": { ".validate": "newData.isNumber()" },
-        "updatedAt": { ".validate": "newData.isNumber()" }
+        "email": {
+          ".validate": "newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString()"
+        },
+        "phone": {
+          ".validate": "newData.isString()"
+        },
+        "exam": {
+          ".validate": "newData.isString()"
+        },
+        "speed": {
+          ".validate": "newData.isNumber()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "lastLogin": {
+          ".validate": "newData.isNumber()"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        }
       }
     },
-
+    "carts": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$course": {
+          ".validate": "newData.isNumber() && root.child('site/courses').child($course).exists()"
+        }
+      }
+    },
+    "coupons": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$code": {
+        ".read": "auth != null",
+        ".validate": "$code.matches(/^[A-Z0-9-]{3,24}$/) && newData.hasChildren(['code', 'type', 'value']) && newData.child('code').val() === $code",
+        "type": {
+          ".validate": "newData.val() === 'percent' || newData.val() === 'flat'"
+        },
+        "value": {
+          ".validate": "newData.isNumber() && newData.val() > 0 && (newData.parent().child('type').val() !== 'percent' || newData.val() <= 100)"
+        },
+        "maxUses": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "minAmount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "maxDiscount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "startsAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "active": {
+          ".validate": "newData.isBoolean()"
+        },
+        "courseIds": {
+          "$course": {
+            ".validate": "newData.val() === true"
+          }
+        }
+      }
+    },
+    "couponUsage": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$code": {
+        "count": {
+          ".read": "auth != null",
+          ".write": "auth != null && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && root.child('coupons').child($code).exists() && root.child('coupons').child($code).child('active').val() !== false && (!root.child('coupons').child($code).child('maxUses').exists() || root.child('coupons').child($code).child('maxUses').val() === 0 || newData.val() <= root.child('coupons').child($code).child('maxUses').val()) && (!root.child('coupons').child($code).child('expiresAt').exists() || root.child('coupons').child($code).child('expiresAt').val() === 0 || root.child('coupons').child($code).child('expiresAt').val() > now) && (!root.child('coupons').child($code).child('startsAt').exists() || root.child('coupons').child($code).child('startsAt').val() <= now) && !data.parent().child('users').child(auth.uid).exists() && newData.parent().child('users').child(auth.uid).exists()"
+        },
+        "users": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.isString() && newData.parent().parent().child('count').val() === (data.parent().parent().child('count').exists() ? data.parent().parent().child('count').val() : 0) + 1"
+          }
+        }
+      }
+    },
+    "orders": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$orderId": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.child('uid').val() === auth.uid && newData.child('verified').val() !== true && newData.child('createdAt').val() <= now + 60000 && newData.child('createdAt').val() >= now - 600000 && ((newData.child('status').val() === 'pending' && newData.child('method').val() === 'upi' && newData.child('utr').isString() && newData.child('utr').val().matches(/^[A-Za-z0-9]{6,30}$/) && root.child('site/payments/upiEnabled').val() === true) || (newData.child('status').val() === 'paid' && newData.child('method').val() === 'razorpay' && newData.child('paymentId').isString() && newData.child('paymentId').val().matches(/^pay_[A-Za-z0-9]{6,}$/) && root.child('site/payments/razorpayEnabled').val() === true && newData.child('paidAt').val() <= now + 60000 && newData.child('paidAt').val() >= now - 600000) || (newData.child('status').val() === 'paid' && newData.child('method').val() === 'free' && newData.child('total').val() === 0 && newData.child('coupon').child('code').isString() && newData.child('paidAt').val() <= now + 60000 && newData.child('paidAt').val() >= now - 600000)) && (!newData.child('coupon').exists() || newData.parent().parent().parent().child('couponUsage').child(newData.child('coupon').child('code').val()).child('users').child($uid).val() === $orderId)",
+          ".validate": "newData.hasChildren(['orderNo', 'uid', 'items', 'subtotal', 'discount', 'total', 'status', 'method', 'createdAt']) && newData.child('uid').val() === $uid",
+          "orderNo": {
+            ".validate": "newData.isString() && newData.val().matches(/^FXT-[0-9]{6}-[A-Z0-9]{4,8}$/)"
+          },
+          "status": {
+            ".validate": "newData.val() === 'pending' || newData.val() === 'paid' || newData.val() === 'rejected' || newData.val() === 'refunded' || newData.val() === 'cancelled'"
+          },
+          "method": {
+            ".validate": "newData.isString() && newData.val().matches(/^(upi|razorpay|free|cash|offline|bank)$/)"
+          },
+          "subtotal": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "discount": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('subtotal').val()"
+          },
+          "total": {
+            ".validate": "newData.isNumber() && newData.val() === newData.parent().child('subtotal').val() - newData.parent().child('discount').val()"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "paidAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "items": {
+            "$course": {
+              ".validate": "newData.hasChildren(['title', 'price']) && root.child('site/courses').child($course).exists() && ((auth != null && root.child('admins').child(auth.uid).val() === true) || (newData.child('price').val() === root.child('site/courses').child($course).child('price').val() && newData.child('validityDays').val() === root.child('site/courses').child($course).child('validityDays').val() && root.child('site/courses').child($course).child('published').val() !== false))"
+            }
+          }
+        }
+      }
+    },
+    "enrollments": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$course": {
+          ".write": "auth != null && auth.uid === $uid && newData.exists() && newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('status').val() === 'paid' && newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).exists() && newData.child('since').val() === newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() && (!data.exists() || newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() > data.child('since').val()) && ((newData.child('until').val() === 0 && (root.child('site/courses').child($course).child('validityDays').val() === 0 || (data.exists() && data.child('until').val() === 0))) || (newData.child('until').val() > 0 && newData.child('until').val() <= (data.exists() && data.child('until').val() > newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() ? data.child('until').val() : newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val()) + root.child('site/courses').child($course).child('validityDays').val() * 86400000))",
+          ".validate": "newData.hasChildren(['orderId', 'since', 'until']) && newData.child('since').isNumber() && newData.child('until').isNumber()"
+        }
+      }
+    },
+    "courseAccess": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$course": {
+        ".read": "auth != null && root.child('enrollments').child(auth.uid).child($course).exists() && (root.child('enrollments').child(auth.uid).child($course).child('until').val() === 0 || root.child('enrollments').child(auth.uid).child($course).child('until').val() > now)"
+      }
+    },
     "admins": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

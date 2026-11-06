@@ -61,11 +61,72 @@
     '<symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>' +
     '<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></symbol>' +
     '<symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 8l-4 4 4 4M6 12h10"/></symbol>' +
+    '<symbol id="i-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.2l2.1 10.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.1"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></symbol>' +
+    '<symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></symbol>' +
+    '<symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zM5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/><path d="M9 7.5h6"/></symbol>' +
+    '<symbol id="i-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2.5-1.6L13 21l-2.5-1.6L8 21l-2-1.3z" transform="translate(0 0)"/><path d="M9 8h6M9 11.5h6M9 15h3.5"/></symbol>' +
+    '<symbol id="i-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.3V4.5a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0z"/><circle cx="8.3" cy="8.3" r="1.4"/></symbol>' +
+    '<symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></symbol>' +
+    '<symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></symbol>' +
+    '<symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.9 12a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4l.9-12M10 11v5.5M14 11v5.5"/></symbol>' +
+    '<symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m10.2 8.8 5 3.2-5 3.2z" fill="currentColor"/></symbol>' +
+    '<symbol id="i-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5 8 12l4-6.5 4 6.5 4-3.5-1.6 9.5H5.6z"/><path d="M6 20.5h12"/></symbol>' +
+    '<symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 19 6v5.5c0 4.4-2.9 7.9-7 9-4.1-1.1-7-4.6-7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>' +
+    '<symbol id="i-qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2.5v2.5H14zM18.5 14H20M14 19.5h2.5M18.5 17.5V20H20"/></symbol>' +
+    '<symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>' +
+    '<symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="m14.5 7.5 3 3"/></symbol>' +
+    '<symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>' +
+    '<symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4"/></symbol>' +
+    '<symbol id="i-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8S10.5 3.5 8 4.2C6 4.8 7 8 12 8zm0 0s1.5-4.5 4-3.8c2 .6 1 3.8-4 3.8z"/></symbol>' +
+    '<symbol id="i-live" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/></symbol>' +
+    '<symbol id="i-test" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="m8.5 9 1.5 1.5L13 7.5M8.5 15l1.5 1.5 3-3M15 9.5h1M15 15.5h1"/></symbol>' +
+    '<symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>' +
+    '<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/></symbol>' +
+    '<symbol id="i-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></symbol>' +
     "</svg>";
 
-  var preloader = isHome
-    ? '<div class="preloader" id="preloader"><div class="pl-inner"><div class="pl-top"><span>FenxTek</span><span>Shorthand Classes</span></div><div class="pl-brand">Skills · Practice · Success</div><div class="pl-count"><span id="plNum">0</span>%</div><div class="pl-track"><i id="plBar"></i></div><div class="pl-words"><span>Your success,</span><span>our priority.</span></div></div></div>'
-    : "";
+  /* ---------- loading screen ----------
+     Full intro once per browser session on public pages; Home always gets
+     a short version on repeat visits. Never on portal / admin pages. */
+  var PORTAL = { admin: 1, auth: 1, dashboard: 1, forgot: 1 };
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var introSeen = false;
+  try { introSeen = sessionStorage.getItem("fx:intro") === "1"; } catch (e) {}
+  var showIntro = !PORTAL[page] && !reduceMotion && (!introSeen || isHome);
+  var preloader = "";
+  if (showIntro) {
+    var letters = "FenxTek".split("").map(function (ch, i) {
+      return '<span style="--i:' + i + '">' + ch + "</span>";
+    }).join("");
+    var bars = "";
+    for (var b = 0; b < 28; b++) {
+      var h = (0.25 + Math.abs(Math.sin(b * 1.7)) * 0.55 + (b % 3) * 0.07).toFixed(2);
+      bars += '<i style="--h:' + h + ";--d:" + (-(b * 0.09)).toFixed(2) + 's"></i>';
+    }
+    preloader =
+      '<div class="preloader' + (introSeen ? " preloader--quick" : "") + '" id="preloader" role="status" aria-label="Loading FenxTek Shorthand Classes"' + (introSeen ? ' data-quick="1"' : "") + ">" +
+      '<div class="pl-panel pl-panel--t"></div><div class="pl-panel pl-panel--b"></div>' +
+      '<div class="pl-stage">' +
+      '<div class="pl-glow" aria-hidden="true"></div>' +
+      '<div class="pl-corner pl-corner--tl"><i></i>FenxTek · Kanpur, IN</div>' +
+      '<div class="pl-corner pl-corner--tr">Loading <b id="plPct">00</b>%</div>' +
+      '<div class="pl-corner pl-corner--bl">Your success, our priority.</div>' +
+      '<div class="pl-corner pl-corner--br">Tap to skip</div>' +
+      '<div class="pl-center">' +
+      '<div class="pl-mark"><svg class="pl-ring" viewBox="0 0 120 120" aria-hidden="true">' +
+      '<defs><linearGradient id="plGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5A4BFF"/><stop offset="1" stop-color="#D9FF57"/></linearGradient></defs>' +
+      '<circle class="pl-ring-bg" cx="60" cy="60" r="54"/><circle class="pl-ring-fg" id="plRing" cx="60" cy="60" r="54"/></svg>' +
+      '<img src="fenxtek-logo.png" alt="" width="62" height="62"></div>' +
+      '<div class="pl-name" aria-hidden="true">' + letters + "</div>" +
+      '<div class="pl-sub">Shorthand Classes</div>' +
+      '<div class="pl-meter" aria-hidden="true"><div class="pl-wave">' + bars + "</div>" +
+      '<div class="pl-speed"><b id="plSpeed">000</b><span>wpm</span></div></div>' +
+      '<div class="pl-words" aria-hidden="true"><span data-at="0.02">Skills</span><i></i><span data-at="0.4">Practice</span><i></i><span data-at="0.78">Success</span></div>' +
+      "</div>" +
+      '<div class="pl-line" aria-hidden="true"><i id="plBar"></i></div>' +
+      "</div></div>";
+    document.documentElement.classList.add("is-loading");
+  }
 
   var header =
     '<header class="hdr" id="hdr"><div class="wrap hdr-in">' +
@@ -86,39 +147,59 @@
     '<a href="https://t.me/fenxtekshorthand_classes">Telegram</a>' +
     '<a href="https://www.instagram.com/fenxtek_shorthand_classes/">Instagram</a></div></div>';
 
+  var yearNow = new Date().getFullYear();
+  var arr = ' <svg class="fx-go"><use href="#i-arr-ur"/></svg>';
+  function flink(href, label) { return '<a href="' + href + '"><span>' + label + "</span>" + arr + "</a>"; }
+  function tile(key, href, icon, label, value, ext) {
+    return '<a class="fx-tile" data-cms-link="' + key + '" href="' + href + '"' + (ext ? ' target="_blank" rel="noopener"' : "") + ">" +
+      '<span class="fx-ic"><svg><use href="#' + icon + '"/></svg></span>' +
+      '<span class="fx-k">' + label + "</span>" +
+      '<span class="fx-v">' + value + "</span>" +
+      '<svg class="fx-arr"><use href="#i-arr-ur"/></svg></a>';
+  }
+
   var footer =
-    '<footer class="footer on-dark"><div class="wrap">' +
-    '<div class="f-top">' +
-    '<div class="f-brand"><a class="brand" href="index.html"><img src="fenxtek-logo.png" alt="FenxTek logo" width="56" height="56">' +
-    '<span class="brand-txt"><b>FenxTek</b><span>Shorthand Classes</span></span></a>' +
-    '<p>A focused platform for Hindi and English shorthand, typing and government exam preparation across India.</p>' +
-    '<div class="f-chips"><span>SSC Steno</span><span>UPSSSC</span><span>AHC APS</span><span>50–160 WPM</span></div></div>' +
-    '<div class="f-col"><h4>Explore</h4>' +
-    '<a href="index.html#practice">Practice <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="courses.html">Courses &amp; fees <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="method.html">Method <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="about.html">About <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="achievements.html">Achievements <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="membership.html">Membership plans <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="auth.html">Student portal <svg><use href="#i-arr-ur"/></svg></a></div>' +
-    '<div class="f-col"><h4>Exams</h4>' +
-    '<a href="exams.html">SSC Stenographer <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="exams.html">UPSSSC Steno <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="exams.html">AHC APS Steno <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="exams.html">Parliamentary Reporter <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a href="exams.html">High Court Steno <svg><use href="#i-arr-ur"/></svg></a></div>' +
-    '<div class="f-col f-col--contact"><h4>Contact</h4>' +
-    '<a data-cms-link="phone" href="tel:+917309082749"><span data-cms="phone">+91 73090 82749</span> <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a data-cms-link="email" href="mailto:fenxtekshorthandclasses20@gmail.com"><span data-cms="email">fenxtekshorthandclasses20@gmail.com</span> <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a data-cms-link="telegram" href="https://t.me/fenxtekshorthand_classes" target="_blank" rel="noopener"><span>Telegram · <span data-cms="telegramHandle">@fenxtekshorthand_classes</span></span> <svg><use href="#i-arr-ur"/></svg></a>' +
-    '<a data-cms-link="instagram" href="https://www.instagram.com/fenxtek_shorthand_classes/" target="_blank" rel="noopener"><span>Instagram · <span data-cms="instagramHandle">@fenxtek_shorthand_classes</span></span> <svg><use href="#i-arr-ur"/></svg></a></div>' +
+    '<footer class="footer fx on-dark"><div class="wrap">' +
+    /* 1 — reach us */
+    '<div class="fx-top">' +
+    '<div class="fx-intro">' +
+    '<span class="fx-status"><i></i>Admissions open · ' + yearNow + "</span>" +
+    '<h2 class="fx-title">Let’s get you to <em>exam speed.</em></h2>' +
+    '<p class="fx-lead">Questions about batches, fees or your exam? Message us — the academy usually replies the same day.</p>' +
+    '<div class="fx-clock"><span class="fx-clock-dot"></span><span>Kanpur</span><b id="fxTime">--:--</b><span>IST</span></div>' +
     "</div>" +
+    '<div class="fx-reach">' +
+    tile("phone", "tel:+917309082749", "i-phone", "Call", '<span data-cms="phone">+91 73090 82749</span>') +
+    tile("email", "mailto:fenxtekshorthandclasses20@gmail.com", "i-mail", "Email", '<span data-cms="email">fenxtekshorthandclasses20@gmail.com</span>') +
+    tile("telegram", "https://t.me/fenxtekshorthand_classes", "i-send", "Telegram", '<span data-cms="telegramHandle">@fenxtekshorthand_classes</span>', true) +
+    tile("instagram", "https://www.instagram.com/fenxtek_shorthand_classes/", "i-ig", "Instagram", '<span data-cms="instagramHandle">@fenxtek_shorthand_classes</span>', true) +
+    "</div></div>" +
+    /* 2 — brand + links */
+    '<div class="fx-mid">' +
+    '<div class="fx-brand"><a class="brand" href="index.html"><img src="fenxtek-logo.png" alt="FenxTek logo" width="52" height="52">' +
+    '<span class="brand-txt"><b>FenxTek</b><span>Shorthand Classes</span></span></a>' +
+    "<p>A focused academy for Hindi and English shorthand, typing and government exam preparation — from Kanpur, for aspirants across India.</p>" +
+    '<div class="fx-chips"><span>SSC Steno</span><span>UPSSSC</span><span>AHC APS</span><span>50–160 WPM</span></div></div>' +
+    '<nav class="fx-col" aria-label="Explore"><h4>Explore</h4>' +
+    flink("index.html", "Home") + flink("courses.html", "Courses &amp; fees") + flink("method.html", "Method") +
+    flink("about.html", "About") + flink("achievements.html", "Achievements") + flink("contact.html", "Contact") + "</nav>" +
+    '<nav class="fx-col" aria-label="Exams"><h4>Exams</h4>' +
+    flink("exams.html#cat-3", "Central Government") + flink("exams.html#cat-4", "State recruitments") +
+    flink("exams.html#cat-2", "High Court &amp; Judicial") + flink("exams.html#cat-1", "Parliamentary Reporter") +
+    flink("exams.html#cat-6", "Shorthand &amp; Typing") + "</nav>" +
+    '<nav class="fx-col" aria-label="Students"><h4>Students</h4>' +
+    flink("auth.html", "Student portal") + flink("dashboard.html", "My dashboard") + flink("membership.html", "Membership plans") +
+    flink("contact.html", "Book a free demo") + flink("index.html#practice", "Practice dictation") + "</nav>" +
+    "</div>" +
+    /* 3 — wordmark */
     '<div class="f-tagline"><span>Better Skills</span><i></i><span>Higher Confidence</span><i></i><span>Brighter Future</span></div>' +
     '<div class="f-word" id="fWord" aria-hidden="true" data-reveal="fade"><div class="fw-scale"><div class="fw-in">' +
     '<span class="fw-base">FenxTek</span><span class="fw-fill">FenxTek</span><span class="fw-sheen">FenxTek</span>' +
     "</div></div></div>" +
-    '<div class="f-bottom"><span>© <span id="year">2026</span> FenxTek Shorthand Classes · Kanpur, Uttar Pradesh</span>' +
-    '<span>Designed by Tanmay and Aditya</span><a class="up" href="index.html">Back to top <svg><use href="#i-arr-u"/></svg></a></div>' +
+    /* 4 — legal */
+    '<div class="fx-bottom"><span>© <span id="year">' + yearNow + "</span> FenxTek Shorthand Classes · Kanpur, Uttar Pradesh</span>" +
+    "<span>Designed by Tanmay and Aditya</span>" +
+    '<button class="fx-up" type="button" data-to-top><span>Back to top</span><i><svg><use href="#i-arr-u"/></svg></i></button></div>' +
     "</div></footer>" +
     '<button class="to-top" id="toTop" aria-label="Back to top"><svg><use href="#i-arr-u"/></svg></button>' +
     '<div class="toast" id="toast" role="status" aria-live="polite"></div>';
@@ -132,4 +213,26 @@
       header + menu
   );
   document.body.insertAdjacentHTML("beforeend", footer);
+
+  /* footer: live Kanpur time + back-to-top button */
+  var fxTime = document.getElementById("fxTime");
+  function tick() {
+    try {
+      fxTime.textContent = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" });
+    } catch (e) {
+      fxTime.parentNode.style.display = "none";
+    }
+  }
+  if (fxTime) { tick(); setInterval(tick, 20000); }
+  /* hide the floating back-to-top button while the footer (which has its own) is on screen */
+  var fxEl = document.querySelector(".fx-bottom");
+  if (fxEl && "IntersectionObserver" in window) {
+    new IntersectionObserver(function (en) {
+      document.documentElement.classList.toggle("fx-in-view", en[0].isIntersecting);
+    }).observe(fxEl);
+  }
+  var up = document.querySelector("[data-to-top]");
+  if (up) up.addEventListener("click", function () {
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  });
 })();

@@ -15,7 +15,8 @@ import {
   dbRemove,
   toList,
   friendlyError
-} from "./firebase.js?v=3";
+} from "./firebase.js?v=4";
+import { initStore, storeTabOpened } from "./admin-store.js?v=1";
 
 import {
   defaultContent,
@@ -158,6 +159,8 @@ function openTab(name) {
   if (name === "leads") loadLeads();
   if (name === "memberships") loadMembers();
   if (name === "overview") paintOverview();
+  storeTabOpened(name);
+  if (history.replaceState) history.replaceState(null, "", "#" + name);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1456,6 +1459,13 @@ async function init() {
   bindStudents();
   bindLeads();
   paintOverview();
+
+  /* Store: orders, courses, coupons, payment settings (admin-store.js) */
+  try {
+    initStore({ user, showAlert, withBusy, setState });
+  } catch (err) {
+    console.warn("[admin] store init", err);
+  }
 
   /* Deep links: admin.html#achievements opens that tab. */
   const hash = location.hash.replace("#", "");
