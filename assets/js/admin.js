@@ -45,7 +45,7 @@ import {
   normalizeImageLink,
   formatDate as formatAnyDate
 } from "./media.js?v=2";
-import { firebaseConfig } from "./firebase-config.js?v=2";
+import { firebaseConfig } from "./firebase-config.js?v=3";
 
 /* "₹1,499" / "1499" / 1499 -> 1499 (number); blank stays "". Plan prices are
    stored as numbers so the database rules can check store checkouts. */
