@@ -4,7 +4,7 @@
    Safe to load on every page, even without Firebase keys.
    ============================================================ */
 
-import { configured, onAuthChange, isAdmin } from "./firebase.js?v=4";
+import { configured, onAuthChange, isAdmin } from "./firebase.js?v=5";
 
 const page = document.body.getAttribute("data-page") || "";
 

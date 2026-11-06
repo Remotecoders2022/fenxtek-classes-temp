@@ -9,14 +9,16 @@ import {
   waitForUser,
   signOutUser,
   isAdmin,
+  isAdminEmail,
+  sendVerification,
   dbGet,
   dbSet,
   dbUpdate,
   dbRemove,
   toList,
   friendlyError
-} from "./firebase.js?v=4";
-import { initStore, storeTabOpened } from "./admin-store.js?v=1";
+} from "./firebase.js?v=5";
+import { initStore, storeTabOpened } from "./admin-store.js?v=2";
 
 import {
   defaultContent,
@@ -1416,6 +1418,18 @@ async function init() {
   state.user = user;
 
   const admin = await isAdmin(user).catch(() => false);
+  if (!admin && isAdminEmail(user) && !user.emailVerified) {
+    const sent = await sendVerification().then(() => true).catch(() => false);
+    showDenied(
+      "Verify your admin email",
+      `${user.email} is the admin account, but its email isn’t verified yet. ` +
+        (sent ? "We just sent a verification link to that inbox — open it, then reload this page. " : "Reload this page in a minute to get a verification link. ") +
+        "Or sign out and use “Continue with Google” with the same Gmail — it’s verified instantly.",
+      "Reload",
+      "admin.html"
+    );
+    return;
+  }
   if (!admin) {
     showDenied(
       "No admin access",

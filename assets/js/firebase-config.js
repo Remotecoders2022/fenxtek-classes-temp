@@ -20,9 +20,10 @@ export const firebaseConfig = {
   appId: "1:581607660936:web:6f13156b911d28acc3ae3d"
 };
 
-/* The admin Gmail address. Replace this and the same address inside
-   database.rules.json before deploying the rules. */
-export const ADMIN_EMAILS = ["admin@example.com"];
+/* The admin Gmail address(es). Signing in with one of these opens the
+   CRM (admin.html). The same address must appear in database.rules.json
+   ("admins" rule) — republish the rules after changing it. */
+export const ADMIN_EMAILS = ["admin.kaif.fenxtek@gmail.com"];
 
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
