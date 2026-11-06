@@ -117,7 +117,7 @@ export function applyContent(data) {
 /* ---------------- collections ---------------- */
 
 export function renderBatches(value) {
-  const wrap = document.querySelector(".batch-list");
+  const wrap = document.querySelector("[data-batch-grid]") || document.querySelector(".batch-list");
   if (!wrap) return;
   const list = toList(value);
   setText("batchCount", pad(list.length));
@@ -127,16 +127,18 @@ export function renderBatches(value) {
   }
   wrap.innerHTML = list
     .map((b, i) => {
+      const name = b.title || b.name || "Batch";
+      const tag = b.tag || b.mode || "";
       const banner = safeImageUrl(b.banner || b.bannerUrl || "");
       const thumb = banner
-        ? `<span class="b-thumb"><img src="${esc(banner)}" alt="${esc(b.title || b.name || "Course")} banner" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></span>`
+        ? `<span class="bcard-img"><img src="${esc(banner)}" alt="${esc(name)} banner" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></span>`
         : "";
       return (
-        `<a class="batch-row${banner ? " has-banner" : ""}" href="contact.html">` +
-        `<span class="b-i">${pad(i + 1)}</span>${thumb}` +
-        `<span class="b-n">${esc(b.title || b.name || "Batch")}</span>` +
-        `<span class="b-t">${esc(b.tag || b.mode || "")}</span>` +
-        `<span class="b-a"><svg><use href="#i-arr-ur"/></svg></span></a>`
+        `<a class="bcard cms-fade${banner ? " has-banner" : ""}" href="contact.html" data-tag="${esc(tag)}" style="--d:${((i % 8) * 0.04).toFixed(2)}s">` +
+        thumb +
+        `<span class="bcard-top"><span class="bcard-n">${pad(i + 1)}</span>${tag ? `<span class="bcard-tag">${esc(tag)}</span>` : ""}</span>` +
+        `<b class="bcard-name">${esc(name)}</b>` +
+        `<span class="bcard-cta">Enquire <svg><use href="#i-arr-ur"/></svg></span></a>`
       );
     })
     .join("");
@@ -150,17 +152,27 @@ export function renderFees(value) {
     wrap.innerHTML = '<p class="cms-empty cms-empty--dark">Fee plans are being updated.</p>';
     return;
   }
+  const clean = (v) => String(v == null ? "" : v).replace(/^₹\s*/, "").trim();
+  const prices = [];
   wrap.innerHTML = list
-    .map((f) => {
-      const price = f.price == null || f.price === "" ? "" : "₹" + esc(String(f.price).replace(/^₹/, ""));
-      const was = f.was ? `<s>₹${esc(String(f.was).replace(/^₹/, ""))}</s>` : "";
+    .map((f, i) => {
+      const price = clean(f.price);
+      const was = clean(f.was);
+      const p = num(price);
+      const w = num(was);
+      if (isFinite(p) && p > 0) prices.push(p);
+      const save = isFinite(p) && isFinite(w) && w > p && p > 0 ? Math.round((1 - p / w) * 100) : 0;
       return (
-        `<div class="fee"><b>${esc(f.label || f.name || "Plan")}</b>` +
-        `<small>${esc(f.note || f.tag || "")}</small>` +
-        `<span class="pr">${price}${was}</span></div>`
+        `<article class="fcard cms-fade" style="--d:${((i % 8) * 0.04).toFixed(2)}s">` +
+        `<span class="fcard-tag">${esc(f.note || f.tag || "Course")}</span>` +
+        `<b class="fcard-name">${esc(f.label || f.name || "Plan")}</b>` +
+        `<span class="fcard-price">${price ? `<small>₹</small>${esc(rupees(price))}` : "On request"}${was ? `<s>₹${esc(rupees(was))}</s>` : ""}</span>` +
+        (save ? `<em class="fcard-save">Save ${save}%</em>` : "") +
+        `<a class="fcard-cta" href="contact.html">Enquire <svg><use href="#i-arr"/></svg></a></article>`
       );
     })
     .join("");
+  if (prices.length) setText("feeFrom", rupees(String(Math.min.apply(null, prices))));
 }
 
 export function renderFaqs(value) {

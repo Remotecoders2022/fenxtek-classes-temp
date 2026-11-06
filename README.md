@@ -7,10 +7,10 @@ Static multi-page website with a student portal and an admin CRM. Pages are plai
 | File | Purpose |
 | --- | --- |
 | `index.html` | Home (legacy single-page is still `fenxtek-v2.html`) |
-| `courses.html` | Batches and fee plans |
-| `exams.html` | Exam patterns |
-| `method.html` | Three-step method + why FenxTek |
-| `about.html` | Director and testimonials |
+| `courses.html` | Courses: dark hero with a live-dictation console, batch grid from RTDB with tag filter chips, "in every batch" bento, fee cards with save %, admission timeline |
+| `exams.html` | Exams: category matrix hero, searchable exam explorer (sticky search + category jump chips), speed ladder, exam-day rules |
+| `method.html` | Method: daily-loop orbit hero, three detailed steps with mock UI, sample week, illustrative progress chart, why-FenxTek bento |
+| `about.html` | About: director portrait hero, director's note (from RTDB), values, testimonials, explore links, contact cards |
 | `achievements.html` | Achievements: dark hero with the latest post as a spotlight, ticker, an uncropped photo wall with tag filters, a full-screen reader (zoom, drag, swipe, download, open original) and a "share your result" section |
 | `membership.html` | Membership plans (from RTDB), "your membership" banner for signed-in students, FAQ |
 | `contact.html` | Join form and contact details |
