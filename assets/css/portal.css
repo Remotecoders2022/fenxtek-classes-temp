@@ -1670,3 +1670,9 @@
 }
 .crm-table td.actions .crm-remove { display: inline-grid; vertical-align: middle; margin-left: 4px; }
 .crm-table td.actions .crm-mini { vertical-align: middle; }
+
+/* achievements: public visibility warning */
+.ach-warn{margin:0 0 14px;padding:14px 16px;border:1px solid rgba(214,92,60,.4);border-left:3px solid #d65c3c;border-radius:12px;background:rgba(214,92,60,.07);font-size:13.5px;line-height:1.55;color:var(--ink,#0b0b10)}
+.ach-warn b{display:block;margin-bottom:2px}
+.ach-warn code{font-family:var(--mono,monospace);font-size:12px;padding:1px 5px;border-radius:5px;background:rgba(11,11,16,.06)}
+.ach-thumb img,.ach-drop-img{background:#fff}

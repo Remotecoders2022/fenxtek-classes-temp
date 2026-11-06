@@ -110,32 +110,92 @@ export function createAchievementImageLoader(dbGet) {
   };
 }
 
-/* Source for an achievement: either an inline link or a lazy base64 id. */
+/* Share links from Google Drive / Dropbox / GitHub point at an HTML page,
+   not at the picture. Rewrite them to the direct image URL so they render. */
+export function normalizeImageLink(value) {
+  const url = safeImageUrl(value);
+  if (!url || !/^https?:\/\//i.test(url)) return url;
+  let m = url.match(/^https?:\/\/drive\.google\.com\/(?:file\/d\/|open\?(?:.*&)?id=|uc\?(?:.*&)?id=|thumbnail\?(?:.*&)?id=)([\w-]{10,})/i);
+  if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2400`;
+  m = url.match(/^https?:\/\/(?:www\.)?dropbox\.com\/(.+)$/i);
+  if (m) {
+    const clean = url.replace(/([?&])(dl|raw)=\d/g, "$1").replace(/[?&]+$/, "").replace(/\?&/, "?");
+    return clean + (clean.includes("?") ? "&" : "?") + "raw=1";
+  }
+  m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i);
+  if (m) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`;
+  return url;
+}
+
+/* Source for an achievement: either an inline link or a lazy base64 id.
+   Older / hand-edited posts without imageSource still work if they carry
+   an http(s) imageUrl. */
 export function achievementSource(item) {
   if (!item) return { kind: "none" };
-  if (item.imageSource === "link") {
-    const url = safeImageUrl(item.imageUrl);
-    return url ? { kind: "link", url } : { kind: "none" };
+  const link = normalizeImageLink(item.imageUrl);
+  if (item.imageSource === "link" || (!item.imageSource && /^https?:\/\//i.test(link))) {
+    return link && /^https?:\/\//i.test(link) ? { kind: "link", url: link } : { kind: "none" };
   }
   return { kind: "upload", id: item.id };
 }
 
+/* Base64 data URL -> object URL, so "Open original" works (browsers block
+   opening data: URLs in a new tab). */
+export function dataUrlToObjectUrl(dataUrl) {
+  const m = String(dataUrl || "").match(/^data:([^;,]+);base64,(.*)$/);
+  if (!m) return "";
+  const bin = atob(m[2]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: m[1] }));
+}
+
+export function imageExtension(src) {
+  const m = String(src || "").match(/^data:image\/(png|jpe?g|webp|gif)/i) || String(src || "").match(/\.(png|jpe?g|webp|gif)(?:[?#]|$)/i);
+  return m ? m[1].toLowerCase().replace("jpeg", "jpg") : "jpg";
+}
+
+/* Marks a card once its picture has decoded (or failed). */
+export function markAchievementImage(img, ok) {
+  const card = img.closest("[data-ach-card]");
+  if (!card) return;
+  card.classList.remove("is-loading");
+  if (!ok) {
+    card.classList.add("is-broken");
+    card.dispatchEvent(new CustomEvent("ach:broken", { bubbles: true }));
+    return;
+  }
+  card.classList.remove("is-broken");
+  card.classList.add("is-ready");
+  const w = img.naturalWidth || 0;
+  const h = img.naturalHeight || 0;
+  if (w && h && h / w > 1.45) card.classList.add("is-tall");
+}
+
 /* Observe [data-ach-img] <img> tags and fill them in when visible. */
 export function hydrateAchievementImages(root, load) {
-  const imgs = Array.from((root || document).querySelectorAll("img[data-ach-img]"));
+  const scope = root || document;
+  /* Link images are already loading: only wire up their status. */
+  scope.querySelectorAll("img[data-ach-link]").forEach((img) => {
+    img.removeAttribute("data-ach-link");
+    const done = (ok) => markAchievementImage(img, ok);
+    if (img.complete && img.naturalWidth) done(true);
+    else if (img.complete && img.getAttribute("src")) done(false);
+    else {
+      img.addEventListener("load", () => done(true), { once: true });
+      img.addEventListener("error", () => done(false), { once: true });
+    }
+  });
+  const imgs = Array.from(scope.querySelectorAll("img[data-ach-img]"));
   if (!imgs.length) return;
   const fill = (img) => {
     const id = img.getAttribute("data-ach-img");
     img.removeAttribute("data-ach-img");
     load(id).then((src) => {
-      const card = img.closest("[data-ach-card]");
-      if (src) {
-        img.src = src;
-        if (card) card.classList.remove("is-loading");
-      } else if (card) {
-        card.classList.remove("is-loading");
-        card.classList.add("is-broken");
-      }
+      if (!src) return markAchievementImage(img, false);
+      img.addEventListener("load", () => markAchievementImage(img, true), { once: true });
+      img.addEventListener("error", () => markAchievementImage(img, false), { once: true });
+      img.src = src;
     });
   };
   if (!("IntersectionObserver" in window)) {
@@ -150,7 +210,7 @@ export function hydrateAchievementImages(root, load) {
         fill(en.target);
       });
     },
-    { rootMargin: "400px 0px" }
+    { rootMargin: "600px 0px" }
   );
   imgs.forEach((img) => io.observe(img));
 }
@@ -178,46 +238,99 @@ function loadImage(src) {
   });
 }
 
-export async function fileToDataImage(file, opts = {}) {
-  if (!file || !/^image\/(png|jpe?g|webp|gif)$/i.test(file.type || "")) {
-    throw new Error("Please use a PNG, JPG, WEBP or GIF image.");
+const IMAGE_EXT_RE = /\.(png|jpe?g|jfif|pjpeg|webp|gif|bmp|avif|heic|heif)$/i;
+
+/* Draw onto a white sheet: transparent PNG/WEBP screenshots would otherwise
+   show dark text on the dark lightbox and become unreadable. */
+function paint(canvas, img, w, h) {
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+}
+
+/* Downscale in halving steps — much sharper text than one big jump. */
+function stepDown(img, w, h, tw, th) {
+  let src = img;
+  let cw = w;
+  let ch = h;
+  while (cw / 2 >= tw && ch / 2 >= th) {
+    cw = Math.round(cw / 2);
+    ch = Math.round(ch / 2);
+    const c = document.createElement("canvas");
+    paint(c, src, cw, ch);
+    src = c;
   }
+  return src;
+}
+
+export async function fileToDataImage(file, opts = {}) {
+  const type = (file && file.type) || "";
+  const looksImage = /^image\//i.test(type) || (!type && IMAGE_EXT_RE.test((file && file.name) || ""));
+  if (!file || !looksImage) throw new Error("Please use a PNG, JPG, WEBP or GIF image.");
   if (file.size > 25 * 1024 * 1024) throw new Error("That image is larger than 25 MB.");
 
-  const maxDim = opts.maxDim || 1600;
-  const budget = opts.budget || 900000;
+  /* Limit by pixel area (~4.2 MP) and a 3600 px long side rather than a
+     fixed width, so tall result lists keep their full width and their small
+     text stays legible when zoomed. Budget stays under the RTDB rule limit. */
+  const maxDim = opts.maxDim || 3600;
+  const maxArea = opts.maxArea || 4200000;
+  const budget = Math.min(opts.budget || 1150000, MAX_DATA_URL);
   const original = await readAsDataURL(file);
-  const img = await loadImage(original);
+  let img;
+  try {
+    img = await loadImage(original);
+  } catch (err) {
+    throw new Error(
+      /hei[cf]/i.test(type + (file.name || ""))
+        ? "This browser cannot read HEIC photos. Export the picture as JPG (or take a screenshot) and try again."
+        : "That file is not a readable image."
+    );
+  }
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
+  if (!w || !h) throw new Error("That file is not a readable image.");
 
-  /* Small, already-compressed files are kept byte-for-byte. */
-  if (original.length <= Math.min(budget, 420000) && Math.max(w, h) <= maxDim && safeDataImage(original)) {
+  /* Keep byte-for-byte: small JPEGs (no transparency) and GIFs (animation). */
+  const isJpeg = /^data:image\/jpe?g;base64,/i.test(original);
+  const isGif = /^data:image\/gif;base64,/i.test(original);
+  if ((isJpeg || isGif) && original.length <= budget && Math.max(w, h) <= maxDim && w * h <= maxArea && safeDataImage(original)) {
     return { dataUrl: original, width: w, height: h, bytes: original.length, resized: false };
   }
 
-  const scale = Math.min(1, maxDim / Math.max(w, h));
-  let cw = Math.max(1, Math.round(w * scale));
-  let ch = Math.max(1, Math.round(h * scale));
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-
+  let scale = Math.min(1, maxDim / Math.max(w, h), Math.sqrt(maxArea / (w * h)));
   let out = "";
-  for (let attempt = 0; attempt < 8; attempt++) {
-    canvas.width = cw;
-    canvas.height = ch;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, cw, ch);
-    ctx.drawImage(img, 0, 0, cw, ch);
-    const quality = Math.max(0.5, 0.86 - attempt * 0.06);
-    out = canvas.toDataURL("image/jpeg", quality);
-    if (out.length <= budget) break;
-    if (attempt >= 3) {
-      cw = Math.round(cw * 0.82);
-      ch = Math.round(ch * 0.82);
+  let cw = 0;
+  let ch = 0;
+  const isPng = /^data:image\/png;base64,/i.test(original);
+
+  for (let round = 0; round < 6 && !out; round++) {
+    cw = Math.max(1, Math.round(w * scale));
+    ch = Math.max(1, Math.round(h * scale));
+    paint(canvas, stepDown(img, w, h, cw, ch), cw, ch);
+    /* Screenshots (PNG) of result lists stay razor sharp as PNG when they fit. */
+    if (isPng) {
+      const png = canvas.toDataURL("image/png");
+      if (png.length <= budget) {
+        out = png;
+        break;
+      }
     }
+    for (const q of [0.92, 0.88, 0.84, 0.8, 0.76]) {
+      const jpg = canvas.toDataURL("image/jpeg", q);
+      if (jpg.length <= budget) {
+        out = jpg;
+        break;
+      }
+    }
+    scale *= 0.82;
   }
-  if (!safeDataImage(out) || out.length > MAX_DATA_URL) {
+  if (!out || !safeDataImage(out) || out.length > MAX_DATA_URL) {
     throw new Error("The image is still too large after compression. Try a smaller picture.");
   }
   return { dataUrl: out, width: cw, height: ch, bytes: out.length, resized: true };

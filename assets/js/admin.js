@@ -39,8 +39,10 @@ import {
   createAchievementImageLoader,
   achievementSource,
   hydrateAchievementImages,
+  normalizeImageLink,
   formatDate as formatAnyDate
-} from "./media.js?v=1";
+} from "./media.js?v=2";
+import { firebaseConfig } from "./firebase-config.js?v=2";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -741,6 +743,37 @@ async function loadAchievements() {
   loadAchImage = createAchievementImageLoader(dbGet);
   renderAchievementList();
   paintOverview();
+  checkAchievementsPublic();
+}
+
+/* Visitors are not signed in. Ask the REST API anonymously (shallow =
+   keys only, no image bytes) whether they can read the posts and the
+   uploaded pictures — if not, the live rules were never published. */
+async function checkAchievementsPublic() {
+  const box = $("#achPublicWarn");
+  const base = String((firebaseConfig && firebaseConfig.databaseURL) || "").replace(/\/+$/, "");
+  if (!box || !base || !/^https:\/\//.test(base) || !state.achievements.length) {
+    if (box) box.hidden = true;
+    return;
+  }
+  const blocked = [];
+  const paths = ["site/achievements"];
+  if (state.achievements.some((a) => achievementSource(a).kind === "upload")) paths.push("site/achievementImages");
+  await Promise.all(
+    paths.map((p) =>
+      fetch(`${base}/${p}.json?shallow=true`, { cache: "no-store" })
+        .then((r) => {
+          if (r.status === 401 || r.status === 403) blocked.push(p);
+        })
+        .catch(() => {})
+    )
+  );
+  box.hidden = !blocked.length;
+  if (blocked.length) {
+    box.innerHTML =
+      `<b>Visitors can’t see these posts yet.</b> The live database blocks public reads of <code>${blocked.map(esc).join("</code> and <code>")}</code>, ` +
+      `so uploaded photos show as “Photo unavailable” on the website. Publish <code>database.rules.json</code> in Firebase console → Realtime Database → Rules.`;
+  }
 }
 
 function renderAchievementList() {
@@ -816,12 +849,12 @@ function paintAchPreview() {
     if (draft.source === "upload" && draft.dataUrl) {
       meta.textContent = `Ready · ${draft.width}×${draft.height}px · ${prettyBytes(draft.dataUrl.length)} as base64 in Realtime Database`;
     } else if (draft.source === "link" && draft.url) {
-      meta.textContent = "The link is stored as-is. Make sure the picture is public (Google Drive “anyone with the link”, Imgur, your site…).";
+      meta.textContent = "Google Drive and Dropbox share links are converted to direct picture links. The file must be public (Drive: “Anyone with the link”).";
     } else {
       meta.textContent =
         draft.source === "link"
           ? "Paste a direct image link (ending in .jpg, .png, .webp…) and press Preview."
-          : "Large photos are resized to 1600 px and compressed before saving.";
+          : "Photos are kept sharp (up to ~4 MP, full width for tall result lists); screenshots stay PNG and transparent backgrounds become white.";
     }
   }
 }
@@ -849,7 +882,7 @@ async function takeFile(file) {
 }
 
 function takeUrl(url) {
-  const safe = safeImageUrl(url);
+  const safe = normalizeImageLink(url);
   if (!safe || !/^https?:\/\//i.test(safe)) {
     setState("#achState", "Use a full https:// picture link.", "err");
     return false;
@@ -960,7 +993,7 @@ function bindAchievements() {
     drop.classList.remove("is-over");
     const dt = e.dataTransfer;
     if (!dt) return;
-    const files = Array.from(dt.files || []).filter((f) => /^image\//.test(f.type));
+    const files = Array.from(dt.files || []).filter((f) => /^image\//.test(f.type) || /\.(png|jpe?g|jfif|webp|gif|bmp|avif|heic|heif)$/i.test(f.name || ""));
     if (files.length) {
       if (files.length > 1) showAlert("info", "One picture per post — using the first image you dropped.");
       takeFile(files[0]);

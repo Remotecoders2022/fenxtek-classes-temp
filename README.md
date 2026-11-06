@@ -11,7 +11,7 @@ Static multi-page website with a student portal and an admin CRM. Pages are plai
 | `exams.html` | Exam patterns |
 | `method.html` | Three-step method + why FenxTek |
 | `about.html` | Director and testimonials |
-| `achievements.html` | Student achievements wall — admin-posted photos with captions, tag filters and a lightbox |
+| `achievements.html` | Achievements: dark hero with the latest post as a spotlight, ticker, an uncropped photo wall with tag filters, a full-screen reader (zoom, drag, swipe, download, open original) and a "share your result" section |
 | `membership.html` | Membership plans (from RTDB), "your membership" banner for signed-in students, FAQ |
 | `contact.html` | Join form and contact details |
 | `auth.html` | Student sign in / sign up (email + Google) |
@@ -148,7 +148,7 @@ admins
 - `members/<uid>` is written only by admins; each student can read their own record.
 - Achievement pictures are stored separately from the post text so list pages stay light and each
   base64 image is downloaded only when it scrolls into view. The rules cap one picture at ~1.5 MB of
-  base64; the CRM resizes photos to 1600 px and compresses them to roughly 400–900 KB before saving.
+  base64. The CRM keeps them readable: up to ~4.2 MP with a 3600 px long side (tall result lists keep their full width), PNG for screenshots when it fits, JPEG 0.92→0.76 otherwise, always flattened onto white so transparent screenshots don't turn into dark-on-dark text, and capped at ~1.15 MB of base64 (the rules allow < 1.5 MB).
 - Public write access: create-only on `site/leads` (email validated by the rules).
 - `users/<uid>` is readable/writable by that user; admins can read all students.
 - Everything else requires an admin entry under `admins/`.
@@ -161,7 +161,7 @@ Open `admin.html` and sign in with the admin account.
 - **Site content** — hero paragraph, counters, starting price, phone/email/social handles, director details and the student-dashboard announcement.
 - **Batches / Fees / FAQs / Testimonials** — add, edit, reorder or remove rows, then **Save**. Public pages re-render from RTDB immediately (no rebuild).
 - **Memberships** — **Create plan** adds a plan card to the Membership page (name, price, struck-through price, validity label and days, one feature per line, highlight badge, **card style**, visible on site). Each plan shows as a premium membership card: *Midnight black*, *Royal violet*, *Champagne gold* or *Pearl white*. Leave the style on **Auto** and the highlighted plan becomes the Midnight card with the animated border, while the others cycle violet → gold → pearl. The page works out "Save X%" from the struck-through price and "≈ ₹N a day" from the validity in days, and the hero shows up to three plan cards fanned out, highlighted plan in front. Below that, **Student memberships** activates a plan on a student account: pick the student and plan, and "Valid till" fills in from the plan length. Students see it on their dashboard and the Membership page. The Students tab has an **Assign plan** shortcut too.
-- **Achievements** — drag & drop a photo onto the drop zone (or click to browse, or paste with Ctrl/⌘ + V), or switch to **Picture link** and paste an `https://` image URL. Add a caption (required), optional title, tag and date, then **Publish post**. Uploaded photos are saved in RTDB as base64; links are saved as-is. Posts can be edited, hidden, reordered with the arrows, or deleted. `admin.html#achievements` opens the tab directly.
+- **Achievements** — drag & drop a photo onto the drop zone (or click to browse, or paste with Ctrl/⌘ + V), or switch to **Picture link** and paste an `https://` image URL (Google Drive / Dropbox / GitHub share links are converted to direct picture links; Drive files must be shared as "Anyone with the link"). Add a caption (required), optional title, tag and date, then **Publish post**. Uploaded photos are saved in RTDB as base64; links are saved as-is. Posts can be edited, hidden, reordered with the arrows, or deleted. `admin.html#achievements` opens the tab directly. If the live database blocks anonymous reads, the tab shows a red **Visitors can't see these posts yet** warning (it checks with an unauthenticated REST request), which means `database.rules.json` still needs publishing.
 - **Students** — accounts created through the portal.
 - **Leads** — emails captured by the public “Join now” forms, with CSV export and delete. Leads that came through a plan's **Choose plan** button (`contact.html?plan=<id>`) record which plan.
 - **Load starter content** — writes the default website content (from `assets/js/cms-defaults.js`) to RTDB, including one starter membership plan. It never touches achievements, student memberships, students or leads.

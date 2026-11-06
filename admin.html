@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css?v=3">
-<link rel="stylesheet" href="assets/css/portal.css?v=4">
+<link rel="stylesheet" href="assets/css/site.css?v=4">
+<link rel="stylesheet" href="assets/css/portal.css?v=5">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin">
@@ -319,7 +319,7 @@
               <div class="ach-composer-grid">
                 <div>
                   <div class="ach-drop" id="achDrop" tabindex="0" role="button" aria-label="Drop an image here or press Enter to choose a file">
-                    <input type="file" id="achFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                    <input type="file" id="achFile" accept="image/*" hidden>
                     <div class="ach-drop-empty">
                       <span class="ach-drop-ic"><svg><use href="#i-image"/></svg></span>
                       <b>Drag &amp; drop a photo here</b>
@@ -335,7 +335,7 @@
                     </label>
                     <button class="p-btn p-btn--ghost p-btn--sm" id="achUrlUse" type="button"><span>Preview</span></button>
                   </div>
-                  <p class="p-hint ach-file-meta" id="achMeta">Large photos are resized to 1600&nbsp;px and compressed before saving.</p>
+                  <p class="p-hint ach-file-meta" id="achMeta">Photos are kept sharp (up to ~4Large photos are resized to 1600&nbsp;px and compressed before saving.nbsp;MP, full width for tall result lists); screenshots stay PNG and transparent backgrounds become white.</p>
                 </div>
 
                 <div>
@@ -378,6 +378,7 @@
                 <p>Newest first. Use the arrows to change the order on the site.</p>
               </div>
             </div>
+            <div class="ach-warn" id="achPublicWarn" role="status" hidden></div>
             <div class="ach-admin-list" id="achList">
               <p class="cms-empty">Loading posts…</p>
             </div>
@@ -470,9 +471,9 @@
   </div>
 </main>
 
-<script src="assets/js/chrome.js?v=3"></script>
+<script src="assets/js/chrome.js?v=4"></script>
 <script src="assets/js/site.js?v=2"></script>
-<script type="module" src="assets/js/content.js?v=8"></script>
-<script type="module" src="assets/js/admin.js?v=6"></script>
+<script type="module" src="assets/js/content.js?v=9"></script>
+<script type="module" src="assets/js/admin.js?v=7"></script>
 </body>
 </html>
