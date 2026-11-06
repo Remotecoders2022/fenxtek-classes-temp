@@ -10,13 +10,14 @@ import {
   signInGoogle,
   sendReset,
   isAdmin,
+  isAdminEmail,
   dbGet,
   dbSet,
   dbUpdate,
   setPersistenceMode,
   friendlyError,
   onAuthChange
-} from "./firebase.js?v=4";
+} from "./firebase.js?v=5";
 
 const $ = (sel) => document.querySelector(sel);
 const alertBox = $("#authAlert");
@@ -111,14 +112,17 @@ function safeNext() {
   return raw;
 }
 
-async function routeAfterLogin(user) {
+/* Admins (including the ADMIN_EMAILS account) always land in the CRM;
+   a ?next= link is kept only when it already points inside admin.html. */
+async function destinationFor(user) {
   const next = safeNext();
-  if (next) {
-    location.replace(next);
-    return;
-  }
-  const admin = await isAdmin(user).catch(() => false);
-  location.replace(admin ? "admin.html" : "dashboard.html");
+  const admin = isAdminEmail(user) || (await isAdmin(user).catch(() => false));
+  if (admin) return /^admin\.html/i.test(next) ? next : "admin.html";
+  return next || "dashboard.html";
+}
+
+async function routeAfterLogin(user) {
+  location.replace(await destinationFor(user));
 }
 
 /* ---------------- validation ---------------- */
@@ -342,8 +346,7 @@ if (!configured) {
     if (!user) return;
     const next = safeNext();
     if (next || !location.search.includes("stay=1")) {
-      const admin = await isAdmin(user).catch(() => false);
-      const dest = next || (admin ? "admin.html" : "dashboard.html");
+      const dest = await destinationFor(user);
       if (!next) {
         showAlert("info", `You’re already signed in as ${user.email || "your account"}. Redirecting…`);
       }

@@ -19,7 +19,7 @@ import {
   dbUpdateRoot,
   dbKey,
   friendlyError
-} from "./firebase.js?v=4";
+} from "./firebase.js?v=5";
 import { membershipStatus, daysLeft, safeImageUrl, safeDataImage } from "./media.js?v=2";
 import {
   PATH,

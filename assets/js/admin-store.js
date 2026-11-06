@@ -6,7 +6,7 @@
    Mounted by admin.js after the admin gate unlocks.
    ============================================================ */
 
-import { dbGet, dbSet, dbUpdate, dbWatch, dbUpdateRoot, dbKey, friendlyError } from "./firebase.js?v=4";
+import { dbGet, dbSet, dbUpdate, dbWatch, dbUpdateRoot, dbKey, friendlyError } from "./firebase.js?v=5";
 import { fileToDataImage, safeImageUrl, safeDataImage, prettyBytes } from "./media.js?v=2";
 import {
   PATH,

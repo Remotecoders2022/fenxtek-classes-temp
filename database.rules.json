@@ -327,7 +327,7 @@
     "admins": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin@example.com') || auth != null && root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || auth != null && root.child('admins').child(auth.uid).val() === true)",
         ".validate": "newData.isBoolean()"
       }
     }
