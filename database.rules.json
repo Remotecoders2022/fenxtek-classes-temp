@@ -152,7 +152,7 @@
       ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && auth.uid === $uid && newData.exists() && newData.child('status').val() === 'active' && newData.child('orderId').isString() && newData.child('planId').isString() && newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('status').val() === 'paid' && newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).exists() && newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() > 0 && newData.child('orderPaidAt').val() === newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() && (!data.exists() || newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() > (data.child('orderPaidAt').isNumber() ? data.child('orderPaidAt').val() : (data.child('updatedAt').isNumber() ? data.child('updatedAt').val() : 0))) && (newData.child('startAt').val() === newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() || (data.exists() && data.child('planId').val() === newData.child('planId').val() && newData.child('startAt').val() === data.child('startAt').val())) && ((newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).child('validityDays').val() === 0 && newData.child('endAt').val() === 0) || (newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).child('validityDays').val() > 0 && newData.child('endAt').val() > 0 && newData.child('endAt').val() <= (data.exists() && data.child('planId').val() === newData.child('planId').val() && data.child('status').val() === 'active' && data.child('endAt').val() > newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() ? data.child('endAt').val() : newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val()) + newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).child('validityDays').val() * 86400000)))",
+        ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && auth.uid === $uid && newData.exists() && newData.child('status').val() === 'active' && newData.child('orderId').isString() && newData.child('planId').isString() && newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('status').val() === 'paid' && newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).exists() && newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() > 0 && newData.child('orderPaidAt').val() === newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() && (!data.exists() || newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() > (data.child('orderPaidAt').isNumber() ? data.child('orderPaidAt').val() : (data.child('updatedAt').isNumber() ? data.child('updatedAt').val() : 0))) && (newData.child('startAt').val() === newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() || (data.exists() && data.child('planId').val() === newData.child('planId').val() && newData.child('startAt').val() === data.child('startAt').val())) && ((newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).child('validityDays').val() === 0 && newData.child('endAt').val() === 0) || (newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).child('validityDays').val() > 0 && newData.child('endAt').val() > 0 && newData.child('endAt').val() <= (data.exists() && data.child('planId').val() === newData.child('planId').val() && data.child('status').val() === 'active' && data.child('endAt').val() > newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() ? data.child('endAt').val() : newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val()) + newData.parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child('plan_' + newData.child('planId').val()).child('validityDays').val() * 86400000))) || (auth != null && auth.uid === $uid && auth.token.email_verified === true && newData.exists() && newData.child('source').val() === 'invite' && root.child('memberInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && !newData.parent().parent().child('memberInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && newData.child('planId').val() === root.child('memberInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('planId').val() && (newData.child('status').val() === 'active' && ((newData.child('startAt').val() > now - 600000 && newData.child('startAt').val() < now + 600000) || (data.exists() && data.child('planId').val() === newData.child('planId').val() && newData.child('startAt').val() === data.child('startAt').val())) && ((root.child('memberInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('days').val() === 0 && (!newData.child('endAt').exists() || newData.child('endAt').val() === 0)) || (root.child('memberInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('days').val() > 0 && newData.child('endAt').val() > now && newData.child('endAt').val() <= (data.exists() && data.child('planId').val() === newData.child('planId').val() && data.child('status').val() === 'active' && data.child('endAt').val() > now ? data.child('endAt').val() : newData.child('startAt').val()) + root.child('memberInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('days').val() * 86400000)))) || (auth != null && auth.uid === $uid && newData.exists() && newData.child('source').val() === 'code' && newData.child('code').isString() && root.child('memberCodes').child(newData.child('code').val()).exists() && root.child('memberCodes').child(newData.child('code').val()).child('active').val() !== false && (!root.child('memberCodes').child(newData.child('code').val()).child('expiresAt').exists() || root.child('memberCodes').child(newData.child('code').val()).child('expiresAt').val() === 0 || root.child('memberCodes').child(newData.child('code').val()).child('expiresAt').val() > now) && newData.child('planId').val() === root.child('memberCodes').child(newData.child('code').val()).child('planId').val() && !root.child('memberCodeUsage').child(newData.child('code').val()).child('users').child($uid).exists() && newData.parent().parent().child('memberCodeUsage').child(newData.child('code').val()).child('users').child($uid).exists() && (newData.child('status').val() === 'active' && ((newData.child('startAt').val() > now - 600000 && newData.child('startAt').val() < now + 600000) || (data.exists() && data.child('planId').val() === newData.child('planId').val() && newData.child('startAt').val() === data.child('startAt').val())) && ((root.child('memberCodes').child(newData.child('code').val()).child('days').val() === 0 && (!newData.child('endAt').exists() || newData.child('endAt').val() === 0)) || (root.child('memberCodes').child(newData.child('code').val()).child('days').val() > 0 && newData.child('endAt').val() > now && newData.child('endAt').val() <= (data.exists() && data.child('planId').val() === newData.child('planId').val() && data.child('status').val() === 'active' && data.child('endAt').val() > now ? data.child('endAt').val() : newData.child('startAt').val()) + root.child('memberCodes').child(newData.child('code').val()).child('days').val() * 86400000))))",
         ".validate": "newData.hasChildren(['planId', 'planName', 'startAt', 'status'])",
         "planId": {
           ".validate": "newData.isString()"
@@ -174,6 +174,75 @@
         },
         "orderPaidAt": {
           ".validate": "newData.isNumber()"
+        },
+        "source": {
+          ".validate": "newData.val() === 'store' || newData.val() === 'admin' || newData.val() === 'invite' || newData.val() === 'code' || newData.val() === 'offline'"
+        },
+        "code": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    "memberInvites": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$key": {
+        ".read": "auth != null && auth.token.email != null && $key === auth.token.email.toLowerCase().replace('.', ',')",
+        ".write": "auth != null && auth.token.email_verified === true && $key === auth.token.email.toLowerCase().replace('.', ',') && !newData.exists() && newData.parent().parent().child('members').child(auth.uid).child('source').val() === 'invite'",
+        ".validate": "newData.hasChildren(['email', 'planId', 'planName', 'days']) && newData.child('email').val().toLowerCase().replace('.', ',') === $key",
+        "email": {
+          ".validate": "newData.isString()"
+        },
+        "planId": {
+          ".validate": "newData.isString()"
+        },
+        "planName": {
+          ".validate": "newData.isString()"
+        },
+        "days": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3660"
+        }
+      }
+    },
+    "memberCodes": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$code": {
+        ".read": "auth != null",
+        ".validate": "$code.matches(/^[A-Z0-9-]{4,24}$/) && newData.hasChildren(['code', 'planId', 'planName', 'days']) && newData.child('code').val() === $code",
+        "planId": {
+          ".validate": "newData.isString()"
+        },
+        "planName": {
+          ".validate": "newData.isString()"
+        },
+        "days": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3660"
+        },
+        "maxUses": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "active": {
+          ".validate": "newData.isBoolean()"
+        }
+      }
+    },
+    "memberCodeUsage": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$code": {
+        "count": {
+          ".read": "auth != null",
+          ".write": "auth != null && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && root.child('memberCodes').child($code).exists() && root.child('memberCodes').child($code).child('active').val() !== false && (!root.child('memberCodes').child($code).child('maxUses').exists() || root.child('memberCodes').child($code).child('maxUses').val() === 0 || newData.val() <= root.child('memberCodes').child($code).child('maxUses').val()) && (!root.child('memberCodes').child($code).child('expiresAt').exists() || root.child('memberCodes').child($code).child('expiresAt').val() === 0 || root.child('memberCodes').child($code).child('expiresAt').val() > now) && !data.parent().child('users').child(auth.uid).exists() && newData.parent().child('users').child(auth.uid).exists()"
+        },
+        "users": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.isNumber() && newData.parent().parent().child('count').val() === (data.parent().parent().child('count').exists() ? data.parent().parent().child('count').val() : 0) + 1 && newData.parent().parent().parent().parent().child('members').child($uid).child('code').val() === $code"
+          }
         }
       }
     },

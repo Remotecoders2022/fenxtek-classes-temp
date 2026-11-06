@@ -15,10 +15,12 @@ import {
   dbSet,
   dbUpdate,
   dbRemove,
+  dbUpdateRoot,
   toList,
   friendlyError
 } from "./firebase.js?v=5";
 import { initStore, storeTabOpened } from "./admin-store.js?v=3";
+import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
 import {
   defaultContent,
@@ -71,6 +73,9 @@ const state = {
   testimonials: [],
   memberships: [],
   members: {},
+  invites: {},
+  codes: {},
+  codeUsage: {},
   achievements: [],
   students: [],
   leads: []
@@ -562,27 +567,27 @@ function bindEditor(kind) {
 
 /* ---------------- student memberships ---------------- */
 
+/* Firebase keys can't contain "." — invites are keyed by the lower-cased
+   email with dots swapped for commas (mirrored in database.rules.json). */
+const emailKey = (email) => String(email || "").trim().toLowerCase().replace(/\./g, ",");
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SOURCE_LABEL = { store: "Store purchase", invite: "Gift by email", code: "QR code", admin: "Given by admin" };
+
 function studentLabel(s) {
   if (!s) return "Unknown student";
   return (s.name || "Student") + (s.email ? " — " + s.email : "");
 }
 
-function populateMemberSelects(preserve = true) {
-  const studentSel = $("#memberStudent");
-  const planSel = $("#memberPlan");
-  if (studentSel) {
-    const keep = preserve ? studentSel.value : "";
-    studentSel.innerHTML = state.students.length
-      ? '<option value="">Choose a student</option>' +
-        state.students.map((s) => `<option value="${esc(s.id)}">${esc(studentLabel(s))}</option>`).join("")
-      : '<option value="">No student accounts yet</option>';
-    if (keep) studentSel.value = keep;
-  }
-  if (planSel) {
-    const keep = preserve ? planSel.value : "";
-    const plans = state.memberships.filter((p) => p.name);
-    planSel.innerHTML = plans.length
-      ? '<option value="">Choose a plan</option>' +
+function studentByEmail(email) {
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) return null;
+  return state.students.find((s) => String(s.email || "").trim().toLowerCase() === e) || null;
+}
+
+function planOptions() {
+  const plans = state.memberships.filter((p) => p.name);
+  return plans.length
+    ? '<option value="">Choose a plan</option>' +
         plans
           .map(
             (p) =>
@@ -591,9 +596,54 @@ function populateMemberSelects(preserve = true) {
               }${p.active === false ? " (hidden)" : ""}</option>`
           )
           .join("")
-      : '<option value="">Create a plan first</option>';
-    if (keep) planSel.value = keep;
+    : '<option value="">Create a plan first</option>';
+}
+
+function populateMemberSelects(preserve = true) {
+  const list = $("#memberEmails");
+  if (list) {
+    list.innerHTML = state.students
+      .filter((s) => s.email)
+      .map((s) => `<option value="${esc(s.email)}">${esc(s.name || "Student")}</option>`)
+      .join("");
   }
+  ["#memberPlan", "#mcPlan"].forEach((sel) => {
+    const planSel = $(sel);
+    if (!planSel) return;
+    const keep = preserve ? planSel.value : "";
+    planSel.innerHTML = planOptions();
+    if (keep) planSel.value = keep;
+  });
+  paintMemberWho();
+}
+
+/* Live "who is this?" hint under the email box. */
+function paintMemberWho() {
+  const form = $("#memberForm");
+  const who = $("#memberWho");
+  if (!form || !who) return;
+  const email = String(form.elements.email.value || "").trim();
+  const s = studentByEmail(email);
+  form.elements.uid.value = s ? s.id : "";
+  const btn = $("#memberSubmit span");
+  if (!email) {
+    who.dataset.kind = "idle";
+    who.textContent = "Type an email — matching student accounts are suggested.";
+  } else if (s) {
+    const m = state.members[s.id];
+    who.dataset.kind = "ok";
+    who.textContent = `✓ ${s.name || "Student"} has an account` + (m && m.planId ? ` · currently on ${m.planName || "a plan"}` : "");
+  } else if (EMAIL_RE.test(email)) {
+    const inv = state.invites[emailKey(email)];
+    who.dataset.kind = "invite";
+    who.textContent = inv
+      ? `Invite already waiting (${inv.planName}). Saving replaces it.`
+      : "No account yet — the plan activates when they sign in with this email.";
+  } else {
+    who.dataset.kind = "idle";
+    who.textContent = "Keep typing the full email address…";
+  }
+  if (btn) btn.textContent = !email || s || !EMAIL_RE.test(email) ? "Give membership" : "Send invite";
 }
 
 function autoEndDate() {
@@ -608,57 +658,108 @@ function autoEndDate() {
   }
 }
 
+function sourceNote(m) {
+  if (!m) return "";
+  const label = SOURCE_LABEL[m.source] || (m.orderId ? SOURCE_LABEL.store : "");
+  if (!label) return "";
+  return label + (m.source === "code" && m.code ? " · " + m.code : "");
+}
+
 async function loadMembers() {
   const body = $("#membersBody");
   if (!state.students.length) await loadStudents({ silent: true });
-  const snap = await dbGet("members").catch((err) => {
-    console.warn("[admin] members read", err);
-    return null;
-  });
+  const [snap, inv] = await Promise.all([
+    dbGet("members").catch((err) => {
+      console.warn("[admin] members read", err);
+      return null;
+    }),
+    dbGet("memberInvites").catch((err) => {
+      console.warn("[admin] invites read", err);
+      return null;
+    })
+  ]);
   state.members = (snap && snap.exists && snap.exists() && snap.val()) || {};
+  state.invites = (inv && inv.exists && inv.exists() && inv.val()) || {};
   populateMemberSelects();
   paintOverview();
   paintStudentsTable();
+  loadMemberCodes();
 
   if (!body) return;
   const ids = Object.keys(state.members);
-  if (!ids.length) {
-    body.innerHTML = '<tr><td colspan="6" class="crm-table-empty">No memberships yet. Use the form above to activate a plan for a student.</td></tr>';
+  const keys = Object.keys(state.invites);
+  if (!ids.length && !keys.length) {
+    body.innerHTML = '<tr><td colspan="6" class="crm-table-empty">No memberships yet. Enter a student’s email above to give them a plan.</td></tr>';
     return;
   }
   ids.sort((a, b) => Number(state.members[b].updatedAt || 0) - Number(state.members[a].updatedAt || 0));
-  body.innerHTML = ids
-    .map((id) => {
-      const m = state.members[id] || {};
-      const s = state.students.find((x) => x.id === id);
-      const st = membershipStatus(m);
-      return (
-        `<tr><td><b>${esc((s && s.name) || m.name || "—")}</b><br><span class="muted">${esc((s && s.email) || m.email || id)}</span></td>` +
-        `<td>${esc(m.planName || "—")}${m.paid ? `<br><span class="muted">Paid ₹${esc(rupees(m.paid))}</span>` : ""}</td>` +
-        `<td class="muted">${formatDate(m.startAt)}</td>` +
-        `<td class="muted">${m.endAt ? formatDate(m.endAt) : "Open-ended"}</td>` +
-        `<td><span class="crm-pill crm-pill--${st.key}">${esc(st.label)}</span></td>` +
-        `<td class="actions"><button class="crm-mini" type="button" data-member-edit="${esc(id)}">Edit</button> ` +
-        `<button class="crm-remove" type="button" data-member-remove="${esc(id)}" aria-label="Remove membership">×</button></td></tr>`
-      );
-    })
-    .join("");
+  keys.sort((a, b) => Number(state.invites[b].createdAt || 0) - Number(state.invites[a].createdAt || 0));
+  const inviteRows = keys.map((k) => {
+    const v = state.invites[k] || {};
+    const days = Number(v.days) || 0;
+    return (
+      `<tr class="mc-invite-row"><td><b>${esc(v.email || k.replace(/,/g, "."))}</b><br><span class="muted">No account yet</span></td>` +
+      `<td>${esc(v.planName || "—")}<br><span class="muted">Gift by email${v.paid ? ` · Paid ₹${esc(rupees(v.paid))}` : ""}</span></td>` +
+      `<td class="muted">On first sign-in</td>` +
+      `<td class="muted">${days ? `${days} days after sign-in` : "Open-ended"}</td>` +
+      `<td><span class="crm-pill crm-pill--invite">Invite pending</span></td>` +
+      `<td class="actions"><button class="crm-mini" type="button" data-invite-edit="${esc(k)}">Edit</button> ` +
+      `<button class="crm-remove" type="button" data-invite-remove="${esc(k)}" aria-label="Cancel invite">×</button></td></tr>`
+    );
+  });
+  const memberRows = ids.map((id) => {
+    const m = state.members[id] || {};
+    const s = state.students.find((x) => x.id === id);
+    const st = membershipStatus(m);
+    const src = sourceNote(m);
+    const sub = [m.paid ? `Paid ₹${esc(rupees(m.paid))}` : "", src ? esc(src) : ""].filter(Boolean).join(" · ");
+    return (
+      `<tr><td><b>${esc((s && s.name) || m.name || "—")}</b><br><span class="muted">${esc((s && s.email) || m.email || id)}</span></td>` +
+      `<td>${esc(m.planName || "—")}${sub ? `<br><span class="muted">${sub}</span>` : ""}</td>` +
+      `<td class="muted">${formatDate(m.startAt)}</td>` +
+      `<td class="muted">${m.endAt ? formatDate(m.endAt) : "Open-ended"}</td>` +
+      `<td><span class="crm-pill crm-pill--${st.key}">${esc(st.label)}</span></td>` +
+      `<td class="actions"><button class="crm-mini" type="button" data-member-edit="${esc(id)}">Edit</button> ` +
+      `<button class="crm-remove" type="button" data-member-remove="${esc(id)}" aria-label="Remove membership">×</button></td></tr>`
+    );
+  });
+  body.innerHTML = inviteRows.concat(memberRows).join("");
 }
 
 function fillMemberForm(id) {
   const form = $("#memberForm");
   if (!form) return;
   const m = state.members[id] || {};
+  const s = state.students.find((x) => x.id === id) || {};
   populateMemberSelects(false);
-  form.elements.uid.value = id;
+  form.elements.email.value = s.email || m.email || "";
   form.elements.planId.value = m.planId || "";
   form.elements.start.value = toDateInput(m.startAt || Date.now());
   form.elements.end.value = m.endAt ? toDateInput(m.endAt) : "";
   form.elements.status.value = m.status || "active";
   form.elements.paid.value = m.paid || "";
   form.elements.note.value = m.note || "";
+  paintMemberWho();
+  form.elements.uid.value = id;
   if (!m.planId) autoEndDate();
   setState("#memberState", m.planId ? "Editing an existing membership" : "New membership for this student");
+  form.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
+function fillInviteForm(key) {
+  const form = $("#memberForm");
+  const v = state.invites[key];
+  if (!form || !v) return;
+  populateMemberSelects(false);
+  form.elements.email.value = v.email || "";
+  form.elements.planId.value = v.planId || "";
+  form.elements.start.value = toDateInput(Date.now());
+  form.elements.end.value = Number(v.days) > 0 ? toDateInput(Date.now() + (Number(v.days) - 1) * DAY) : "";
+  form.elements.status.value = "active";
+  form.elements.paid.value = v.paid || "";
+  form.elements.note.value = v.note || "";
+  paintMemberWho();
+  setState("#memberState", "Editing a pending invite — validity counts from the day they sign in.");
   form.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
@@ -669,49 +770,82 @@ function bindMembers() {
 
   form.elements.planId.addEventListener("change", autoEndDate);
   form.elements.start.addEventListener("change", autoEndDate);
-  form.elements.uid.addEventListener("change", () => {
+  form.elements.email.addEventListener("input", paintMemberWho);
+  form.elements.email.addEventListener("change", () => {
+    paintMemberWho();
     const id = form.elements.uid.value;
-    if (id && state.members[id]) fillMemberForm(id);
+    if (id && state.members[id] && !form.elements.planId.value) fillMemberForm(id);
   });
   form.addEventListener("reset", () =>
     setTimeout(() => {
       form.elements.start.value = toDateInput(Date.now());
-      setState("#memberState", "Pick a student and a plan — “Valid till” fills from the plan length.");
+      form.elements.uid.value = "";
+      paintMemberWho();
+      setState("#memberState", "Enter the student’s email and pick a plan — “Valid till” fills from the plan length.");
     })
   );
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
-    const id = form.elements.uid.value;
+    const email = String(form.elements.email.value || "").trim();
+    const s = studentByEmail(email);
+    const id = s ? s.id : "";
     const plan = state.memberships.find((p) => p.id === form.elements.planId.value);
     const startAt = fromDateInput(form.elements.start.value);
     const endAt = fromDateInput(form.elements.end.value, true);
-    if (!id) return showAlert("err", "Choose a student.");
+    if (!EMAIL_RE.test(email)) return showAlert("err", "Enter the student’s email address.");
     if (!plan) return showAlert("err", "Choose a membership plan (save new plans first).");
     if (!startAt) return showAlert("err", "Pick a start date.");
     if (endAt && endAt < startAt) return showAlert("err", "“Valid till” must be after the start date.");
+    const paid = String(form.elements.paid.value || "").replace(/[^\d.]/g, "");
+    const note = String(form.elements.note.value || "").trim();
+    const by = (state.user && state.user.email) || "admin";
+    const key = emailKey(email);
 
-    const s = state.students.find((x) => x.id === id) || {};
+    if (!id) {
+      /* No account yet — park it as an invite, claimed on first verified sign-in. */
+      const days = endAt ? Math.max(1, Math.round((endAt - startAt) / DAY)) : 0;
+      const invite = { email: email.toLowerCase(), planId: plan.id, planName: plan.name, days, createdAt: Date.now(), createdBy: by };
+      if (paid) invite.paid = paid;
+      if (note) invite.note = note;
+      await withBusy(btn, "Sending…", async () => {
+        try {
+          await dbSet(`memberInvites/${key}`, invite);
+          setState("#memberState", `Invite saved · ${plan.name} waits for ${invite.email}`, "ok");
+          showAlert("ok", `Invite saved. ${plan.name} activates as soon as ${invite.email} signs up or signs in (with a verified email).`);
+          form.reset();
+          await loadMembers();
+        } catch (err) {
+          setState("#memberState", "Save failed", "err");
+          showAlert("err", friendlyError(err));
+        }
+      });
+      return;
+    }
+
+    const prev = state.members[id] || {};
     const record = {
       planId: plan.id,
       planName: plan.name,
       startAt,
       status: form.elements.status.value || "active",
       name: s.name || "",
-      email: s.email || "",
+      email: s.email || email,
+      source: prev.planId === plan.id && prev.source ? prev.source : "admin",
       updatedAt: Date.now(),
-      updatedBy: (state.user && state.user.email) || "admin"
+      updatedBy: by
     };
     if (endAt) record.endAt = endAt;
-    const paid = String(form.elements.paid.value || "").replace(/[^\d.]/g, "");
     if (paid) record.paid = paid;
-    const note = String(form.elements.note.value || "").trim();
     if (note) record.note = note;
+    if (record.source === "code" && prev.code) record.code = prev.code;
 
     await withBusy(btn, "Saving…", async () => {
       try {
-        await dbSet(`members/${id}`, record);
+        const updates = { [`members/${id}`]: record };
+        if (state.invites[key]) updates[`memberInvites/${key}`] = null;
+        await dbUpdateRoot(updates);
         setState("#memberState", `Saved · ${record.planName} active for ${s.name || s.email || "student"}`, "ok");
         showAlert("ok", "Membership saved. The student sees it on their dashboard right away.");
         await loadMembers();
@@ -727,6 +861,22 @@ function bindMembers() {
     body.addEventListener("click", async (e) => {
       const edit = e.target.closest("[data-member-edit]");
       if (edit) return fillMemberForm(edit.dataset.memberEdit);
+      const iedit = e.target.closest("[data-invite-edit]");
+      if (iedit) return fillInviteForm(iedit.dataset.inviteEdit);
+      const irm = e.target.closest("[data-invite-remove]");
+      if (irm) {
+        if (!confirm("Cancel this invite? The student won’t get the plan when they sign in.")) return;
+        irm.disabled = true;
+        try {
+          await dbRemove(`memberInvites/${irm.dataset.inviteRemove}`);
+          showAlert("ok", "Invite cancelled.");
+          await loadMembers();
+        } catch (err) {
+          irm.disabled = false;
+          showAlert("err", friendlyError(err));
+        }
+        return;
+      }
       const rm = e.target.closest("[data-member-remove]");
       if (!rm) return;
       if (!confirm("Remove this student’s membership?")) return;
@@ -741,6 +891,310 @@ function bindMembers() {
       }
     });
   }
+  bindMemberCodes();
+}
+
+/* ---------------- membership QR codes ---------------- */
+
+const MC_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+const MC_RE = /^[A-Z0-9-]{4,24}$/;
+
+function newJoinCode(plan) {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  let tail = "";
+  bytes.forEach((b) => (tail += MC_ALPHABET[b % MC_ALPHABET.length]));
+  const head = (String((plan && plan.name) || "JOIN")
+    .toUpperCase()
+    .match(/[A-Z0-9]+/) || ["JOIN"])[0]
+    .slice(0, 10);
+  return (head.length >= 2 ? head : "JOIN") + "-" + tail;
+}
+
+const joinUrl = (code) => new URL(`dashboard.html#redeem/${encodeURIComponent(code)}`, location.href).href;
+
+function codeState(c, used) {
+  if (c.active === false) return { key: "paused", label: "Paused" };
+  if (Number(c.expiresAt) > 0 && Number(c.expiresAt) <= Date.now()) return { key: "expired", label: "Expired" };
+  if (Number(c.maxUses) > 0 && used >= Number(c.maxUses)) return { key: "cancelled", label: "Full" };
+  return { key: "active", label: "Live" };
+}
+
+function codeValidity(c) {
+  const d = Number(c.days) || 0;
+  return d ? `${d} days after joining` : "Open-ended access";
+}
+
+async function loadMemberCodes() {
+  const box = $("#mcList");
+  if (!box) return;
+  const [codes, usage] = await Promise.all([
+    dbGet("memberCodes").catch((err) => {
+      console.warn("[admin] codes read", err);
+      return null;
+    }),
+    dbGet("memberCodeUsage").catch(() => null)
+  ]);
+  state.codes = (codes && codes.exists && codes.exists() && codes.val()) || {};
+  state.codeUsage = (usage && usage.exists && usage.exists() && usage.val()) || {};
+  paintMemberCodes();
+}
+
+function paintMemberCodes() {
+  const box = $("#mcList");
+  if (!box) return;
+  const list = Object.keys(state.codes || {})
+    .map((k) => ({ id: k, ...state.codes[k] }))
+    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  if (!list.length) {
+    box.innerHTML = '<p class="mc-empty">No QR codes yet. Create one above — print it on a poster or share the link in your WhatsApp group.</p>';
+    return;
+  }
+  box.innerHTML = list
+    .map((c) => {
+      const used = Number((state.codeUsage[c.id] || {}).count) || 0;
+      const max = Number(c.maxUses) || 0;
+      const st = codeState(c, used);
+      const pct = max ? Math.min(100, Math.round((used / max) * 100)) : 0;
+      const meta = [codeValidity(c), Number(c.expiresAt) > 0 ? "Code expires " + formatDate(c.expiresAt) : ""].filter(Boolean).join(" · ");
+      return `<article class="mc-card" data-state="${st.key}">
+        <button class="mc-qr" type="button" data-mc-show="${esc(c.id)}" aria-label="Show QR for ${esc(c.id)}"><span data-mc-qr="${esc(c.id)}"></span></button>
+        <div class="mc-body">
+          <div class="mc-top"><code class="mc-code">${esc(c.id)}</code><span class="crm-pill crm-pill--${st.key}">${esc(st.label)}</span></div>
+          <b class="mc-plan">${esc(c.planName || "Plan")}</b>
+          <p class="mc-meta">${esc(meta)}${c.note ? `<br><span>${esc(c.note)}</span>` : ""}</p>
+          <div class="mc-uses"><span class="mc-bar"><i style="width:${max ? pct : used ? 100 : 0}%"></i></span><span>${used} ${max ? "/ " + max : ""} joined</span></div>
+          <div class="mc-actions">
+            <button class="crm-mini" type="button" data-mc-show="${esc(c.id)}">Show QR</button>
+            <button class="crm-mini" type="button" data-mc-poster="${esc(c.id)}">Poster</button>
+            <button class="crm-mini" type="button" data-mc-copy="${esc(c.id)}">Copy link</button>
+            <button class="crm-mini" type="button" data-mc-toggle="${esc(c.id)}">${c.active === false ? "Resume" : "Pause"}</button>
+            <button class="crm-remove" type="button" data-mc-delete="${esc(c.id)}" aria-label="Delete code">×</button>
+          </div>
+        </div>
+      </article>`;
+    })
+    .join("");
+  list.forEach((c) => {
+    qrSvg(joinUrl(c.id), { ecc: "M", margin: 1 })
+      .then((svg) => {
+        const slot = box.querySelector(`[data-mc-qr="${CSS.escape(c.id)}"]`);
+        if (slot) slot.innerHTML = svg;
+      })
+      .catch(() => {});
+  });
+}
+
+function closeCodeModal() {
+  const m = document.querySelector(".mc-modal");
+  if (m) m.remove();
+  document.removeEventListener("keydown", modalKeys);
+}
+function modalKeys(e) {
+  if (e.key === "Escape") closeCodeModal();
+}
+
+async function openCodeModal(id) {
+  const c = state.codes[id];
+  if (!c) return;
+  closeCodeModal();
+  const usage = state.codeUsage[id] || {};
+  const used = Number(usage.count) || 0;
+  const joined = Object.entries(usage.users || {})
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .map(([uid2, at]) => {
+      const s = state.students.find((x) => x.id === uid2) || {};
+      return `<li><b>${esc(s.name || "Student")}</b><span>${esc(s.email || uid2)}</span><time>${formatDate(at)}</time></li>`;
+    })
+    .join("");
+  const url = joinUrl(id);
+  const wrap = document.createElement("div");
+  wrap.className = "mc-modal";
+  wrap.innerHTML = `<div class="mc-sheet" role="dialog" aria-modal="true" aria-label="Join code ${esc(id)}">
+      <button class="mc-x" type="button" data-mc-close aria-label="Close">×</button>
+      <span class="mc-kicker">Scan to join</span>
+      <h3>${esc(c.planName || "Membership")}</h3>
+      <p class="mc-meta">${esc(codeValidity(c))}</p>
+      <div class="mc-big" data-mc-big><span class="muted">Drawing QR…</span></div>
+      <code class="mc-code mc-code--lg">${esc(id)}</code>
+      <a class="mc-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>
+      <div class="mc-actions mc-actions--center">
+        <button class="p-btn p-btn--lime p-btn--sm" type="button" data-mc-poster="${esc(id)}"><span>Download poster</span></button>
+        <button class="p-btn p-btn--ghost p-btn--sm" type="button" data-mc-copy="${esc(id)}"><span>Copy link</span></button>
+      </div>
+      <div class="mc-joined">
+        <b>${used} student${used === 1 ? "" : "s"} joined${Number(c.maxUses) ? ` of ${Number(c.maxUses)}` : ""}</b>
+        ${joined ? `<ul>${joined}</ul>` : '<p class="muted">Nobody has used this code yet.</p>'}
+      </div>
+    </div>`;
+  wrap.addEventListener("click", (e) => {
+    if (e.target === wrap || e.target.closest("[data-mc-close]")) closeCodeModal();
+  });
+  document.body.appendChild(wrap);
+  document.addEventListener("keydown", modalKeys);
+  try {
+    wrap.querySelector("[data-mc-big]").innerHTML = await qrSvg(url, { ecc: "Q", margin: 2 });
+  } catch (err) {
+    wrap.querySelector("[data-mc-big]").innerHTML = '<span class="muted">QR library could not load — share the link instead.</span>';
+  }
+}
+
+async function downloadPoster(id, btn) {
+  const c = state.codes[id];
+  if (!c) return;
+  await withBusy(btn, "Drawing…", async () => {
+    try {
+      const png = await membershipPoster({
+        url: joinUrl(id),
+        code: id,
+        planName: c.planName || "Membership",
+        validity: codeValidity(c)
+      });
+      const a = document.createElement("a");
+      a.href = png;
+      a.download = `fenxtek-join-${id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      showAlert("err", "Couldn’t draw the poster: " + (err.message || err));
+    }
+  });
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }
+}
+
+async function codeActions(e) {
+  const show = e.target.closest("[data-mc-show]");
+  if (show) return openCodeModal(show.dataset.mcShow);
+  const poster = e.target.closest("[data-mc-poster]");
+  if (poster) return downloadPoster(poster.dataset.mcPoster, poster);
+  const copy = e.target.closest("[data-mc-copy]");
+  if (copy) {
+    const ok = await copyText(joinUrl(copy.dataset.mcCopy));
+    return showAlert(ok ? "ok" : "err", ok ? "Join link copied — paste it in WhatsApp, Telegram or email." : "Couldn’t copy. Open “Show QR” and copy the link from there.");
+  }
+  const tog = e.target.closest("[data-mc-toggle]");
+  if (tog) {
+    const id = tog.dataset.mcToggle;
+    const c = state.codes[id];
+    if (!c) return;
+    tog.disabled = true;
+    try {
+      await dbUpdate(`memberCodes/${id}`, { active: c.active === false, updatedAt: Date.now() });
+      showAlert("ok", c.active === false ? `${id} is live again.` : `${id} paused — scans will show “code paused”.`);
+      await loadMemberCodes();
+    } catch (err) {
+      tog.disabled = false;
+      showAlert("err", friendlyError(err));
+    }
+    return;
+  }
+  const del = e.target.closest("[data-mc-delete]");
+  if (del) {
+    const id = del.dataset.mcDelete;
+    if (!confirm(`Delete join code ${id}? Students who already joined keep their membership; the QR stops working.`)) return;
+    del.disabled = true;
+    try {
+      await dbUpdateRoot({ [`memberCodes/${id}`]: null, [`memberCodeUsage/${id}`]: null });
+      showAlert("ok", `Code ${id} deleted.`);
+      await loadMemberCodes();
+    } catch (err) {
+      del.disabled = false;
+      showAlert("err", friendlyError(err));
+    }
+  }
+}
+
+function bindMemberCodes() {
+  const form = $("#mcForm");
+  if (!form) return;
+  const planOf = () => state.memberships.find((p) => p.id === form.elements.planId.value);
+  const fresh = () => {
+    form.elements.code.value = newJoinCode(planOf());
+  };
+  fresh();
+  $("#mcShuffle").addEventListener("click", fresh);
+  form.elements.planId.addEventListener("change", () => {
+    const p = planOf();
+    if (!form.elements.code.dataset.touched) fresh();
+    form.elements.days.placeholder = p && Number(p.durationDays) > 0 ? String(p.durationDays) : p ? "0 (open-ended)" : "From plan";
+  });
+  form.elements.code.addEventListener("input", () => {
+    form.elements.code.value = form.elements.code.value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+    form.elements.code.dataset.touched = "1";
+  });
+  form.addEventListener("reset", () =>
+    setTimeout(() => {
+      delete form.elements.code.dataset.touched;
+      fresh();
+      form.elements.days.placeholder = "From plan";
+      setState("#mcState", "Validity 0 = open-ended. Leave “Max students” blank for unlimited.");
+    })
+  );
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    const plan = planOf();
+    const code = String(form.elements.code.value || "").trim().toUpperCase();
+    if (!plan) return showAlert("err", "Choose the plan this QR code gives.");
+    if (!MC_RE.test(code)) return showAlert("err", "Codes are 4–24 characters: letters, numbers and dashes.");
+    const rawDays = String(form.elements.days.value || "").trim();
+    const days = rawDays === "" ? Math.max(0, Math.round(Number(plan.durationDays) || 0)) : Math.round(Number(rawDays));
+    if (!isFinite(days) || days < 0 || days > 3660) return showAlert("err", "Validity must be between 0 and 3660 days.");
+    const maxUses = Math.max(0, Math.round(Number(String(form.elements.maxUses.value || "").replace(/[^\d]/g, "")) || 0));
+    const expiresAt = fromDateInput(form.elements.expires.value, true);
+    if (expiresAt && expiresAt < Date.now()) return showAlert("err", "The expiry date is in the past.");
+    const record = {
+      code,
+      planId: plan.id,
+      planName: plan.name,
+      days,
+      maxUses,
+      expiresAt: expiresAt || 0,
+      active: true,
+      createdAt: Date.now(),
+      createdBy: (state.user && state.user.email) || "admin"
+    };
+    const note = String(form.elements.note.value || "").trim();
+    if (note) record.note = note;
+    await withBusy(btn, "Creating…", async () => {
+      try {
+        const exists = await dbGet(`memberCodes/${code}`);
+        if (exists && exists.exists && exists.exists()) {
+          setState("#mcState", "That code already exists — pick another.", "err");
+          return showAlert("err", `Code ${code} already exists. Tap “New” for a fresh one.`);
+        }
+        await dbUpdateRoot({ [`memberCodes/${code}`]: record, [`memberCodeUsage/${code}`]: null });
+        setState("#mcState", `Created · ${code} gives ${plan.name}`, "ok");
+        showAlert("ok", `QR code ${code} is live. Print the poster or share the link.`);
+        form.reset();
+        await loadMemberCodes();
+        openCodeModal(code);
+      } catch (err) {
+        setState("#mcState", "Save failed", "err");
+        showAlert("err", friendlyError(err));
+      }
+    });
+  });
+  const list = $("#mcList");
+  if (list) list.addEventListener("click", codeActions);
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".mc-modal") && (e.target.closest("[data-mc-poster]") || e.target.closest("[data-mc-copy]"))) codeActions(e);
+  });
 }
 
 /* ---------------- achievements ---------------- */

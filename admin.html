@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=8">
 <link rel="stylesheet" href="assets/css/portal.css?v=5">
-<link rel="stylesheet" href="assets/css/store.css?v=4">
+<link rel="stylesheet" href="assets/css/store.css?v=5">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin">
@@ -247,14 +247,17 @@
             <div class="crm-panel-head" style="margin-top:34px">
               <div>
                 <h2>Student memberships</h2>
-                <p>Activate a plan on a student account. Students see their plan and validity on their dashboard and on the Membership page. Stored under <code>members/&lt;uid&gt;</code>.</p>
+                <p>Give a plan to a student by their email. If they already have an account it activates right away; if not, it waits as an invite and activates the first time they sign in with that email. Stored under <code>members/&lt;uid&gt;</code> (invites under <code>memberInvites</code>).</p>
               </div>
             </div>
             <form class="crm-card" id="memberForm" novalidate>
               <div class="crm-form">
                 <label class="p-field">
-                  <span class="p-label">Student</span>
-                  <select class="p-select" name="uid" id="memberStudent" required><option value="">Loading students…</option></select>
+                  <span class="p-label">Student email</span>
+                  <input class="p-input" type="email" name="email" id="memberEmail" list="memberEmails" placeholder="student@gmail.com" autocomplete="off" spellcheck="false" required>
+                  <datalist id="memberEmails"></datalist>
+                  <input type="hidden" name="uid" id="memberUid">
+                  <small class="mc-who" id="memberWho" data-kind="idle">Type an email — matching student accounts are suggested.</small>
                 </label>
                 <label class="p-field">
                   <span class="p-label">Plan</span>
@@ -286,9 +289,9 @@
                 </label>
               </div>
               <div class="crm-actions">
-                <span class="crm-save-state" id="memberState">Pick a student and a plan — “Valid till” fills from the plan length.</span>
+                <span class="crm-save-state" id="memberState">Enter the student’s email and pick a plan — “Valid till” fills from the plan length.</span>
                 <button class="p-btn p-btn--ghost p-btn--sm" type="reset"><span>Clear</span></button>
-                <button class="p-btn p-btn--lime" type="submit"><span>Save membership</span><svg><use href="#i-check"/></svg></button>
+                <button class="p-btn p-btn--lime" type="submit" id="memberSubmit"><span>Give membership</span><svg><use href="#i-check"/></svg></button>
               </div>
             </form>
             <div class="crm-table-wrap" style="margin-top:16px">
@@ -300,6 +303,52 @@
                   <tr><td colspan="6" class="crm-table-empty">Loading memberships…</td></tr>
                 </tbody>
               </table>
+            </div>
+
+            <div class="crm-panel-head" style="margin-top:34px">
+              <div>
+                <h2>Membership QR codes</h2>
+                <p>Create a join code for a plan and share or print its QR. Students scan it (or type the code on their Membership page), sign in, and the plan activates on their account. Each student can use a code once.</p>
+              </div>
+            </div>
+            <form class="crm-card" id="mcForm" novalidate>
+              <div class="crm-form">
+                <label class="p-field">
+                  <span class="p-label">Plan</span>
+                  <select class="p-select" name="planId" id="mcPlan" required><option value="">Create a plan first</option></select>
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Join code</span>
+                  <span class="mc-code-field">
+                    <input class="p-input" name="code" id="mcCode" maxlength="24" autocomplete="off" spellcheck="false" required>
+                    <button class="crm-mini" type="button" id="mcShuffle" title="Generate a new code">New</button>
+                  </span>
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Validity after joining (days)</span>
+                  <input class="p-input" name="days" id="mcDays" inputmode="numeric" placeholder="From plan">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Max students</span>
+                  <input class="p-input" name="maxUses" inputmode="numeric" placeholder="Unlimited">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Code expires on (optional)</span>
+                  <input class="p-input" type="date" name="expires">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Label (only admins see this)</span>
+                  <input class="p-input" name="note" placeholder="Batch A · November seminar">
+                </label>
+              </div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="mcState">Validity 0 = open-ended. Leave “Max students” blank for unlimited.</span>
+                <button class="p-btn p-btn--ghost p-btn--sm" type="reset"><span>Clear</span></button>
+                <button class="p-btn p-btn--lime" type="submit"><span>Create QR code</span><svg><use href="#i-plus"/></svg></button>
+              </div>
+            </form>
+            <div class="mc-grid" id="mcList">
+              <p class="mc-empty">Loading QR codes…</p>
             </div>
           </section>
 
@@ -623,6 +672,6 @@
 <script src="assets/js/chrome.js?v=7"></script>
 <script src="assets/js/site.js?v=3"></script>
 <script type="module" src="assets/js/content.js?v=13"></script>
-<script type="module" src="assets/js/admin.js?v=10"></script>
+<script type="module" src="assets/js/admin.js?v=11"></script>
 </body>
 </html>

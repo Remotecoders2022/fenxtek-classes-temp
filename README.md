@@ -174,6 +174,12 @@ members
 users
  └── <uid>          { name, email, phone, exam, speed, createdAt, lastLogin }
 
+memberInvites       { <email with "." → ","> : { email, planId, planName, days (0 = open-ended), paid?, note?,
+                                               createdAt, createdBy } }   ← gift waiting for sign-up
+memberCodes         { <CODE>: { code, planId, planName, days, maxUses (0 = unlimited), expiresAt (0 = never),
+                                active, note?, createdAt, createdBy } }   ← membership QR / join codes
+memberCodeUsage     { <CODE>: { count, users: { <uid>: joinedAt } } }
+
 admins
  └── <uid>          true
 ```
@@ -232,6 +238,31 @@ second plan replaces the first.
   `"749"`. The rules accept both, but open **Memberships** in the CRM and click **Save** once on each plan to store numbers.
 - Everything else requires an admin entry under `admins/`.
 
+### Gifted memberships: by email or by QR code
+
+**By email (Memberships → Student memberships).** Type the student's email (accounts are suggested as you type).
+- The email belongs to a student account → the plan is written to `members/<uid>` straight away (`source: "admin"`).
+- No account yet → it is saved as an **invite** under `memberInvites/<email key>` and shows as *Invite pending* in the
+  table (edit or cancel it there). The first time that person opens the portal with a **verified** email, the portal
+  activates the plan and deletes the invite in one update. "Valid till" becomes a number of days counted from that
+  moment. Google sign-ins are already verified; email/password students see a banner with **Send verification
+  email** and **I've verified**. The rules only release an invite to the matching, verified email address.
+
+**By QR code (Memberships → Membership QR codes).** Pick a plan; a code such as `QUARTERLY-7KQ2XM` is generated
+(edit it if you like). Set validity in days (blank = the plan's length, 0 = open-ended), max students (blank =
+unlimited), an optional expiry date and a private label. Each code card shows its QR, uses (`3 / 50 joined`), and
+**Show QR** (big QR, link and the list of students who joined), **Poster** (downloads a 1080×1350 PNG to print or post
+in WhatsApp groups), **Copy link**, **Pause/Resume** and delete.
+- The QR opens `dashboard.html#redeem/<CODE>`. Signed-out students sign in first and come straight back. Students
+  can also type the code in **Have a membership code?** on the portal's Membership page.
+- The redeem screen shows the plan card, validity and what will happen (adds days to the same plan, or replaces a
+  different one), then **Activate membership**.
+- One update writes `members/<uid>` (`source: "code"`, `code`), bumps `memberCodeUsage/<CODE>/count` by exactly
+  one and records the student under `users/<uid>`. The rules reject paused, expired, full or unknown codes, a second
+  use by the same student, back-dated starts and longer validity than the code gives.
+- Same plan still active → the days are added to the current end date (start date kept), exactly like a renewal.
+- QR codes are drawn by a vendored copy of `qrcode-generator` 1.4.4 (MIT) in `assets/vendor/`, via `assets/js/qr.js`.
+
 ## Using the CRM
 
 Open `admin.html` and sign in with the admin account.
@@ -239,7 +270,7 @@ Open `admin.html` and sign in with the admin account.
 - **Overview** — live counts, current price, published announcement.
 - **Site content** — hero paragraph, counters, starting price, phone/email/social handles, director details and the student-dashboard announcement.
 - **Batches / Fees / FAQs / Testimonials** — add, edit, reorder or remove rows, then **Save**. Public pages re-render from RTDB immediately (no rebuild).
-- **Memberships** — **Create plan** adds a plan card to the Membership page (name, price, struck-through price, validity label and days, one feature per line, highlight badge, **card style**, visible on site). Each plan shows as a premium membership card: *Midnight black*, *Royal violet*, *Champagne gold* or *Pearl white*. Leave the style on **Auto** and the highlighted plan becomes the Midnight card with the animated border, while the others cycle violet → gold → pearl. The page works out "Save X%" from the struck-through price and "≈ ₹N a day" from the validity in days, and the hero shows up to three plan cards fanned out, highlighted plan in front. Below that, **Student memberships** activates a plan on a student account: pick the student and plan, and "Valid till" fills in from the plan length. Students see it on their dashboard and the Membership page. The Students tab has an **Assign plan** shortcut too.
+- **Memberships** — **Create plan** adds a plan card to the Membership page (name, price, struck-through price, validity label and days, one feature per line, highlight badge, **card style**, visible on site). Each plan shows as a premium membership card: *Midnight black*, *Royal violet*, *Champagne gold* or *Pearl white*. Leave the style on **Auto** and the highlighted plan becomes the Midnight card with the animated border, while the others cycle violet → gold → pearl. The page works out "Save X%" from the struck-through price and "≈ ₹N a day" from the validity in days, and the hero shows up to three plan cards fanned out, highlighted plan in front. Below that, **Student memberships** gives a plan by email: type the student's email and pick a plan, and "Valid till" fills in from the plan length. Emails without an account become invites that activate on first sign-in. **Membership QR codes** creates scan-to-join codes with posters (see *Gifted memberships* above). Students see it on their dashboard and the Membership page. The Students tab has an **Assign plan** shortcut too.
 - **Achievements** — drag & drop a photo onto the drop zone (or click to browse, or paste with Ctrl/⌘ + V), or switch to **Picture link** and paste an `https://` image URL (Google Drive / Dropbox / GitHub share links are converted to direct picture links; Drive files must be shared as "Anyone with the link"). Add a caption (required), optional title, tag and date, then **Publish post**. Uploaded photos are saved in RTDB as base64; links are saved as-is. Posts can be edited, hidden, reordered with the arrows, or deleted. `admin.html#achievements` opens the tab directly. If the live database blocks anonymous reads, the tab shows a red **Visitors can't see these posts yet** warning (it checks with an unauthenticated REST request), which means `database.rules.json` still needs publishing.
 - **Students** — accounts created through the portal.
 - **Store → Orders & receipts** — every checkout with revenue stats, search (order no, student, phone, UTR, payment id, coupon) and filters. **Approve** a UPI order once the UTR shows in your bank app — this enrols the student (or activates their membership). Razorpay orders show **Verify** until you tick them off against the Razorpay dashboard. View or download any receipt as PNG, reject / refund (removes access), **Record offline sale** for cash or bank transfers, and **Export CSV**.
