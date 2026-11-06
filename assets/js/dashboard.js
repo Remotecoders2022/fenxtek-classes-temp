@@ -2,7 +2,8 @@
    FENXTEK — student portal (app shell)
    Hash-routed single page: Home, My courses, Course store,
    course detail, Cart + coupons, checkout (Razorpay / UPI / free),
-   order success, Orders & receipts, Membership and Profile.
+   order success, Orders & receipts, Membership (plans are bought
+   through the same cart/checkout as courses) and Profile.
 
    Adding a section later = add one entry to ROUTES (+ a view fn).
    ============================================================ */
@@ -41,9 +42,16 @@ import {
   ordersOf,
   statusOf,
   methodLabel,
-  upiLink
-} from "./commerce.js?v=1";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=1";
+  upiLink,
+  accentOf,
+  plansFrom,
+  isPlanId,
+  isPlanItem,
+  planKey,
+  perDay,
+  memberRecordFor
+} from "./commerce.js?v=2";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=2";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -67,6 +75,8 @@ const S = {
   ordersReady: false,
   enroll: {}, // courseId -> { orderId, since, until, ... }
   member: null,
+  plans: [],
+  plansReady: false,
   batches: [],
   coupon: null, // { code, coupon, usedCount, usedByMe }
   filters: { q: "", cat: "all", sort: "featured" },
@@ -74,8 +84,14 @@ const S = {
 };
 
 const courseById = (id) => S.courses.find((c) => c.id === id) || null;
+const planById = (id) => S.plans.find((p) => p.id === id || p.planId === id) || null;
+/* cart entries are courses or membership plans ("plan_<id>") */
+const itemById = (id) => (isPlanId(id) ? planById(id) : courseById(id));
 const cartIds = () => Object.keys(S.cart || {}).sort((a, b) => num(S.cart[a]) - num(S.cart[b]));
-const cartItems = () => cartIds().map(courseById).filter(Boolean);
+const cartItems = () => cartIds().map(itemById).filter((it) => it && (!isPlanItem(it) || it.buyable));
+const catalogReady = () => S.coursesReady && S.plansReady;
+const memberActive = () => membershipStatus(S.member).key === "active";
+const holdsPlan = (p) => Boolean(p && S.member && S.member.planId === p.planId && memberActive());
 
 function access(id, now = Date.now()) {
   const e = S.enroll[id];
@@ -98,21 +114,22 @@ const owns = (id) => {
    routes — the single source of truth for navigation
    ============================================================ */
 const ROUTES = [
-  { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "batches", "content"] },
-  { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll"] },
-  { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers"] },
+  { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content"] },
+  { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart"] },
+  { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member"] },
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
   { id: "notes", label: "Notes & PDFs", icon: "i-file", group: "Learn", soon: true, blurb: "Outlines, phrase lists and dictation passages, organised by course." },
-  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "cart", "enroll", "offers", "pay"] },
+  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay"] },
   { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders"] },
-  { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", view: vMembership, deps: ["member"] },
+  { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
   { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: [] },
   /* detail screens (not in the menu) */
   { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers"] },
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll"] },
   { id: "success", parent: "orders", view: vSuccess, deps: ["orders"] },
-  { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] }
+  { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] },
+  { id: "join", parent: "membership", view: vJoin, deps: ["plans", "member", "cart"] }
 ];
 const routeById = (id) => ROUTES.find((r) => r.id === id);
 
@@ -151,6 +168,7 @@ function paintNav() {
               `<span>${esc(r.label)}</span>` +
               (r.soon ? `<em class="sp-soon">Soon</em>` : "") +
               (r.badge ? `<b class="sp-count" data-${r.badge}-count hidden>0</b>` : "") +
+              (r.pill ? `<em class="sp-nav-pill" data-${r.pill}-pill hidden></em>` : "") +
               `</a>`
           )
           .join("") +
@@ -186,6 +204,12 @@ function paintBadges() {
   $$("[data-cart-count]").forEach((b) => {
     b.textContent = String(n);
     b.hidden = n === 0;
+  });
+  const st = membershipStatus(S.member);
+  $$("[data-member-pill]").forEach((b) => {
+    b.hidden = st.key === "none";
+    b.textContent = st.key === "active" ? "Active" : st.label;
+    b.classList.toggle("is-off", st.key !== "active");
   });
 }
 
@@ -358,7 +382,32 @@ function coverSrc(c) {
   return "";
 }
 function cover(c, size) {
+  if (isPlanItem(c)) return `<div class="sp-cover">${planMini(c, size)}</div>`;
   return `<div class="sp-cover" data-cover="${esc(c.id)}" data-size="${size || "md"}">${coverHTML(c, coverSrc(c), { size })}</div>`;
+}
+
+/* small plan "cover" for cart lines / rails */
+function planMini(p, size = "md") {
+  return (
+    `<div class="sp-pcv sp-pcv--${esc(size)}" data-theme="${esc(p.theme)}">` +
+    `<span class="sp-pcv-ic">${icon("i-crown")}</span>` +
+    (size === "xs" ? "" : `<b>${esc(p.title)}</b><small>${esc(p.mode)}</small>`) +
+    `<i class="sp-pcv-sheen" aria-hidden="true"></i></div>`
+  );
+}
+
+/* full membership card art — same look as the public Membership page */
+function planVisual(p, holder) {
+  const yr = String(new Date().getFullYear()).slice(-2);
+  const n = String(Math.max(1, S.plans.indexOf(p) + 1)).padStart(2, "0");
+  return (
+    `<div class="mvis mvis--${esc(p.theme || "ink")}"><div class="mvis-in">` +
+    `<div class="mvis-row"><img src="fenxtek-logo.png" alt="" width="30" height="30"><span class="mvis-brand">FenxTek<small>Membership</small></span><span class="mvis-chip" aria-hidden="true"></span></div>` +
+    `<div class="mvis-name">${esc(p.title)}</div>` +
+    `<div class="mvis-row mvis-foot"><span><small>Valid</small>${esc(p.duration || validityLabel(p.validityDays).replace(" access", ""))}</span>` +
+    `<span><small>${holder ? "Member" : "Member no."}</small>${esc(holder || `FX · ${n} · ${yr}`)}</span><span class="mvis-mark" aria-hidden="true">✦</span></div>` +
+    `<span class="mvis-sheen" aria-hidden="true"></span></div></div>`
+  );
 }
 function hydrateCovers(root) {
   $$("[data-cover]", root).forEach((el) => {
@@ -402,19 +451,115 @@ function buyButtons(c, compact) {
   return `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-add="${esc(c.id)}">${icon("i-cart")}<span>${a ? "Renew" : "Add to cart"}</span></button>`;
 }
 
+/* Premium store card (v3): inset cover with badge + discount sticker,
+   kicker, title, a three-cell spec strip, highlights, a price row with a
+   quick add-to-cart button and full-width Explore / Buy now actions.
+   Owned courses swap the price for remaining access and "Continue". */
 function courseCard(c) {
   const a = access(c.id);
+  const active = Boolean(a && a.active);
+  const expired = Boolean(a && !a.active);
+  const inCart = Boolean(S.cart[c.id]);
+  const off = offPercent(c.price, c.mrp);
+  const acc = accentOf(c.accent);
+  const pd = perDay(c.price, c.validityDays);
+  const feats = (c.features || []).slice(0, 2);
+  const href = `#course/${esc(c.id)}`;
+  const validity = c.validityDays ? validityLabel(c.validityDays).replace(" access", "") : "Lifetime";
+  const specs = [
+    ["i-clock", validity, "Validity"],
+    c.lessons ? ["i-play", String(c.lessons), "Lessons"] : ["i-book", c.language, "Language"],
+    ["i-headphones", c.mode, "Mode"]
+  ];
+  const left = active && a.until ? Math.max(4, Math.round((1 - a.progress) * 100)) : 100;
+  const foot = active
+    ? `<div class="sc-prog"><div class="sc-prog-top"><b>${a.until ? `${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"} left` : "Lifetime access"}</b>` +
+      `<small>${a.until ? `till ${esc(formatDate(a.until))}` : "never expires"}</small></div>` +
+      `<span class="sc-meter"><i style="width:${left}%"></i></span></div>` +
+      `<div class="sc-acts"><a class="sc-btn sc-btn--ghost" href="${href}">Details</a>` +
+      `<a class="sc-btn sc-btn--go" href="#learn/${esc(c.id)}">${icon("i-play")}<span>Continue learning</span></a></div>`
+    : `<div class="sc-price"><div class="sc-price-main"><div class="sc-price-row"><b>${c.price ? money(c.price) : "Free"}</b>${off ? `<s>${money(c.mrp)}</s>` : ""}</div>` +
+      `<small>${off ? `<em>Save ${money(c.mrp - c.price)}</em>` : ""}${pd ? `≈ ₹${esc(pd)}/day` : "One-time payment"}</small></div>` +
+      (inCart
+        ? `<a class="sc-cart is-on" href="#cart" title="In your cart" aria-label="In your cart">${icon("i-check")}</a>`
+        : `<button class="sc-cart" type="button" data-add="${esc(c.id)}" title="Add to cart" aria-label="Add ${esc(c.title)} to cart">${icon("i-cart")}<i aria-hidden="true">+</i></button>`) +
+      `</div>` +
+      `<div class="sc-acts"><a class="sc-btn sc-btn--ghost" href="${href}">Explore</a>` +
+      (inCart
+        ? `<a class="sc-btn sc-btn--buy" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+        : `<button class="sc-btn sc-btn--buy" type="button" data-qbuy="${esc(c.id)}"><span>${expired ? "Renew now" : c.price ? "Buy now" : "Get it free"}</span>${icon("i-arr")}</button>`) +
+      `</div>`;
   return (
-    `<article class="sp-card" data-id="${esc(c.id)}">` +
-    `<a class="sp-card-media" href="#course/${esc(c.id)}" aria-label="${esc(c.title)}">${cover(c, "md")}` +
-    (a && a.active ? `<span class="sp-owned-tag">${icon("i-check")}Enrolled</span>` : "") +
-    `</a>` +
-    `<div class="sp-card-body">` +
-    `<a class="sp-card-title" href="#course/${esc(c.id)}">${esc(c.title)}</a>` +
-    (c.subtitle ? `<p class="sp-card-sub">${esc(c.subtitle)}</p>` : "") +
-    `<ul class="sp-meta"><li>${icon("i-clock")}${esc(validityLabel(c.validityDays))}</li><li>${icon("i-headphones")}${esc(c.mode)}</li></ul>` +
-    `<div class="sp-card-foot">${priceHTML(c)}<div class="sp-card-cta">${buyButtons(c, true)}</div></div>` +
+    `<article class="sc${active ? " is-owned" : ""}${inCart ? " is-incart" : ""}" data-id="${esc(c.id)}" style="--acc:${acc.a};--acc2:${acc.b};--acc-t:${acc.text || acc.b}">` +
+    `<a class="sc-media" href="${href}" aria-label="${esc(c.title)}">${cover(c, "md")}` +
+    (c.badge || a
+      ? `<span class="sc-tags">` +
+        (active ? `<span class="sc-owned">${icon("i-check")}Enrolled</span>` : expired ? `<span class="sc-owned is-exp">${icon("i-clock")}Expired</span>` : "") +
+        (c.badge ? `<span class="sc-badge">${icon("i-award")}${esc(c.badge)}</span>` : "") +
+        `</span>`
+      : "") +
+    (off && !active ? `<span class="sc-off"><b>${off}%</b><small>off</small></span>` : "") +
+    `<span class="sc-shine" aria-hidden="true"></span></a>` +
+    `<div class="sc-body">` +
+    `<div class="sc-kick"><span>${esc(c.category)}</span><i aria-hidden="true"></i><span>${esc(c.language)}</span></div>` +
+    `<a class="sc-title" href="${href}">${esc(c.title)}</a>` +
+    (c.subtitle ? `<p class="sc-sub">${esc(c.subtitle)}</p>` : "") +
+    `<ul class="sc-specs">${specs.map(([ic, v, l]) => `<li title="${esc(l)}: ${esc(v)}">${icon(ic)}<b>${esc(v)}</b><small>${l}</small></li>`).join("")}</ul>` +
+    (feats.length ? `<ul class="sc-feats">${feats.map((f) => `<li>${icon("i-check")}<span>${esc(f)}</span></li>`).join("")}</ul>` : "") +
+    `<div class="sc-foot">${foot}</div>` +
     `</div></article>`
+  );
+}
+
+/* Membership plan card (portal version of the public plan card). */
+function planCard(p, focusId) {
+  const held = holdsPlan(p);
+  const off = offPercent(p.price, p.mrp);
+  const pd = perDay(p.price, p.validityDays);
+  const inCart = Boolean(S.cart[p.id]);
+  const other = memberActive() && !held;
+  let cta;
+  if (!p.buyable) {
+    const phone = String(S.content.phone || "+91 73090 82749").replace(/[^\d]/g, "");
+    cta = `<a class="p-btn p-btn--ghost p-btn--block" href="tel:+${phone}">${icon("i-phone")}<span>Call to join</span></a>`;
+  } else if (inCart) {
+    cta = `<a class="p-btn p-btn--lime p-btn--block" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`;
+  } else {
+    cta =
+      `<div class="sp-plan-cta"><button class="p-btn p-btn--lime p-btn--block" type="button" data-buy="${esc(p.id)}">${icon(held ? "i-refresh" : "i-bolt")}<span>${held ? `Extend · ${esc(p.mode)}` : other ? "Switch to this plan" : esc(p.cta && p.cta !== "Choose plan" ? p.cta : "Buy membership")}</span></button>` +
+      `<button class="sp-plan-add" type="button" data-add="${esc(p.id)}" aria-label="Add ${esc(p.title)} to cart" title="Add to cart">${icon("i-cart")}</button></div>`;
+  }
+  return (
+    `<article class="sp-plan${p.highlight ? " is-hot" : ""}${focusId && (focusId === p.planId || focusId === p.id) ? " is-focus" : ""}" data-theme="${esc(p.theme)}" id="plan-${esc(p.planId)}">` +
+    `<div class="sp-plan-top"><span class="sp-plan-n">${esc(p.mode)}</span>` +
+    (held ? `<span class="sp-plan-flag is-cur">${icon("i-check")}Your plan</span>` : p.highlight ? `<span class="sp-plan-flag">${esc(p.badge || "Most popular")}</span>` : "") +
+    `</div>` +
+    `<div class="sp-plan-vis">${planVisual(p)}</div>` +
+    `<div class="sp-plan-body">` +
+    `<h3>${esc(p.title)}</h3>${p.subtitle ? `<p class="sp-plan-tag">${esc(p.subtitle)}</p>` : ""}` +
+    `<div class="sp-plan-price"><b>${p.price ? money(p.price) : "Free"}</b><span>/ ${esc(p.mode)}</span></div>` +
+    `<div class="sp-plan-sub">${off ? `<s>${money(p.mrp)}</s><em>Save ${off}%</em>` : ""}${pd ? `<span>≈ ₹${esc(pd)} a day</span>` : ""}</div>` +
+    cta +
+    (other && p.buyable ? `<p class="sp-plan-note">${icon("i-info")}Starts on payment and replaces your current plan.</p>` : "") +
+    (held && p.buyable ? `<p class="sp-plan-note">${icon("i-info")}Extends from ${esc(formatDate(S.member.endAt))} — no days lost.</p>` : "") +
+    (p.features.length ? `<span class="sp-plan-inc">What’s included</span><ul class="sp-plan-feats">${p.features.map((f) => `<li>${icon("i-check")}<span>${esc(f)}</span></li>`).join("")}</ul>` : "") +
+    `</div></article>`
+  );
+}
+
+/* slim promo used on Home and in the store */
+function memberPromo(kind) {
+  if (memberActive()) return "";
+  const list = S.plans.filter((p) => p.buyable);
+  if (!list.length) return "";
+  const from = Math.min(...list.map((p) => p.price));
+  const best = list.find((p) => p.highlight) || list[0];
+  return (
+    `<a class="sp-mpromo sp-mpromo--${kind}" href="#membership">` +
+    `<span class="sp-mpromo-card" aria-hidden="true">${planMini(best, "sm")}</span>` +
+    `<span class="sp-mpromo-txt"><span class="sp-k sp-k--light">FenxTek membership</span><b>${kind === "store" ? "One plan. Everything you need to crack steno." : "Go all-in with a membership"}</b>` +
+    `<small>${list.length} plan${list.length === 1 ? "" : "s"} · from ${money(from)} · instant receipt</small></span>` +
+    `<span class="p-btn p-btn--lime p-btn--sm">${icon("i-crown")}<span>View plans</span></span></a>`
   );
 }
 
@@ -436,6 +581,13 @@ function bindAdd(root) {
       addToCart(b.dataset.add, b);
     })
   );
+  /* card "Buy now" / "Renew": add to cart and open checkout */
+  $$("[data-qbuy]", root).forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      addToCart(b.dataset.qbuy, b, true);
+    })
+  );
 }
 
 function sectionHead(k, title, link) {
@@ -446,9 +598,14 @@ function sectionHead(k, title, link) {
    cart + coupon actions
    ============================================================ */
 async function addToCart(id, btn, thenGo) {
-  const c = courseById(id);
+  const c = itemById(id);
   if (!c) return;
-  if (owns(id) && !thenGo) {
+  const plan = isPlanItem(c);
+  if (plan && !c.buyable) {
+    toast("This plan can’t be bought online yet — call the academy to join.", "err");
+    return;
+  }
+  if (!plan && owns(id) && !thenGo) {
     toast("You’re already enrolled in this course.");
     return;
   }
@@ -457,16 +614,25 @@ async function addToCart(id, btn, thenGo) {
     return;
   }
   const at = Date.now();
-  S.cart = { ...S.cart, [id]: at };
+  const prev = S.cart;
+  const next = { ...S.cart, [id]: at };
+  /* one membership per order — a new plan replaces the one in the cart */
+  const swapped = plan ? Object.keys(next).filter((k) => k !== id && isPlanId(k)) : [];
+  swapped.forEach((k) => delete next[k]);
+  S.cart = next;
   changed("cart");
   try {
-    await dbSet(`${PATH.carts}/${S.user.uid}/${id}`, at);
+    if (swapped.length) {
+      const updates = { [`${PATH.carts}/${S.user.uid}/${id}`]: at };
+      swapped.forEach((k) => (updates[`${PATH.carts}/${S.user.uid}/${k}`] = null));
+      await dbUpdateRoot(updates);
+    } else {
+      await dbSet(`${PATH.carts}/${S.user.uid}/${id}`, at);
+    }
     if (thenGo) go("#cart");
-    else toast(`Added “${c.title}” to your cart`);
+    else toast(swapped.length ? `Swapped your plan for “${c.title}”` : `Added “${c.title}” to your cart`);
   } catch (err) {
-    const next = { ...S.cart };
-    delete next[id];
-    S.cart = next;
+    S.cart = prev;
     changed("cart");
     toast(friendlyError(err), "err");
   }
@@ -552,15 +718,26 @@ async function placeOrder({ status, method, extra = {} }) {
 
   const itemMap = {};
   items.forEach((c) => {
-    itemMap[c.id] = {
-      title: c.title,
-      price: c.price,
-      mrp: Math.max(c.mrp, c.price),
-      validityDays: c.validityDays,
-      category: c.category,
-      mode: c.mode,
-      language: c.language
-    };
+    itemMap[c.id] = isPlanItem(c)
+      ? {
+          kind: "plan",
+          planId: c.planId,
+          title: c.title,
+          price: c.price,
+          mrp: Math.max(c.mrp, c.price),
+          validityDays: c.validityDays,
+          category: "Membership",
+          mode: c.mode
+        }
+      : {
+          title: c.title,
+          price: c.price,
+          mrp: Math.max(c.mrp, c.price),
+          validityDays: c.validityDays,
+          category: c.category,
+          mode: c.mode,
+          language: c.language
+        };
   });
 
   const order = {
@@ -599,8 +776,15 @@ async function placeOrder({ status, method, extra = {} }) {
     updates[`${PATH.couponUsage}/${fresh.code}/users/${uid}`] = oid;
   }
 
+  let memberRec = null;
   if (status === "paid") {
-    items.forEach((c) => {
+    const plan = items.find(isPlanItem);
+    if (plan) {
+      memberRec = memberRecordFor(plan, { id: oid, orderNo, name: order.name, email: order.email }, S.member, now);
+      if (items.length === 1) memberRec.paid = pricing.total;
+      updates[`${PATH.members}/${uid}`] = memberRec;
+    }
+    items.filter((c) => !isPlanItem(c)).forEach((c) => {
       const prev = S.enroll[c.id];
       let until = 0;
       if (prev && num(prev.until) === 0 && prev.orderId) until = 0;
@@ -623,6 +807,10 @@ async function placeOrder({ status, method, extra = {} }) {
     Object.keys(updates)
       .filter((k) => k.startsWith(`${PATH.enrollments}/`))
       .forEach((k) => (S.enroll[k.split("/").pop()] = updates[k]));
+    if (memberRec) {
+      S.member = memberRec;
+      changed("member");
+    }
   }
   changed("cart");
   changed("orders");
@@ -634,8 +822,17 @@ function payHeader(pricing) {
   return (
     `<div class="sp-pay-head"><span class="sp-k">Secure checkout</span>` +
     `<h3>Pay ${money(pricing.total)}</h3>` +
-    `<p>${pricing.count} course${pricing.count === 1 ? "" : "s"}${pricing.discount ? ` · coupon saves ${money(pricing.discount)}` : ""}</p></div>`
+    `<p>${esc(countLabel(cartItems()))}${pricing.discount ? ` · coupon saves ${money(pricing.discount)}` : ""}</p></div>`
   );
+}
+
+function countLabel(items) {
+  const plans = items.filter(isPlanItem).length;
+  const courses = items.length - plans;
+  const parts = [];
+  if (courses) parts.push(`${courses} course${courses === 1 ? "" : "s"}`);
+  if (plans) parts.push(courses ? "membership" : "1 membership");
+  return parts.join(" + ") || "0 items";
 }
 
 function openCheckout() {
@@ -648,7 +845,7 @@ function openCheckout() {
   if (pricing.total === 0) {
     openModal(
       payHeader(pricing) +
-        `<div class="sp-pay-free">${icon("i-gift")}<p>Your coupon covers the full amount. Confirm to enrol instantly — a receipt is generated for your records.</p></div>` +
+        `<div class="sp-pay-free">${icon("i-gift")}<p>Your coupon covers the full amount. Confirm to unlock it instantly — a receipt is generated for your records.</p></div>` +
         `<button class="p-btn p-btn--lime p-btn--block" type="button" id="spFreeGo">${icon("i-check")}<span>Confirm &amp; enrol</span></button>`,
       {
         onMount: (m) => {
@@ -694,8 +891,8 @@ function openCheckout() {
           (m, i) =>
             `<label class="sp-method"><input type="radio" name="spMethod" value="${m}"${i === 0 ? " checked" : ""}>` +
             (m === "razorpay"
-              ? `<span class="sp-method-ic">${icon("i-card")}</span><span><b>Card, UPI, netbanking, wallets</b><small>Instant enrolment · powered by Razorpay</small></span>`
-              : `<span class="sp-method-ic">${icon("i-qr")}</span><span><b>Pay by UPI QR / UPI ID</b><small>Enrolled after the academy verifies your payment</small></span>`) +
+              ? `<span class="sp-method-ic">${icon("i-card")}</span><span><b>Card, UPI, netbanking, wallets</b><small>Instant access · powered by Razorpay</small></span>`
+              : `<span class="sp-method-ic">${icon("i-qr")}</span><span><b>Pay by UPI QR / UPI ID</b><small>Unlocked after the academy verifies your payment</small></span>`) +
             `</label>`
         )
         .join("") +
@@ -880,11 +1077,12 @@ function vHome() {
     stat("i-receipt", S.orders.length, pendingOrders ? `Orders · ${pendingOrders} pending` : "Orders", "#orders") +
     stat("i-tag", money(saved), "Total saved", "#orders") +
     `</div>` +
+    memberPromo("home") +
     (ann ? `<section class="sp-announce">${icon("i-bolt")}<div><span class="sp-k">From the academy</span><p>${esc(ann)}</p></div></section>` : "") +
     `<section class="sp-sec">` +
     sectionHead("Continue", "My courses", activeOwned.length ? `<a class="sp-link" href="#my-courses">View all ${icon("i-arr")}</a>` : "") +
     (activeOwned.length
-      ? `<div class="sp-rail">${activeOwned.slice(0, 4).map(ownedCard).join("")}</div>`
+      ? `<div class="sp-lc-grid">${activeOwned.slice(0, 3).map(ownedCard).join("")}</div>`
       : empty("i-book", "No courses yet", "Courses you buy appear here with their validity and class links.", `<a class="p-btn p-btn--sm" href="#store">${icon("i-bolt")}<span>Browse the store</span></a>`)) +
     `</section>` +
     (S.coursesReady && recs.length
@@ -910,16 +1108,47 @@ function stat(ic, value, label, href) {
   return `<a class="sp-stat" href="${href}"><span class="sp-stat-ic">${icon(ic)}</span><b>${esc(value)}</b><span>${esc(label)}</span></a>`;
 }
 
+/* Learn tile (My courses + Home): cover with status pill and play button,
+   a ring showing how much access is left, and Continue / Renew / Receipt. */
 function ownedCard(c) {
-  const a = access(c.id);
-  const pct = a && a.until ? Math.round((1 - a.progress) * 100) : 100;
+  const a = access(c.id) || { active: false, until: 0, daysLeft: 0, progress: 1 };
+  const acc = accentOf(c.accent);
+  const life = a.active && !a.until;
+  const total = a.until ? Math.max(1, Math.round((num(a.until) - num(a.since)) / DAY)) : 0;
+  const frac = life ? 1 : a.active ? Math.max(0.03, 1 - a.progress) : 0;
+  const state = !a.active ? "expired" : life ? "life" : a.daysLeft <= 7 ? "ending" : "active";
+  const label = { expired: "Expired", life: "Lifetime", ending: `Ends in ${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"}`, active: "Active" }[state];
+  const R = 19;
+  const L = +(2 * Math.PI * R).toFixed(2);
+  const learn = `#learn/${esc(c.id)}`;
+  const hasOrder = a.orderId && S.orders.some((o) => o.id === a.orderId);
   return (
-    `<a class="sp-owned${a && a.active ? "" : " is-expired"}" href="#learn/${esc(c.id)}">` +
-    `${cover(c, "sm")}` +
-    `<div class="sp-owned-body"><b>${esc(c.title)}</b>` +
-    `<span class="sp-owned-meta">${a && a.active ? (a.until ? `${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"} left · till ${formatDate(a.until)}` : "Lifetime access") : `Expired on ${formatDate(a && a.until)}`}</span>` +
-    `<span class="sp-bar"><i style="width:${pct}%"></i></span></div>` +
-    `<span class="sp-owned-go">${icon(a && a.active ? "i-play" : "i-refresh")}</span></a>`
+    `<article class="lc lc--${state}" style="--acc:${acc.a};--acc2:${acc.b};--acc-t:${acc.text || acc.b}">` +
+    `<a class="lc-media" href="${learn}" aria-label="${esc(a.active ? "Open" : "Renew")} ${esc(c.title)}">${cover(c, "md")}` +
+    `<span class="lc-status"><i aria-hidden="true"></i>${esc(label)}</span>` +
+    `<span class="lc-play" aria-hidden="true">${icon(a.active ? "i-play" : "i-lock")}</span>` +
+    `<span class="sc-shine" aria-hidden="true"></span></a>` +
+    `<div class="lc-body">` +
+    `<div class="sc-kick"><span>${esc(c.category)}</span><i aria-hidden="true"></i><span>${esc(c.language)}</span></div>` +
+    `<a class="lc-title" href="${learn}">${esc(c.title)}</a>` +
+    `<div class="lc-meter">` +
+    `<span class="lc-ring"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="lc-ring-bg" cx="22" cy="22" r="${R}"/>` +
+    `<circle class="lc-ring-fg" cx="22" cy="22" r="${R}" stroke-dasharray="${L}" stroke-dashoffset="${(L * (1 - frac)).toFixed(2)}"/></svg>` +
+    (a.active ? `<b>${life ? "∞" : a.daysLeft}</b>` : icon("i-clock")) + `</span>` +
+    `<div class="lc-meter-txt"><b>${life ? "Lifetime access" : a.active ? `${a.daysLeft} of ${total} days left` : "Access ended"}</b>` +
+    `<small>${life ? "Never expires" : a.active ? `Valid till ${esc(formatDate(a.until))}` : `Expired on ${esc(formatDate(a.until))}`}</small></div>` +
+    `</div>` +
+    `<div class="lc-acts">` +
+    (a.active
+      ? `<a class="sc-btn sc-btn--go" href="${learn}">${icon("i-play")}<span>Continue learning</span></a>`
+      : S.cart[c.id]
+      ? `<a class="sc-btn sc-btn--buy" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+      : courseById(c.id)
+      ? `<button class="sc-btn sc-btn--buy" type="button" data-qbuy="${esc(c.id)}">${icon("i-refresh")}<span>Renew course</span></button>`
+      : `<a class="sc-btn sc-btn--ghost" href="contact.html">${icon("i-phone")}<span>Ask the academy</span></a>`) +
+    (hasOrder ? `<a class="sc-ico" href="#receipt/${esc(a.orderId)}" title="Receipt" aria-label="Receipt">${icon("i-receipt")}</a>` : "") +
+    (courseById(c.id) ? `<a class="sc-ico" href="#course/${esc(c.id)}" title="Course details" aria-label="Course details">${icon("i-info")}</a>` : "") +
+    `</div></div></article>`
   );
 }
 
@@ -937,13 +1166,13 @@ function vMyCourses() {
   const html =
     (owned.length
       ? `<section class="sp-sec">${sectionHead("Enrolled", `Active <span class="sp-pill-n">${active.length}</span>`)}` +
-        (active.length ? `<div class="sp-owned-grid">${active.map(ownedCard).join("")}</div>` : `<p class="sp-muted">No active courses — renew one below.</p>`) +
+        (active.length ? `<div class="sp-lc-grid">${active.map(ownedCard).join("")}</div>` : `<p class="sp-muted">No active courses — renew one below.</p>`) +
         `</section>` +
         (expired.length
-          ? `<section class="sp-sec">${sectionHead("History", `Expired <span class="sp-pill-n">${expired.length}</span>`)}<div class="sp-owned-grid">${expired.map(ownedCard).join("")}</div></section>`
+          ? `<section class="sp-sec">${sectionHead("History", `Expired <span class="sp-pill-n">${expired.length}</span>`)}<div class="sp-lc-grid">${expired.map(ownedCard).join("")}</div></section>`
           : "")
       : empty("i-book", "You haven’t enrolled in a course yet", "Browse the store, add a course to your cart and apply a coupon if you have one.", `<a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-bolt")}<span>Explore courses</span></a>`));
-  return { title: "My courses", html };
+  return { title: "My courses", html, mount: bindAdd };
 }
 
 function vStore() {
@@ -954,6 +1183,7 @@ function vStore() {
     (offer
       ? `<div class="sp-offer">${icon("i-gift")}<span>Use code <b>${esc(offer.code)}</b> — ${esc(offer.label)}</span><button type="button" class="sp-offer-copy" data-copy="${esc(offer.code)}">${icon("i-copy")}Copy</button></div>`
       : "") +
+    memberPromo("store") +
     `<div class="sp-toolbar" data-sp-keep>` +
     `<label class="sp-search">${icon("i-search")}<input type="search" id="spQ" placeholder="Search courses, exams, speeds…" value="${esc(f.q)}" autocomplete="off"></label>` +
     `<label class="sp-sort">${icon("i-filter")}<select id="spSort" aria-label="Sort">` +
@@ -1124,16 +1354,19 @@ function fact(ic, k, v) {
 function vCart() {
   const items = cartItems();
   /* drop stale entries (course deleted / unpublished) */
-  if (S.coursesReady) {
+  if (catalogReady()) {
     cartIds()
-      .filter((id) => !courseById(id))
+      .filter((id) => {
+        const it = itemById(id);
+        return !it || (isPlanItem(it) && !it.buyable);
+      })
       .forEach((id) => dbSet(`${PATH.carts}/${S.user.uid}/${id}`, null).catch(() => {}));
   }
   if (!items.length) {
     return {
       title: "Cart",
       crumb: "Purchases",
-      html: empty("i-cart", "Your cart is empty", "Add courses from the store — you can apply a coupon at checkout.", `<a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-bolt")}<span>Browse courses</span></a>`)
+      html: empty("i-cart", "Your cart is empty", "Add courses or a membership plan — you can apply a coupon at checkout.", `<div class="sp-empty-acts"><a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-bolt")}<span>Browse courses</span></a><a class="p-btn p-btn--ghost p-btn--sm" href="#membership">${icon("i-crown")}<span>Membership plans</span></a></div>`)
     };
   }
   const check = couponCheck();
@@ -1153,16 +1386,19 @@ function vCart() {
   const html =
     `<div class="sp-cart">` +
     `<div class="sp-cart-main">` +
-    `<section class="sp-panel sp-panel--flush"><div class="sp-cart-head"><h3>${items.length} course${items.length === 1 ? "" : "s"} in cart</h3><a class="sp-link" href="#store">${icon("i-plus")}Add more</a></div>` +
+    `<section class="sp-panel sp-panel--flush"><div class="sp-cart-head"><h3>${esc(countLabel(items))} in cart</h3><a class="sp-link" href="#store">${icon("i-plus")}Add more</a></div>` +
     `<ul class="sp-lines">` +
     items
       .map((c) => {
         const disc = applied && applied.check.eligibleIds.includes(c.id);
+        const plan = isPlanItem(c);
+        const href = plan ? `#membership/${esc(c.planId)}` : `#course/${esc(c.id)}`;
+        const note = plan ? (holdsPlan(c) ? ` · <em>extension</em>` : memberActive() ? ` · <em>replaces current plan</em>` : "") : owns(c.id) ? ` · <em>renewal</em>` : "";
         return (
-          `<li class="sp-line">` +
-          `<a class="sp-line-cover" href="#course/${esc(c.id)}">${cover(c, "xs")}</a>` +
-          `<div class="sp-line-body"><a href="#course/${esc(c.id)}" class="sp-line-title">${esc(c.title)}</a>` +
-          `<span class="sp-line-meta">${esc(validityLabel(c.validityDays))} · ${esc(c.mode)}${owns(c.id) ? ` · <em>renewal</em>` : ""}</span>` +
+          `<li class="sp-line${plan ? " is-plan" : ""}">` +
+          `<a class="sp-line-cover" href="${href}">${cover(c, "xs")}</a>` +
+          `<div class="sp-line-body"><a href="${href}" class="sp-line-title">${plan ? `<span class="sp-line-kind">${icon("i-crown")}Membership</span>` : ""}${esc(c.title)}</a>` +
+          `<span class="sp-line-meta">${esc(validityLabel(c.validityDays))}${plan ? "" : ` · ${esc(c.mode)}`}${note}</span>` +
           (disc ? `<span class="sp-line-coupon">${icon("i-tag")}Coupon applied</span>` : "") +
           `</div>` +
           `<div class="sp-line-price">${priceHTML(c)}<button type="button" class="sp-line-rm" data-rm="${esc(c.id)}" aria-label="Remove ${esc(c.title)}">${icon("i-trash")}<span>Remove</span></button></div>` +
@@ -1193,16 +1429,16 @@ function vCart() {
     `<section class="sp-panel sp-summary"><span class="sp-k">Order summary</span>` +
     `<dl>` +
     `<div><dt>MRP total</dt><dd>${money(p.mrpTotal)}</dd></div>` +
-    (p.courseSavings ? `<div class="is-save"><dt>Course discount</dt><dd>− ${money(p.courseSavings)}</dd></div>` : "") +
+    (p.courseSavings ? `<div class="is-save"><dt>Discount on MRP</dt><dd>− ${money(p.courseSavings)}</dd></div>` : "") +
     (p.discount ? `<div class="is-save"><dt>Coupon (${esc(S.coupon.code)})</dt><dd>− ${money(p.discount)}</dd></div>` : "") +
     `<div class="is-total"><dt>To pay</dt><dd>${money(p.total)}</dd></div>` +
     `</dl>` +
     (p.savings ? `<p class="sp-savebar">${icon("i-gift")}You’re saving ${money(p.savings)} on this order</p>` : "") +
-    `<button class="p-btn p-btn--lime p-btn--block sp-paybtn" type="button" id="spCheckout">${icon("i-shield")}<span>${p.total ? `Proceed to pay ${money(p.total)}` : "Enrol for free"}</span></button>` +
+    `<button class="p-btn p-btn--lime p-btn--block sp-paybtn" type="button" id="spCheckout">${icon("i-shield")}<span>${p.total ? `Proceed to pay ${money(p.total)}` : "Get it free"}</span></button>` +
     `<p class="sp-pay-note">${icon("i-lock")}Inclusive of all taxes · Receipt generated instantly</p>` +
     `</section></aside></div>` +
     `<div class="sp-mpay"><div><span>To pay</span><b>${money(p.total)}</b>${p.savings ? `<small>Saving ${money(p.savings)}</small>` : ""}</div>` +
-    `<button class="p-btn p-btn--lime" type="button" id="spMPay">${icon("i-shield")}<span>${p.total ? "Pay now" : "Enrol free"}</span></button></div>`;
+    `<button class="p-btn p-btn--lime" type="button" id="spMPay">${icon("i-shield")}<span>${p.total ? "Pay now" : "Get it free"}</span></button></div>`;
 
   return {
     title: "Cart",
@@ -1325,17 +1561,29 @@ function vSuccess(id) {
   }
   const items = orderItems(o);
   const paid = o.status === "paid";
+  const planIt = items.find(isPlanItem);
+  const onlyPlan = planIt && items.length === 1;
+  const mem = planIt && S.member && S.member.orderId === o.id ? S.member : null;
+  const head = paid ? (onlyPlan ? `Welcome to ${planIt.title}!` : "You’re enrolled!") : "We’re verifying your payment";
+  const lead = paid
+    ? onlyPlan
+      ? `Your membership is active${mem && num(mem.endAt) ? ` till <b>${esc(formatDate(mem.endAt))}</b>` : ""}. Your premium receipt is ready to download.`
+      : planIt
+      ? "Your courses are unlocked and your membership is active. Your premium receipt is ready to download."
+      : "Your course is unlocked under My courses. Your premium receipt is ready to download."
+    : `The academy will match UTR <b>${esc(o.utr || "")}</b> with the payment and ${onlyPlan ? "activate your membership" : "unlock your purchase"} — usually within a few hours.`;
   const html =
     `<section class="sp-success${paid ? "" : " is-pending"}">` +
     `<div class="sp-success-burst" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => `<i style="--a:${i * (360 / 14)}deg;--d:${(i % 4) * 0.05}s"></i>`).join("")}</div>` +
     `<span class="sp-success-ic">${icon(paid ? "i-check" : "i-clock")}</span>` +
     `<span class="sp-k">${paid ? "Payment successful" : "Payment submitted"}</span>` +
-    `<h2>${paid ? "You’re enrolled!" : "We’re verifying your payment"}</h2>` +
-    `<p>${paid ? "Your course is unlocked under My courses. Your premium receipt is ready to download." : `The academy will match UTR <b>${esc(o.utr || "")}</b> with the payment and unlock your course — you’ll see it under My courses.`}</p>` +
-    `<div class="sp-success-card"><div><span>Order</span><b>${esc(o.orderNo)}</b></div><div><span>Amount</span><b>${money(o.total)}</b></div><div><span>Courses</span><b>${items.length}</b></div>${num(o.discount) ? `<div><span>Saved</span><b>${money(Math.max(0, num(o.mrpTotal) - num(o.total)))}</b></div>` : ""}</div>` +
+    `<h2>${esc(head)}</h2>` +
+    `<p>${lead}</p>` +
+    `<div class="sp-success-card"><div><span>Order</span><b>${esc(o.orderNo)}</b></div><div><span>Amount</span><b>${money(o.total)}</b></div><div><span>${planIt ? "Items" : "Courses"}</span><b>${items.length}</b></div>${num(o.discount) ? `<div><span>Saved</span><b>${money(Math.max(0, num(o.mrpTotal) - num(o.total)))}</b></div>` : ""}</div>` +
     `<div class="sp-success-cta">` +
     (paid
-      ? `<button class="p-btn p-btn--lime" type="button" id="spDl">${icon("i-download")}<span>Download receipt (PNG)</span></button><a class="p-btn" href="#my-courses">${icon("i-play")}<span>Start learning</span></a>`
+      ? `<button class="p-btn p-btn--lime" type="button" id="spDl">${icon("i-download")}<span>Download receipt (PNG)</span></button>` +
+        (onlyPlan ? `<a class="p-btn" href="#membership">${icon("i-crown")}<span>View membership</span></a>` : `<a class="p-btn" href="#my-courses">${icon("i-play")}<span>Start learning</span></a>`)
       : `<a class="p-btn p-btn--lime" href="#orders">${icon("i-receipt")}<span>Track order</span></a><a class="p-btn p-btn--ghost" href="#store">${icon("i-bolt")}<span>Keep browsing</span></a>`) +
     `</div></section>`;
   return {
@@ -1430,27 +1678,126 @@ function vLearn(id) {
   };
 }
 
-function vMembership() {
+function vMembership(focus) {
   const rec = S.member;
   const st = membershipStatus(rec);
-  let body;
-  if (st.key === "none") {
-    body = empty("i-crown", "No membership yet", "Pick a plan on the Membership page — once the academy confirms your payment, your plan and validity show up here.", `<a class="p-btn p-btn--sm" href="membership.html#plans">${icon("i-arr-ur")}<span>See membership plans</span></a>`);
-  } else {
+  const plans = S.plans;
+  const current = rec ? planById(rec.planId) : null;
+  const holder = String(S.profile.name || S.user.displayName || "").trim() || "Member";
+  const planOffers = S.offers.filter((o) => {
+    const ids = couponScopeIds(o);
+    return !ids || ids.some(isPlanId);
+  });
+
+  /* ---- hero: the student's membership, or the pitch ---- */
+  let hero;
+  if (st.key !== "none") {
     const left = daysLeft(rec);
     const start = num(rec.startAt);
     const end = num(rec.endAt);
     const pct = end > start ? Math.min(100, Math.max(0, ((Date.now() - start) / (end - start)) * 100)) : 0;
-    body =
-      `<section class="sp-member">` +
-      `<div class="sp-member-top"><span class="sp-member-ic">${icon("i-crown")}</span><div><span class="sp-k sp-k--light">Membership</span><h2>${esc(rec.planName || "Membership")}</h2></div>` +
-      `<span class="sp-status sp-status--${st.key === "active" ? "ok" : "muted"}">${esc(st.label)}</span></div>` +
+    const visPlan = current || { title: rec.planName || "Membership", theme: "ink", duration: "", validityDays: end && start ? Math.round((end - start) / DAY) : 0 };
+    const canExtend = current && current.buyable;
+    const tone = st.key === "active" ? "ok" : st.key === "expired" || st.key === "cancelled" ? "err" : "muted";
+    hero =
+      `<section class="sp-mhero">` +
+      `<div class="sp-mhero-vis">${planVisual(visPlan, holder)}</div>` +
+      `<div class="sp-mhero-body">` +
+      `<div class="sp-mhero-top"><span class="sp-k sp-k--light">Your membership</span><span class="sp-status sp-status--${tone}">${esc(st.label)}</span></div>` +
+      `<h2>${esc(rec.planName || visPlan.title)}</h2>` +
       `<div class="sp-member-dates"><div><span>Started</span><b>${esc(formatDate(start))}</b></div><div><span>Valid till</span><b>${end ? esc(formatDate(end)) : "Open-ended"}</b></div><div><span>Days left</span><b>${left == null ? "∞" : left}</b></div></div>` +
-      (end ? `<span class="sp-bar sp-bar--light"><i style="width:${(100 - pct).toFixed(1)}%"></i></span>` : "") +
-      `<a class="p-btn p-btn--lime p-btn--sm" href="membership.html#plans">${icon("i-arr-ur")}<span>${st.key === "active" ? "Compare plans" : "Renew membership"}</span></a>` +
+      (end ? `<div class="sp-mhero-bar"><span class="sp-bar sp-bar--light"><i style="width:${(100 - pct).toFixed(1)}%"></i></span><small>${st.key === "active" ? `${left} of ${Math.max(1, Math.round((end - start) / DAY))} days remaining` : st.key === "expired" ? "Your plan has ended — renew to continue" : esc(st.label)}</small></div>` : "") +
+      `<div class="sp-mhero-cta">` +
+      (canExtend
+        ? S.cart[current.id]
+          ? `<a class="p-btn p-btn--lime p-btn--sm" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+          : `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-buy="${esc(current.id)}">${icon("i-refresh")}<span>${st.key === "active" ? "Extend plan" : "Renew plan"}</span></button>`
+        : "") +
+      (plans.length > (current ? 1 : 0) ? `<a class="p-btn p-btn--ghost sp-btn-onDark p-btn--sm" href="#spPlans" data-jump>${icon("i-crown")}<span>${st.key === "active" ? "Compare plans" : "See all plans"}</span></a>` : "") +
+      (rec.orderId && S.orders.some((o) => o.id === rec.orderId) ? `<a class="p-btn p-btn--ghost sp-btn-onDark p-btn--sm" href="#receipt/${esc(rec.orderId)}">${icon("i-receipt")}<span>Receipt</span></a>` : "") +
+      `</div></div></section>`;
+  } else {
+    const lead = plans.find((p) => p.highlight) || plans[0];
+    hero =
+      `<section class="sp-mhero sp-mhero--pitch">` +
+      `<div class="sp-mhero-body">` +
+      `<span class="sp-k sp-k--light">FenxTek membership</span>` +
+      `<h2>One plan for your <em>whole</em> steno prep.</h2>` +
+      `<p>Pick a plan, pay securely and it’s active right away — with a premium receipt, coupon support and renewals that never lose a day.</p>` +
+      `<ul class="sp-mhero-perks"><li>${icon("i-zap")}Instant activation</li><li>${icon("i-tag")}Coupons accepted</li><li>${icon("i-receipt")}PNG receipt</li><li>${icon("i-refresh")}Renew anytime</li></ul>` +
+      (plans.length ? `<a class="p-btn p-btn--lime p-btn--sm" href="#spPlans" data-jump>${icon("i-crown")}<span>Choose a plan</span></a>` : "") +
+      `</div>` +
+      (lead ? `<div class="sp-mhero-vis sp-mhero-vis--stack">${plans.slice(0, 3).reverse().map((p, i, arr) => `<div class="sp-mstack" style="--i:${arr.length - 1 - i}">${planVisual(p)}</div>`).join("")}</div>` : "") +
       `</section>`;
   }
-  return { title: "Membership", crumb: "Purchases", html: body };
+
+  /* ---- plans ---- */
+  let plansHtml;
+  if (!S.plansReady) plansHtml = skeletonGrid(3);
+  else if (!plans.length)
+    plansHtml = empty("i-crown", "Plans are coming soon", "The academy hasn’t published membership plans yet. Call us to join a batch today.", `<a class="p-btn p-btn--sm" href="contact.html">${icon("i-phone")}<span>Talk to the academy</span></a>`);
+  else plansHtml = `<div class="sp-plans" data-n="${Math.min(plans.length, 4)}">${plans.map((p) => planCard(p, focus)).join("")}</div>`;
+
+  const html =
+    hero +
+    `<section class="sp-sec" id="spPlans">` +
+    sectionHead("Plans", st.key === "active" ? "Extend or switch your plan" : "Choose your plan", planOffers.length ? `<span class="sp-muted sp-small">${icon("i-tag")} ${planOffers.length} offer${planOffers.length === 1 ? "" : "s"} available</span>` : "") +
+    (planOffers.length
+      ? `<div class="sp-offers sp-offers--row">${planOffers
+          .slice(0, 3)
+          .map((o) => `<button type="button" class="sp-coupon-tile" data-copy="${esc(o.code)}">${icon("i-tag")}<span><b>${esc(o.code)}</b><small>${esc(o.label)}</small></span>${icon("i-copy")}</button>`)
+          .join("")}</div>`
+      : "") +
+    plansHtml +
+    `</section>` +
+    `<section class="sp-panel sp-howto"><span class="sp-k">How it works</span><h3>Membership in three steps</h3><ol>` +
+    `<li><b>Pick a plan</b><span>Add it to your cart — courses can go in the same order.</span></li>` +
+    `<li><b>Apply a coupon &amp; pay</b><span>Card, UPI or netbanking. UPI payments are verified by the academy.</span></li>` +
+    `<li><b>You’re a member</b><span>Validity shows here; renewing extends from your end date.</span></li></ol></section>`;
+
+  return {
+    title: "Membership",
+    crumb: "Purchases",
+    html,
+    mount(root) {
+      bindAdd(root);
+      $$("[data-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.buy, b, true)));
+      $$("[data-copy]", root).forEach((b) => b.addEventListener("click", () => copyText(b.dataset.copy)));
+      $$("[data-jump]", root).forEach((a) =>
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          const t = $("#spPlans", root);
+          if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+        })
+      );
+      const f = focus && $(`#plan-${CSS.escape(focus)}`, root);
+      if (f) setTimeout(() => f.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+    }
+  };
+}
+
+/* #join/<planId> — deep link from the public Membership page:
+   puts the plan in the cart and opens checkout. */
+let joinHandled = "";
+function vJoin(planId) {
+  if (!S.plansReady) return { title: "Membership", crumb: "Purchases", html: skeletonGrid(1) };
+  const p = planById(planId);
+  return {
+    title: "Membership",
+    crumb: "Purchases",
+    html: `<div class="sp-boot-card" style="padding:60px 0"><span class="sp-spin sp-spin--lg"></span><b>Preparing your plan…</b></div>`,
+    mount() {
+      if (joinHandled === planId) return;
+      joinHandled = planId;
+      setTimeout(() => {
+        if (p && p.buyable) addToCart(p.id, null, true);
+        else {
+          if (p) toast("This plan can’t be bought online yet — call the academy to join.", "err");
+          location.replace(`#membership${p ? "/" + encodeURIComponent(p.planId) : ""}`);
+        }
+      }, 0);
+    }
+  };
 }
 
 function vProfile() {
@@ -1642,6 +1989,12 @@ async function init() {
   dbWatch(`${PATH.enrollments}/${user.uid}`, (v) => {
     S.enroll = v && typeof v === "object" ? v : {};
     changed("enroll");
+  });
+  dbWatch(PATH.plans, (v) => {
+    S.plans = plansFrom(v);
+    S.plansReady = true;
+    changed("plans");
+    changed("cart");
   });
   dbWatch(`members/${user.uid}`, (v) => {
     S.member = v;

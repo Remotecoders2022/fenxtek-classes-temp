@@ -15,7 +15,7 @@ Static multi-page website with a student portal and an admin CRM. Pages are plai
 | `membership.html` | Membership plans (from RTDB), "your membership" banner for signed-in students, FAQ |
 | `contact.html` | Join form and contact details |
 | `auth.html` | Student sign in / sign up (email + Google) |
-| `dashboard.html` | Student portal app: home, My courses + classroom, Course store, course pages, cart with coupons, checkout, orders and PNG receipts, membership, profile |
+| `dashboard.html` | Student portal app: home, My courses + classroom, Course store, course pages, cart with coupons, checkout, orders and PNG receipts, **membership plans bought through the same cart and checkout**, profile |
 | `admin.html` | Admin CRM (content, collections, membership plans, student memberships, achievements, students, leads) plus the **Store**: orders & receipts, courses, coupons, payment settings |
 | `forgot.html` / `404.html` | Password reset / not-found page |
 
@@ -151,21 +151,25 @@ site
  └── payments       { upiEnabled, upiId, payeeName, razorpayEnabled, razorpayKey, businessName,
                       address, gstin, supportPhone, receiptNote }
 
-carts        └── <uid>/<courseId>   addedAt
-coupons      └── <CODE>   { code, type: "percent" | "flat", value, courseIds? (empty = all courses),
+carts        └── <uid>/<courseId | plan_<planId>>   addedAt
+coupons      └── <CODE>   { code, type: "percent" | "flat", value, courseIds? (empty = everything;
+                            course ids and/or plan_<planId> keys),
                             maxUses (0 = unlimited), minAmount, maxDiscount,
                             startsAt, expiresAt, active, batch, note, createdAt }
 couponUsage  └── <CODE>   { count, users: { <uid>: <orderId> } }
 orders       └── <uid>/<orderId>   { orderNo: "FXT-YYMMDD-XXXXX", uid, name, email, phone,
-                            items: { <courseId>: { title, price, mrp, validityDays } },
+                            items: { <courseId>: { title, price, mrp, validityDays },
+                                     plan_<planId>: { kind: "plan", planId, title, price, mrp,
+                                                      validityDays, category: "Membership", mode } },
                             mrpTotal, subtotal, discount, total, coupon?: { code, type, value, discount },
                             status: "paid" | "pending" | "failed" | "refunded", method: "upi" | "razorpay" |
                             "free" | "cash" | "bank", utr?, paymentId?, createdAt, paidAt?, verified? }
-enrollments  └── <uid>/<courseId>   { orderId, orderNo, since, until (0 = lifetime), title }
+enrollments  └── <uid>/<courseId>   { orderId, orderNo, since, until (0 = lifetime), title }   ← never plan_ keys
 courseAccess └── <courseId>   { message, links: [{ label, url }] }   ← classroom, enrolled students only
 
 members
- └── <uid>          { planId, planName, startAt, endAt, status, paid?, note?, name, email, updatedAt }
+ └── <uid>          { planId, planName, startAt, endAt (0 = no expiry), status, paid?, note?, name, email,
+                      orderId?, orderNo?, orderPaidAt?, source?: "store" | "admin", updatedAt }
 
 users
  └── <uid>          { name, email, phone, exam, speed, createdAt, lastLogin }
@@ -176,7 +180,8 @@ admins
 
 - Public read access: `site/content`, `site/batches`, `site/fees`, `site/faqs`, `site/testimonials`,
   `site/memberships`, `site/achievements`, `site/achievementImages`.
-- `members/<uid>` is written only by admins; each student can read their own record.
+- `members/<uid>`: each student can read their own record. Admins can write it, and a student can write it
+  only in the same update as a **paid** order of theirs that contains that plan (see *Membership purchase* below).
 - Achievement pictures are stored separately from the post text so list pages stay light and each
   base64 image is downloaded only when it scrolls into view. The rules cap one picture at ~1.5 MB of
   base64. The CRM keeps them readable: up to ~4.2 MP with a 3600 px long side (tall result lists keep their full width), PNG for screenshots when it fits, JPEG 0.92→0.76 otherwise, always flattened onto white so transparent screenshots don't turn into dark-on-dark text, and capped at ~1.15 MB of base64 (the rules allow < 1.5 MB).
@@ -190,6 +195,36 @@ admins
   must go up by exactly one in the same write. Students can only create three kinds of order: **pending UPI**
   with a UTR, **paid Razorpay** with a `pay_…` id, or **free** (₹0 because of a coupon). Enrolments must point
   at a paid order of theirs and can't run longer than the course validity.
+- Free (₹0) orders are only accepted when the coupon really covers the whole cart: a 100% coupon with no cap
+  (or a cap ≥ subtotal), or a flat coupon worth at least the subtotal, and every item must be in the coupon's
+  scope. No item may cost more than the order subtotal, so the subtotal can't be under-reported.
+
+### Membership purchase
+
+Membership plans are sold exactly like courses: **Buy membership** (or the cart icon) on a plan puts
+`plan_<planId>` into the student's cart, next to any courses. Coupons, offer tiles, UPI with UTR, Razorpay, ₹0
+coupon orders, receipts and the admin Orders screen all work the same way. One plan per order: adding a
+second plan replaces the first.
+
+- The order item copies the plan's price, struck-through price and `durationDays`. The rules compare them with
+  `site/memberships/<planId>` and reject hidden plans. The portal only offers *Buy* on plans that have a price
+  and a length in days.
+- **Paid right away** (Razorpay or a ₹0 coupon): the same multi-path update writes the order, the coupon usage and
+  `members/<uid>`. The rules accept the membership only if it points at that paid order (`orderId`,
+  `orderPaidAt` = the order's `paidAt`) and the dates match the plan: `startAt` = paid time, and `endAt` no later
+  than paid time + plan days. Buying the **same** plan again while it is still active **extends** it from the current
+  end date and keeps the original start date. Buying a different plan switches to it from today. Re-using an older
+  order is rejected because `orderPaidAt` must be newer than the record being replaced.
+- **UPI:** the order stays *pending*. When an admin clicks **Approve** in Store → Orders, the membership
+  is activated, with the same extension logic. **Refund / reject** cancels the membership if it came from that order.
+- **Record offline sale** and the coupon scope picker list plans next to courses (coupons can target only certain
+  plans, e.g. a `MEMBER20` offer).
+- Deep links: `dashboard.html#membership` (plans + "your membership" card), `dashboard.html#membership/<planId>`
+  (scrolls to the plan), and `dashboard.html#join/<planId>`, which adds the plan to the cart and opens the cart. The public
+  `membership.html` buttons use `#join/<id>`, so a signed-out visitor goes through sign-in and lands in the cart.
+  Plans without a price still link to `contact.html?plan=<id>`.
+- Plan prices: the CRM saves `price` / `was` as numbers. Plans saved by an older version may hold text such as
+  `"749"`. The rules accept both, but open **Memberships** in the CRM and click **Save** once on each plan to store numbers.
 - Everything else requires an admin entry under `admins/`.
 
 ## Using the CRM
@@ -202,9 +237,9 @@ Open `admin.html` and sign in with the admin account.
 - **Memberships** — **Create plan** adds a plan card to the Membership page (name, price, struck-through price, validity label and days, one feature per line, highlight badge, **card style**, visible on site). Each plan shows as a premium membership card: *Midnight black*, *Royal violet*, *Champagne gold* or *Pearl white*. Leave the style on **Auto** and the highlighted plan becomes the Midnight card with the animated border, while the others cycle violet → gold → pearl. The page works out "Save X%" from the struck-through price and "≈ ₹N a day" from the validity in days, and the hero shows up to three plan cards fanned out, highlighted plan in front. Below that, **Student memberships** activates a plan on a student account: pick the student and plan, and "Valid till" fills in from the plan length. Students see it on their dashboard and the Membership page. The Students tab has an **Assign plan** shortcut too.
 - **Achievements** — drag & drop a photo onto the drop zone (or click to browse, or paste with Ctrl/⌘ + V), or switch to **Picture link** and paste an `https://` image URL (Google Drive / Dropbox / GitHub share links are converted to direct picture links; Drive files must be shared as "Anyone with the link"). Add a caption (required), optional title, tag and date, then **Publish post**. Uploaded photos are saved in RTDB as base64; links are saved as-is. Posts can be edited, hidden, reordered with the arrows, or deleted. `admin.html#achievements` opens the tab directly. If the live database blocks anonymous reads, the tab shows a red **Visitors can't see these posts yet** warning (it checks with an unauthenticated REST request), which means `database.rules.json` still needs publishing.
 - **Students** — accounts created through the portal.
-- **Store → Orders & receipts** — every checkout with revenue stats, search (order no, student, phone, UTR, payment id, coupon) and filters. **Approve** a UPI order once the UTR shows in your bank app — this enrols the student. Razorpay orders show **Verify** until you tick them off against the Razorpay dashboard. View or download any receipt as PNG, reject / refund (removes access), **Record offline sale** for cash or bank transfers, and **Export CSV**.
+- **Store → Orders & receipts** — every checkout with revenue stats, search (order no, student, phone, UTR, payment id, coupon) and filters. **Approve** a UPI order once the UTR shows in your bank app — this enrols the student (or activates their membership). Razorpay orders show **Verify** until you tick them off against the Razorpay dashboard. View or download any receipt as PNG, reject / refund (removes access), **Record offline sale** for cash or bank transfers, and **Export CSV**.
 - **Store → Courses** — create and edit the courses sold in the portal: price, struck-through MRP, validity (or lifetime), category, mode, language, badge, features, description, cover colour or uploaded cover, publish / hide, reorder. **Classroom** sets the message and links (Telegram, YouTube playlist, Drive folder…) that only enrolled students see. **Import from batches** turns the existing batch list into draft courses.
-- **Store → Coupons** — a single code or **Bulk generate** up to 500 unique codes per run (run it as often as you like). Each coupon is **percent** (with an optional ₹ cap) or **flat ₹** off, for all courses or particular ones, with optional minimum cart value, total-use limit (0 = unlimited), start and expiry dates. Every student can redeem a code once; set total uses to 1 for single-use codes. Tick **Show as offer** to advertise a code in the portal. Filter by batch, pause or delete a whole batch, and export codes with their usage to CSV.
+- **Store → Coupons** — a single code or **Bulk generate** up to 500 unique codes per run (run it as often as you like). Each coupon is **percent** (with an optional ₹ cap) or **flat ₹** off, for everything or particular courses and membership plans, with optional minimum cart value, total-use limit (0 = unlimited), start and expiry dates. Every student can redeem a code once; set total uses to 1 for single-use codes. Tick **Show as offer** to advertise a code in the portal. Filter by batch, pause or delete a whole batch, and export codes with their usage to CSV.
 - **Store → Payment settings** — UPI ID and payee name (the portal shows a QR and an "Open UPI app" button and asks for the UTR), the Razorpay key id, and the business name, address, GSTIN, phone and note printed on receipts. **Preview receipt** draws a sample.
 - **Leads** — emails captured by the public “Join now” forms, with CSV export and delete. Leads that came through a plan's **Choose plan** button (`contact.html?plan=<id>`) record which plan.
 - **Load starter content** — writes the default website content (from `assets/js/cms-defaults.js`) to RTDB, including one starter membership plan. It never touches achievements, student memberships, students or leads.
