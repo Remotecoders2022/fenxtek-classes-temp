@@ -4,7 +4,7 @@
    crisp at 2x and looks identical in the student portal and CRM.
    ============================================================ */
 
-import { money, num, formatDate, methodLabel, validityLabel } from "./commerce.js?v=1";
+import { money, num, formatDate, methodLabel, validityLabel } from "./commerce.js?v=2";
 
 const W = 1200; // css px — exported at 2x = 2400 px wide
 const PAD = 72;
@@ -301,7 +301,7 @@ export async function renderReceipt(order, settings = {}) {
   const colX = { n: tx + 28, course: tx + 80, validity: tx + 680, mrp: tx + tw - 190, price: tx + tw - 28 };
   const hy = y + 35;
   text(ctx, "#", colX.n, hy, `500 11px ${MONO}`, C.muted, "left", 2);
-  text(ctx, "COURSE", colX.course, hy, `500 11px ${MONO}`, C.muted, "left", 2);
+  text(ctx, "ITEM", colX.course, hy, `500 11px ${MONO}`, C.muted, "left", 2);
   text(ctx, "VALIDITY", colX.validity, hy, `500 11px ${MONO}`, C.muted, "left", 2);
   text(ctx, "MRP", colX.mrp, hy, `500 11px ${MONO}`, C.muted, "right", 2);
   text(ctx, "PRICE", colX.price, hy, `500 11px ${MONO}`, C.muted, "right", 2);
@@ -346,7 +346,7 @@ export async function renderReceipt(order, settings = {}) {
   const mrpTotal = items.reduce((s, it) => s + Math.max(num(it.mrp), num(it.price)), 0);
   const subtotal = num(order.subtotal) || items.reduce((s, it) => s + num(it.price), 0);
   const rows = [["MRP total", money(mrpTotal), C.ink]];
-  if (mrpTotal > subtotal) rows.push(["Course discount", "− " + money(mrpTotal - subtotal), C.ok]);
+  if (mrpTotal > subtotal) rows.push(["Discount on MRP", "− " + money(mrpTotal - subtotal), C.ok]);
   rows.push(["Subtotal", money(subtotal), C.ink]);
   if (num(order.discount) > 0) {
     rows.push([`Coupon${order.coupon && order.coupon.code ? " · " + order.coupon.code : ""}`, "− " + money(order.discount), C.ok]);

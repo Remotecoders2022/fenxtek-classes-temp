@@ -20,7 +20,9 @@ export const PATH = {
   orders: "orders",
   carts: "carts",
   enrollments: "enrollments",
-  courseAccess: "courseAccess"
+  courseAccess: "courseAccess",
+  plans: "site/memberships",
+  members: "members"
 };
 
 export const COURSE_CATEGORIES = ["Shorthand", "Typing", "Exam pack", "Dictation", "Mentorship", "Other"];
@@ -29,12 +31,12 @@ export const COURSE_LANGUAGES = ["Hindi", "English", "Hindi + English"];
 
 /* Generative cover themes (used when a course has no picture). */
 export const ACCENTS = {
-  violet: { label: "Violet", a: "#6A5CFF", b: "#2A1DB0", ink: "#FFFFFF", glow: "#D9FF57" },
-  lime: { label: "Lime", a: "#E4FF7A", b: "#A8DB1F", ink: "#0B0B10", glow: "#5A4BFF" },
-  ink: { label: "Midnight", a: "#23232E", b: "#0B0B10", ink: "#FFFFFF", glow: "#D9FF57" },
-  ocean: { label: "Ocean", a: "#1FC8F5", b: "#1848F0", ink: "#FFFFFF", glow: "#D9FF57" },
-  sunset: { label: "Sunset", a: "#FF9A4D", b: "#E5397A", ink: "#FFFFFF", glow: "#FFE29A" },
-  gold: { label: "Gold", a: "#FFD15C", b: "#F08C00", ink: "#0B0B10", glow: "#FFFFFF" }
+  violet: { label: "Violet", a: "#6A5CFF", b: "#2A1DB0", ink: "#FFFFFF", glow: "#D9FF57", text: "#5A4BFF" },
+  lime: { label: "Lime", a: "#E4FF7A", b: "#A8DB1F", ink: "#0B0B10", glow: "#5A4BFF", text: "#5C7800" },
+  ink: { label: "Midnight", a: "#23232E", b: "#0B0B10", ink: "#FFFFFF", glow: "#D9FF57", text: "#23232E" },
+  ocean: { label: "Ocean", a: "#1FC8F5", b: "#1848F0", ink: "#FFFFFF", glow: "#D9FF57", text: "#1848F0" },
+  sunset: { label: "Sunset", a: "#FF9A4D", b: "#E5397A", ink: "#FFFFFF", glow: "#FFE29A", text: "#D9346F" },
+  gold: { label: "Gold", a: "#FFD15C", b: "#F08C00", ink: "#0B0B10", glow: "#FFFFFF", text: "#A35F00" }
 };
 export const accentOf = (key) => ACCENTS[key] || ACCENTS.violet;
 
@@ -101,7 +103,9 @@ export function toList(value) {
 export function normalizeCourse(raw) {
   const c = raw || {};
   const features = Array.isArray(c.features)
-    ? c.features
+    ? c.features.map(String)
+    : c.features && typeof c.features === "object"
+    ? Object.values(c.features).map(String)
     : String(c.features || "")
         .split(/\n+/)
         .map((s) => s.trim());
@@ -158,6 +162,110 @@ export function coverHTML(course, img, opts = {}) {
   );
 }
 
+/* ---------------- membership plans ----------------
+   Plans live in site/memberships (edited in the CRM's Memberships tab).
+   In carts, orders and coupon scopes a plan is keyed "plan_<id>" so it
+   can never collide with a course slug (slugs only use a-z, 0-9 and -). */
+
+export const PLAN_PREFIX = "plan_";
+export const PLAN_THEMES = ["ink", "violet", "gold", "pearl"];
+export const isPlanId = (id) => String(id || "").startsWith(PLAN_PREFIX);
+export const isPlanItem = (it) => Boolean(it && (it.kind === "plan" || isPlanId(it.id)));
+export const planKey = (planId) => PLAN_PREFIX + planId;
+
+/* Same "Auto" colour logic as the public Membership page. */
+export function planThemes(list) {
+  let k = 0;
+  const cycle = ["violet", "gold", "pearl"];
+  return list.map((p) => {
+    if (PLAN_THEMES.includes(p.theme)) return p.theme;
+    if (p.highlight) return "ink";
+    return cycle[k++ % cycle.length];
+  });
+}
+
+/* Normalise a raw plan into a cart-compatible item. `buyable` means the
+   price and validity are stored in a form the database rules can check. */
+export function normalizePlan(raw, theme) {
+  const p = raw || {};
+  const planId = String(p.id || "");
+  const price = Math.max(0, Math.round(num(p.price)));
+  const was = Math.max(0, Math.round(num(p.was)));
+  const hasDays = p.durationDays !== "" && p.durationDays != null && isFinite(Number(p.durationDays)) && Number(p.durationDays) >= 0;
+  const days = hasDays ? Math.round(Number(p.durationDays)) : 0;
+  const rawPrice = typeof p.price === "number" ? String(p.price) : String(p.price == null ? "" : p.price).trim();
+  const features = Array.isArray(p.features)
+    ? p.features.map(String)
+    : p.features && typeof p.features === "object"
+    ? Object.values(p.features).map(String)
+    : String(p.features || "")
+        .split(/\n+/)
+        .map((s) => s.trim());
+  return {
+    id: planKey(planId),
+    kind: "plan",
+    planId,
+    title: String(p.name || p.title || "Membership"),
+    subtitle: String(p.tagline || ""),
+    category: "Membership",
+    mode: String(p.duration || "") || validityLabel(days).replace(" access", ""),
+    language: "",
+    duration: String(p.duration || ""),
+    price,
+    mrp: Math.max(was, price),
+    validityDays: days,
+    badge: String(p.badge || ""),
+    highlight: Boolean(p.highlight),
+    theme: PLAN_THEMES.includes(theme) ? theme : "violet",
+    features: features.filter(Boolean).slice(0, 10),
+    cta: String(p.cta || ""),
+    active: p.active !== false,
+    order: num(p.order, 0),
+    buyable: price > 0 && hasDays && rawPrice === String(price)
+  };
+}
+
+export function plansFrom(value, opts = {}) {
+  const list = toList(value).filter((p) => p.name || p.title);
+  const themes = planThemes(list);
+  const out = list.map((p, i) => normalizePlan(p, themes[i]));
+  return opts.all ? out : out.filter((p) => p.active);
+}
+
+/* ≈ ₹N a day, like the public Membership page. */
+export function perDay(price, days) {
+  const p = num(price);
+  const d = num(days);
+  if (!(p > 0 && d > 0)) return "";
+  const v = p / d;
+  return v >= 10 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, "");
+}
+
+/* The members/<uid> record a paid plan order produces. Re-buying the
+   plan you already hold extends it from its current end date. */
+export function memberRecordFor(item, order, prev, paidAt) {
+  const days = num(item.validityDays);
+  const sameActive =
+    prev && prev.planId === item.planId && String(prev.status || "active") === "active" && num(prev.endAt) > paidAt;
+  const startAt = sameActive ? num(prev.startAt) || paidAt : paidAt;
+  const endAt = days ? (sameActive ? num(prev.endAt) : paidAt) + days * DAY : 0;
+  return {
+    planId: item.planId,
+    planName: String(item.title || "Membership"),
+    startAt,
+    endAt,
+    status: "active",
+    paid: num(item.price),
+    orderId: order.id,
+    orderNo: order.orderNo,
+    orderPaidAt: paidAt,
+    name: order.name || "",
+    email: order.email || "",
+    source: "store",
+    updatedAt: paidAt
+  };
+}
+
 /* ---------------- coupons ---------------- */
 
 export const normalizeCode = (code) =>
@@ -210,7 +318,7 @@ export function checkCoupon(ctx) {
   if (usedByMe) return { ok: false, reason: "You have already used this coupon." };
   const scope = couponScopeIds(c);
   const eligible = scope ? items.filter((i) => scope.includes(i.id)) : items;
-  if (!eligible.length) return { ok: false, reason: "This coupon doesn’t apply to the courses in your cart." };
+  if (!eligible.length) return { ok: false, reason: "This coupon doesn’t apply to the items in your cart." };
   const eligibleSubtotal = eligible.reduce((s, i) => s + num(i.price), 0);
   if (num(c.minAmount) && eligibleSubtotal < num(c.minAmount)) {
     return { ok: false, reason: `Add courses worth ${money(c.minAmount)} or more to use this coupon.` };
@@ -302,7 +410,7 @@ export function ownedCourses(orders, now = Date.now()) {
     .forEach((o) => {
       const since = num(o.paidAt || o.createdAt);
       (Array.isArray(o.items) ? o.items : Object.values(o.items || {})).forEach((item) => {
-        if (!item || !item.id) return;
+        if (!item || !item.id || isPlanItem(item)) return;
         const days = num(item.validityDays);
         const prev = map.get(item.id);
         /* Re-buying an active course extends it from its current end date. */

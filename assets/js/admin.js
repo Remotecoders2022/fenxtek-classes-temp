@@ -18,7 +18,7 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=5";
-import { initStore, storeTabOpened } from "./admin-store.js?v=2";
+import { initStore, storeTabOpened } from "./admin-store.js?v=3";
 
 import {
   defaultContent,
@@ -46,6 +46,15 @@ import {
   formatDate as formatAnyDate
 } from "./media.js?v=2";
 import { firebaseConfig } from "./firebase-config.js?v=2";
+
+/* "₹1,499" / "1499" / 1499 -> 1499 (number); blank stays "". Plan prices are
+   stored as numbers so the database rules can check store checkouts. */
+function toAmount(v) {
+  const t = String(v == null ? "" : v).replace(/[^\d.]/g, "");
+  if (!t) return "";
+  const n = Math.round(Number(t));
+  return isFinite(n) ? n : "";
+}
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -351,8 +360,8 @@ const EDITORS = {
         badge: String(item.badge || "").trim(),
         theme: ["ink", "violet", "gold", "pearl"].includes(item.theme) ? item.theme : "",
         tagline: String(item.tagline || "").trim(),
-        price: String(item.price == null ? "" : item.price).replace(/[^\d.]/g, ""),
-        was: String(item.was == null ? "" : item.was).replace(/[^\d.]/g, ""),
+        price: toAmount(item.price),
+        was: toAmount(item.was),
         duration: String(item.duration || "").trim(),
         features: toLines(item.features),
         cta: String(item.cta || "").trim() || "Choose plan",

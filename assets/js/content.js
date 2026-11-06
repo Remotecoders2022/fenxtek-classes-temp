@@ -262,6 +262,16 @@ function planVisual(p, i, theme) {
   );
 }
 
+/* Plans with a numeric price and validity are bought in the student
+   portal (same cart + checkout as courses); others stay an enquiry. */
+function planHref(p) {
+  const id = encodeURIComponent(p.id || "");
+  const days = p.durationDays;
+  const price = num(p.price);
+  const buyable = price > 0 && days !== "" && days != null && isFinite(Number(days)) && String(Math.round(price)) === String(p.price).trim();
+  return buyable ? `dashboard.html#join/${id}` : `contact.html?plan=${id}`;
+}
+
 function planCard(p, i, theme) {
   const name = p.name || p.title || "Membership";
   const m = planMaths(p);
@@ -283,7 +293,7 @@ function planCard(p, i, theme) {
     (p.tagline ? `<p class="mcard-tag">${esc(p.tagline)}</p>` : "") +
     `<div class="mcard-price">${m.price ? `<span class="mcard-cur">₹</span><b>${esc(rupees(m.price))}</b>` : "<b>Free</b>"}${dur ? `<span class="mcard-per">/ ${esc(dur)}</span>` : ""}</div>` +
     (sub ? `<div class="mcard-sub">${sub}</div>` : "") +
-    `<a class="mcard-cta" href="contact.html?plan=${encodeURIComponent(p.id || "")}"><span>${esc(p.cta || "Choose plan")}</span><svg><use href="#i-arr"/></svg></a>` +
+    `<a class="mcard-cta" href="${planHref(p)}"><span>${esc(p.cta || "Choose plan")}</span><svg><use href="#i-arr"/></svg></a>` +
     (feats ? `<span class="mcard-inc">What’s included</span><ul class="mcard-feats">${feats}</ul>` : "") +
     `</div></article>`
   );

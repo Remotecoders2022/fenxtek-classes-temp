@@ -34,9 +34,12 @@ import {
   statusOf,
   methodLabel,
   csvCell,
-  downloadText
-} from "./commerce.js?v=1";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=1";
+  downloadText,
+  plansFrom,
+  isPlanItem,
+  memberRecordFor
+} from "./commerce.js?v=2";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=2";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -46,6 +49,7 @@ const A = {
   ctx: null,
   courses: [],
   coursesRaw: {},
+  plans: [],
   pay: {},
   offers: {},
   coupons: {},
@@ -203,9 +207,18 @@ const findOrder = (key) => {
 
 async function enrollmentUpdates(o, when) {
   const updates = {};
+  const items = orderItems(o);
+  const plan = items.find(isPlanItem);
+  if (plan) {
+    const ms = await dbGet(`${PATH.members}/${o.uid}`).catch(() => null);
+    const prev = (ms && ms.val && ms.val()) || null;
+    const rec = memberRecordFor({ ...plan, planId: plan.planId || String(plan.id).replace(/^plan_/, "") }, o, prev, when);
+    if (items.length === 1) rec.paid = num(o.total);
+    updates[`${PATH.members}/${o.uid}`] = rec;
+  }
   const snap = await dbGet(`${PATH.enrollments}/${o.uid}`).catch(() => null);
   const current = (snap && snap.val && snap.val()) || {};
-  orderItems(o).forEach((it) => {
+  items.filter((it) => !isPlanItem(it)).forEach((it) => {
     const prev = current[it.id];
     const days = num(it.validityDays);
     let until = 0;
@@ -229,7 +242,7 @@ async function approveOrder(o, btn) {
       updates[`${base}/verifiedBy`] = by;
       updates[`${base}/verifiedAt`] = now;
       await dbUpdateRoot(updates);
-      alert("ok", `Approved ${o.orderNo} — ${o.name || "the student"} is now enrolled.`);
+      alert("ok", `Approved ${o.orderNo} — ${o.name || "the student"} ${orderItems(o).some(isPlanItem) && orderItems(o).length === 1 ? "is now a member" : "is now enrolled"}.`);
     } catch (err) {
       alert("err", friendlyError(err));
     }
@@ -266,15 +279,24 @@ function releaseCoupon(o) {
 }
 
 async function refundOrder(o) {
-  if (!window.confirm(`Mark ${o.orderNo} (${money(o.total)}) as refunded? The student loses access to these courses. Process the actual refund in your payment app.`)) return;
+  if (!window.confirm(`Mark ${o.orderNo} (${money(o.total)}) as refunded? The student loses access to these courses (and the membership, if any). Process the actual refund in your payment app.`)) return;
   try {
     const snap = await dbGet(`${PATH.enrollments}/${o.uid}`).catch(() => null);
     const current = (snap && snap.val && snap.val()) || {};
     const base = `${PATH.orders}/${o.uid}/${o.id}`;
     const updates = { [`${base}/status`]: "refunded", [`${base}/refundedAt`]: Date.now() };
-    orderItems(o).forEach((it) => {
+    orderItems(o).filter((it) => !isPlanItem(it)).forEach((it) => {
       if (current[it.id] && current[it.id].orderId === o.id) updates[`${PATH.enrollments}/${o.uid}/${it.id}`] = null;
     });
+    if (orderItems(o).some(isPlanItem)) {
+      const ms = await dbGet(`${PATH.members}/${o.uid}`).catch(() => null);
+      const m = (ms && ms.val && ms.val()) || null;
+      if (m && m.orderId === o.id) {
+        updates[`${PATH.members}/${o.uid}/status`] = "cancelled";
+        updates[`${PATH.members}/${o.uid}/note`] = `Refunded ${o.orderNo}`;
+        updates[`${PATH.members}/${o.uid}/updatedAt`] = Date.now();
+      }
+    }
     await dbUpdateRoot(updates);
     alert("ok", `${o.orderNo} marked as refunded.`);
   } catch (err) {
@@ -310,7 +332,7 @@ function viewReceipt(o) {
 }
 
 function exportOrders() {
-  const rows = [["Order no", "Date", "Status", "Name", "Email", "Phone", "Courses", "MRP", "Subtotal", "Coupon", "Discount", "Total", "Method", "UTR / Payment ID", "Verified"]];
+  const rows = [["Order no", "Date", "Status", "Name", "Email", "Phone", "Items", "MRP", "Subtotal", "Coupon", "Discount", "Total", "Method", "UTR / Payment ID", "Verified"]];
   filteredOrders().forEach((o) =>
     rows.push([
       o.orderNo,
@@ -345,21 +367,27 @@ async function loadUsers() {
   return A.users;
 }
 
+const sellables = () => [...A.courses, ...A.plans.filter((p) => p.price > 0)];
+const sellableById = (id) => sellables().find((x) => x.id === id);
+
 async function offlineSale() {
-  if (!A.courses.length) {
-    alert("err", "Create a course first (Courses tab).");
+  if (!sellables().length) {
+    alert("err", "Create a course (Courses tab) or a membership plan first.");
     return;
   }
   const users = await loadUsers();
   adminModal(
     "Record an offline sale",
-    `<p class="as-note">Use this when a student pays at the academy, by bank transfer or over the phone. The student is enrolled immediately and can download the receipt from their portal.</p>` +
+    `<p class="as-note">Use this when a student pays at the academy, by bank transfer or over the phone. The student is enrolled (or their membership activated) immediately and can download the receipt from their portal.</p>` +
       `<form class="crm-form" id="asSale" novalidate>` +
       `<label class="p-field p-field--wide"><span class="p-label">Student</span><select class="p-select" name="uid" required><option value="">Choose a student account</option>${users
         .map((u) => `<option value="${esc(u.uid)}">${esc(u.name || "Unnamed")} — ${esc(u.email || u.uid)}</option>`)
         .join("")}</select></label>` +
-      `<div class="p-field p-field--wide"><span class="p-label">Courses</span><div class="as-scope">${A.courses
+      `<div class="p-field p-field--wide"><span class="p-label">Courses${A.plans.length ? " &amp; membership" : ""}</span><div class="as-scope">${A.courses
         .map((c) => `<label><input type="checkbox" name="course" value="${esc(c.id)}">${esc(c.title)} · ${money(c.price)}</label>`)
+        .join("")}${A.plans
+        .filter((p) => p.price > 0)
+        .map((p) => `<label class="as-scope-plan"><input type="checkbox" name="course" value="${esc(p.id)}" data-plan>${icon("i-crown")}${esc(p.title)} · ${money(p.price)} · ${esc(p.mode)}</label>`)
         .join("")}</div></div>` +
       `<label class="p-field"><span class="p-label">Discount (₹)</span><input class="p-input" name="discount" inputmode="numeric" value="0"></label>` +
       `<label class="p-field"><span class="p-label">Method</span><select class="p-select" name="method"><option value="cash">Cash at academy</option><option value="upi">UPI transfer</option><option value="bank">Bank transfer</option><option value="offline">Other / offline</option></select></label>` +
@@ -369,8 +397,11 @@ async function offlineSale() {
     (box, close) => {
       const form = $("#asSale", box);
       const calc = () => {
+        /* one membership per order */
+        const planBoxes = $$('input[data-plan]:checked', form);
+        if (planBoxes.length > 1) planBoxes.slice(0, -1).forEach((b) => (b.checked = false));
         const ids = $$('input[name="course"]:checked', form).map((i) => i.value);
-        const sub = ids.reduce((s, id) => s + num((A.courses.find((c) => c.id === id) || {}).price), 0);
+        const sub = ids.reduce((s, id) => s + num((sellableById(id) || {}).price), 0);
         const disc = Math.min(sub, Math.max(0, Math.round(num(form.discount.value))));
         $("#asSaleTotal", box).textContent = `Subtotal ${money(sub)} · Discount ${money(disc)} · Total ${money(sub - disc)}`;
         return { ids, sub, disc };
@@ -381,7 +412,7 @@ async function offlineSale() {
           const { ids, sub, disc } = calc();
           const uid = form.uid.value;
           if (!uid || !ids.length) {
-            alert("err", "Pick a student and at least one course.");
+            alert("err", "Pick a student and at least one course or plan.");
             return;
           }
           const u = users.find((x) => x.uid === uid) || {};
@@ -391,8 +422,10 @@ async function offlineSale() {
             const items = {};
             let mrpTotal = 0;
             ids.forEach((id) => {
-              const c = A.courses.find((x) => x.id === id);
-              items[id] = { title: c.title, price: c.price, mrp: Math.max(c.mrp, c.price), validityDays: c.validityDays, category: c.category, mode: c.mode, language: c.language };
+              const c = sellableById(id);
+              items[id] = isPlanItem(c)
+                ? { kind: "plan", planId: c.planId, title: c.title, price: c.price, mrp: Math.max(c.mrp, c.price), validityDays: c.validityDays, category: "Membership", mode: c.mode }
+                : { title: c.title, price: c.price, mrp: Math.max(c.mrp, c.price), validityDays: c.validityDays, category: c.category, mode: c.mode, language: c.language };
               mrpTotal += Math.max(c.mrp, c.price);
             });
             const order = {
@@ -851,8 +884,8 @@ function couponList() {
 
 function scopeLabel(c) {
   const ids = couponScopeIds(c);
-  if (!ids) return "All courses";
-  const names = ids.map((id) => (A.courses.find((x) => x.id === id) || {}).title || id);
+  if (!ids) return "All courses & plans";
+  const names = ids.map((id) => (sellableById(id) || A.plans.find((p) => p.id === id) || {}).title || id);
   return names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ");
 }
 
@@ -937,7 +970,7 @@ function couponFormHTML() {
     `<label class="p-field"><span class="p-label">Starts on (optional)</span><input class="p-input" type="date" name="startsAt"></label>` +
     `<label class="p-field"><span class="p-label">Expires on (optional)</span><input class="p-input" type="date" name="expiresAt"></label>` +
     `<label class="p-field"><span class="p-label">Internal note</span><input class="p-input" name="note" maxlength="120" placeholder="For Instagram followers"></label>` +
-    `<div class="p-field p-field--wide"><span class="p-label">Applies to</span><div class="as-seg"><label><input type="radio" name="scope" value="all" checked>All courses</label><label><input type="radio" name="scope" value="some">Selected courses only</label></div><div class="as-scope" id="asScope" hidden style="margin-top:10px"></div></div>` +
+    `<div class="p-field p-field--wide"><span class="p-label">Applies to</span><div class="as-seg"><label><input type="radio" name="scope" value="all" checked>All courses &amp; plans</label><label><input type="radio" name="scope" value="some">Selected only</label></div><div class="as-scope" id="asScope" hidden style="margin-top:10px"></div></div>` +
     `<label class="as-check p-field--wide" data-mode="single"><input type="checkbox" name="offer">Show this code to students as an offer (store banner + cart)</label>` +
     `<label class="as-check p-field--wide"><input type="checkbox" name="active" checked>Active</label>` +
     `</form>` +
@@ -951,9 +984,11 @@ function paintScope() {
   const box = $("#asScope");
   if (!box) return;
   const checked = new Set($$("input:checked", box).map((i) => i.value));
-  box.innerHTML = A.courses.length
-    ? A.courses.map((c) => `<label><input type="checkbox" value="${esc(c.id)}"${checked.has(c.id) ? " checked" : ""}>${esc(c.title)}</label>`).join("")
-    : `<span class="as-sub">Create courses first.</span>`;
+  box.innerHTML =
+    A.courses.length || A.plans.length
+      ? A.courses.map((c) => `<label><input type="checkbox" value="${esc(c.id)}"${checked.has(c.id) ? " checked" : ""}>${esc(c.title)}</label>`).join("") +
+        A.plans.map((p) => `<label class="as-scope-plan"><input type="checkbox" value="${esc(p.id)}"${checked.has(p.id) ? " checked" : ""}>${icon("i-crown")}${esc(p.title)} <span class="as-sub">membership</span></label>`).join("")
+      : `<span class="as-sub">Create courses or membership plans first.</span>`;
 }
 
 function readCouponForm(form) {
@@ -983,7 +1018,7 @@ function validateCoupon({ rec, scopeSome, ids }) {
   if (rec.type === "percent" && rec.value > 100) return "Percent off can’t be more than 100.";
   if (rec.type === "percent") rec.value = Math.round(rec.value * 100) / 100;
   else rec.value = Math.round(rec.value);
-  if (scopeSome && !ids.length) return "Pick at least one course, or choose “All courses”.";
+  if (scopeSome && !ids.length) return "Pick at least one course or plan, or choose “All courses & plans”.";
   if (rec.expiresAt && rec.startsAt && rec.expiresAt < rec.startsAt) return "Expiry is before the start date.";
   return "";
 }
@@ -1229,6 +1264,11 @@ export function initStore(ctx) {
     A.coursesRaw = v || {};
     A.courses = coursesFrom(v, { all: true });
     paintCourses();
+    paintScope();
+    paintCoupons();
+  });
+  dbWatch(PATH.plans, (v) => {
+    A.plans = plansFrom(v, { all: true });
     paintScope();
     paintCoupons();
   });
