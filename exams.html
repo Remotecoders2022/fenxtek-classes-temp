@@ -10,100 +10,163 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="assets/css/site.css?v=5">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.hero-head .l>span{transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="exams">
 <main>
-<section class="pin" id="exams">
-  <div class="pin-sticky">
-    <div class="wrap pin-head" data-reveal>
-      <div>
-        <span class="eyebrow">06 — Examinations</span>
-        <h2 class="h2">One academy. <em>Every steno path.</em></h2>
+<section class="phero on-dark page-start" id="top">
+  <div class="wrap phero-grid">
+    <div class="phero-copy" data-reveal>
+      <span class="eyebrow eyebrow--lime">06 — Examinations</span>
+      <h1 class="phero-title">Every steno path. <em>One academy.</em></h1>
+      <p class="lead">From Parliament reporters to state steno posts — we prepare you for the exact pattern, speed and transcription window of the post you are aiming for.</p>
+      <div class="cta-actions">
+        <a class="btn btn--lime" href="#find"><span>Find your exam</span> <svg><use href="#i-arr-d"/></svg></a>
+        <a class="btn btn--light" href="courses.html"><span>See current batches</span></a>
       </div>
-      <div class="pin-count">
-        <b>06</b>
-        <span>categories<br>one goal</span>
-      </div>
+      <dl class="phero-stats">
+        <div><dt>Categories</dt><dd>06</dd></div>
+        <div><dt>Posts covered</dt><dd>31<small>+</small></dd></div>
+        <div><dt>Exam patterns</dt><dd><span data-cms-count="patterns">50</span><small>+</small></dd></div>
+      </dl>
     </div>
-    <div class="wrap"><div class="pin-bar"><i id="pinBar"></i></div></div>
-    <div class="pin-track" id="pinTrack">
-      <article class="exam-card" data-reveal>
-        <span class="n">01 <i></i></span>
+
+    <div class="xmatrix" aria-hidden="true">
+      <a class="xm-tile" href="#cat-1" tabindex="-1"><svg><use href="#i-court"/></svg><b>04</b><span>Parliamentary reporter</span></a>
+      <a class="xm-tile" href="#cat-2" tabindex="-1"><svg><use href="#i-court"/></svg><b>05</b><span>High Court &amp; judicial</span></a>
+      <a class="xm-tile xm-tile--lime" href="#cat-3" tabindex="-1"><svg><use href="#i-grid"/></svg><b>05</b><span>Central government</span></a>
+      <a class="xm-tile xm-tile--violet" href="#cat-4" tabindex="-1"><svg><use href="#i-file"/></svg><b>07</b><span>State recruitments</span></a>
+      <a class="xm-tile" href="#cat-5" tabindex="-1"><svg><use href="#i-user"/></svg><b>06</b><span>Other special posts</span></a>
+      <a class="xm-tile" href="#cat-6" tabindex="-1"><svg><use href="#i-keyboard"/></svg><b>04</b><span>Shorthand &amp; typing</span></a>
+    </div>
+  </div>
+  <div class="marquee marquee--lime" aria-hidden="true">
+    <div class="marquee-in">
+      <div class="mq"><span>Lok Sabha Reporter</span><i>✦</i><span>AHC PS-I</span><i>✦</i><span>SSC Steno C &amp; D</span><i>✦</i><span>EPFO</span><i>✦</i><span>DSSSB</span><i>✦</i><span>UPSSSC</span><i>✦</i><span>BSSC</span><i>✦</i><span>RSMSSB</span><i>✦</i><span>Court Master</span><i>✦</i></div>
+      <div class="mq"><span>Lok Sabha Reporter</span><i>✦</i><span>AHC PS-I</span><i>✦</i><span>SSC Steno C &amp; D</span><i>✦</i><span>EPFO</span><i>✦</i><span>DSSSB</span><i>✦</i><span>UPSSSC</span><i>✦</i><span>BSSC</span><i>✦</i><span>RSMSSB</span><i>✦</i><span>Court Master</span><i>✦</i></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="find">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <span class="eyebrow">06.1 — Exam explorer</span>
+      <h2 class="h2">Find your <em>post.</em></h2>
+      <p class="lead">Search any post or browse by category. Don’t see yours? We prepare students for most steno, PA and typing recruitments — just ask.</p>
+      <span class="sec-note"><b>06</b>categories<br>one goal</span>
+    </div>
+
+    <div class="xtools">
+      <label class="xsearch">
+        <svg><use href="#i-search"/></svg>
+        <input type="search" placeholder="Search a post — e.g. SSC, High Court, typing" aria-label="Search exams" data-exam-search autocomplete="off">
+        <span class="xsearch-n" data-exam-count></span>
+      </label>
+      <nav class="chips xnav" aria-label="Exam categories" data-exam-nav>
+        <a class="chip" href="#cat-1">Parliament</a><a class="chip" href="#cat-2">High Court</a><a class="chip" href="#cat-3">Central</a><a class="chip" href="#cat-4">State</a><a class="chip" href="#cat-5">Special posts</a><a class="chip" href="#cat-6">Shorthand &amp; typing</a>
+      </nav>
+    </div>
+
+    <div class="xgrid" data-exam-grid>
+      <article class="xcat" id="cat-1" data-reveal>
+        <div class="xcat-head"><span class="xcat-ic"><svg><use href="#i-court"/></svg></span><span class="xcat-n">01</span></div>
         <h3>Parliamentary Reporter</h3>
-        <ul>
-          <li>Lok Sabha Reporter</li>
-          <li>Rajya Sabha Reporter</li>
-          <li>Vidhan Sabha Reporter</li>
-          <li>Vidhan Parishad Reporter</li>
-        </ul>
+        <p class="xcat-sub">Verbatim reporting of debates — the highest-speed track.</p>
+        <ul><li>Lok Sabha Reporter</li><li>Rajya Sabha Reporter</li><li>Vidhan Sabha Reporter</li><li>Vidhan Parishad Reporter</li></ul>
+        <span class="xcat-k">Reporter-level speed</span>
       </article>
-      <article class="exam-card" data-reveal>
-        <span class="n">02 <i></i></span>
-        <h3>High Court &amp; Judicial Recruitments</h3>
-        <ul>
-          <li>AHC Private Secretary Grade-I (PS-I)</li>
-          <li>Allahabad High Court Stenographer</li>
-          <li>Rajasthan High Court Stenographer</li>
-          <li>Other HC Stenographer &amp; PA posts</li>
-          <li>Court Reporter / Judgment Writer</li>
-        </ul>
+      <article class="xcat" id="cat-2" data-reveal style="--d:.05s">
+        <div class="xcat-head"><span class="xcat-ic"><svg><use href="#i-court"/></svg></span><span class="xcat-n">02</span></div>
+        <h3>High Court &amp; Judicial</h3>
+        <p class="xcat-sub">Judgment dictation, legal vocabulary and court formats.</p>
+        <ul><li>AHC Private Secretary Grade-I (PS-I)</li><li>Allahabad High Court Stenographer</li><li>Rajasthan High Court Stenographer</li><li>Other HC Stenographer &amp; PA posts</li><li>Court Reporter / Judgment Writer</li></ul>
+        <span class="xcat-k">Legal passages</span>
       </article>
-      <article class="exam-card" data-reveal>
-        <span class="n">03 <i></i></span>
-        <h3>Central Government Recruitments</h3>
-        <ul>
-          <li>SSC Stenographer Grade C &amp; D</li>
-          <li>EPFO Stenographer</li>
-          <li>NHAI Stenographer</li>
-          <li>DSSSB Stenographer</li>
-          <li>Other central steno &amp; PA posts</li>
-        </ul>
+      <article class="xcat xcat--ink" id="cat-3" data-reveal style="--d:.1s">
+        <div class="xcat-head"><span class="xcat-ic"><svg><use href="#i-grid"/></svg></span><span class="xcat-n">03</span></div>
+        <h3>Central Government</h3>
+        <p class="xcat-sub">SSC and central body skill tests in Hindi or English.</p>
+        <ul><li>SSC Stenographer Grade C &amp; D</li><li>EPFO Stenographer</li><li>NHAI Stenographer</li><li>DSSSB Stenographer</li><li>Other central steno &amp; PA posts</li></ul>
+        <span class="xcat-k">Most popular</span>
       </article>
-      <article class="exam-card" data-reveal>
-        <span class="n">04 <i></i></span>
+      <article class="xcat" id="cat-4" data-reveal>
+        <div class="xcat-head"><span class="xcat-ic"><svg><use href="#i-file"/></svg></span><span class="xcat-n">04</span></div>
         <h3>State Recruitments</h3>
-        <ul>
-          <li>UPSSSC Stenographer</li>
-          <li>UPSSSC APS</li>
-          <li>UP Police SI Stenographer</li>
-          <li>BSSC Stenographer</li>
-          <li>BPSSC ASI Stenographer</li>
-          <li>RSMSSB Stenographer</li>
-          <li>SGPGI Stenographer</li>
-        </ul>
+        <p class="xcat-sub">UP, Bihar and Rajasthan steno posts — Hindi focus.</p>
+        <ul><li>UPSSSC Stenographer</li><li>UPSSSC APS</li><li>UP Police SI Stenographer</li><li>BSSC Stenographer</li><li>BPSSC ASI Stenographer</li><li>RSMSSB Stenographer</li><li>SGPGI Stenographer</li></ul>
+        <span class="xcat-k">Hindi shorthand</span>
       </article>
-      <article class="exam-card" data-reveal>
-        <span class="n">05 <i></i></span>
+      <article class="xcat" id="cat-5" data-reveal style="--d:.05s">
+        <div class="xcat-head"><span class="xcat-ic"><svg><use href="#i-user"/></svg></span><span class="xcat-n">05</span></div>
         <h3>Other Special Posts</h3>
-        <ul>
-          <li>Personal Assistant (PA)</li>
-          <li>Senior Personal Assistant (SPA)</li>
-          <li>Private Secretary (PS)</li>
-          <li>Court Master</li>
-          <li>Confidential Assistant</li>
-          <li>Steno-Typist</li>
-        </ul>
+        <p class="xcat-sub">Secretarial and confidential roles across departments.</p>
+        <ul><li>Personal Assistant (PA)</li><li>Senior Personal Assistant (SPA)</li><li>Private Secretary (PS)</li><li>Court Master</li><li>Confidential Assistant</li><li>Steno-Typist</li></ul>
+        <span class="xcat-k">Shorthand + typing</span>
       </article>
-      <article class="exam-card" data-reveal>
-        <span class="n">06 <i></i></span>
+      <article class="xcat" id="cat-6" data-reveal style="--d:.1s">
+        <div class="xcat-head"><span class="xcat-ic"><svg><use href="#i-keyboard"/></svg></span><span class="xcat-n">06</span></div>
         <h3>Shorthand &amp; Typing</h3>
-        <ul>
-          <li>Hindi Shorthand</li>
-          <li>English Shorthand</li>
-          <li>Hindi Typing</li>
-          <li>English Typing</li>
-        </ul>
+        <p class="xcat-sub">Skill courses on Mangal, KrutiDev and Remington Gail.</p>
+        <ul><li>Hindi Shorthand</li><li>English Shorthand</li><li>Hindi Typing</li><li>English Typing</li></ul>
+        <span class="xcat-k">Foundation</span>
       </article>
     </div>
-    <span class="pin-hint">Scroll to explore <svg><use href="#i-arr"/></svg></span>
+    <p class="cms-empty xempty" data-exam-empty hidden>No post matches that search. <a class="ulink" href="contact.html">Ask the academy</a> — we probably cover it.</p>
+  </div>
+</section>
+
+<section class="section section--ink on-dark" id="speeds">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <span class="eyebrow eyebrow--lime">06.2 — Speed ladder</span>
+      <h2 class="h2">Know your <em>target speed.</em></h2>
+      <p class="lead">Typical shorthand speeds by level. Targets vary by notification — in your first session we map the exact speed, language and transcription time for your post.</p>
+      <span class="sec-note"><b>50→160</b>wpm<br>one ladder</span>
+    </div>
+    <ol class="xladder">
+      <li style="--lv:.31" data-reveal><b>50–60</b><span>wpm</span><h3>Foundation</h3><p>Outlines, typing basics, first full passages.</p></li>
+      <li style="--lv:.5" data-reveal><b>80</b><span>wpm</span><h3>Grade D level</h3><p>SSC Grade D and many state steno skill tests.</p></li>
+      <li style="--lv:.63" data-reveal><b>100</b><span>wpm</span><h3>Grade C level</h3><p>SSC Grade C, most court and PA posts.</p></li>
+      <li style="--lv:.75" data-reveal><b>120</b><span>wpm</span><h3>Senior level</h3><p>Private Secretary and senior PA roles.</p></li>
+      <li style="--lv:1" data-reveal><b>160</b><span>wpm</span><h3>Reporter level</h3><p>Parliament and Vidhan Sabha reporting.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="section" id="ready">
+  <div class="wrap">
+    <div class="sec-head" data-reveal>
+      <span class="eyebrow">06.3 — Exam-day ready</span>
+      <h2 class="h2">Practice that feels like <em>the real hall.</em></h2>
+      <p class="lead">Whatever the exam, three things never change in our practice room.</p>
+      <span class="sec-note"><b>03</b>rules<br>every session</span>
+    </div>
+    <div class="xready">
+      <article data-reveal><span class="xready-n">01</span><svg><use href="#i-headphones"/></svg><h3>Exam-hall audio</h3><p>HD dictations paced exactly like the skill test — from 50 to 160 WPM.</p></article>
+      <article data-reveal style="--d:.06s"><span class="xready-n">02</span><svg><use href="#i-clock"/></svg><h3>Your transcription window</h3><p>The timer is set manually to match your post’s rules, Hindi or English.</p></article>
+      <article data-reveal style="--d:.12s"><span class="xready-n">03</span><svg><use href="#i-check"/></svg><h3>Examiner-style checking</h3><p>Full and half mistakes counted with the 5% error formula, automatically.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band on-dark" id="cta">
+  <div class="wrap">
+    <span class="eyebrow eyebrow--lime">Admissions open - 2026</span>
+    <h2 class="h2" style="margin-top:12px">Pick a post. <em>We’ll map the path.</em></h2>
+    <p class="lead">Start with a free demo dictation at your current speed — we’ll tell you exactly how far you are from your target.</p>
+    <div class="cta-actions">
+      <a class="btn btn--lime" href="contact.html"><span>Book a free demo</span> <svg><use href="#i-arr"/></svg></a>
+      <a class="btn btn--light" href="courses.html"><span>See batches &amp; fees</span></a>
+    </div>
   </div>
 </section>
 </main>
-<script src="assets/js/chrome.js?v=2"></script>
-<script src="assets/js/site.js"></script>
-<script type="module" src="assets/js/content.js?v=6"></script>
+<script src="assets/js/chrome.js?v=5"></script>
+<script src="assets/js/site.js?v=2"></script>
+<script src="assets/js/pages.js?v=1"></script>
+<script type="module" src="assets/js/content.js?v=10"></script>
 <script type="module" src="assets/js/auth-ui.js?v=3"></script>
 </body>
 </html>

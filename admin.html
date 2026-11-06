@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin CRM — FenxTek Shorthand Classes</title>
-<meta name="description" content="FenxTek admin CRM — edit site content, batches, fees, FAQs, testimonials, students and leads.">
+<meta name="description" content="FenxTek admin CRM — edit site content, batches, fees, membership plans, achievements, FAQs, testimonials, students and leads.">
 <meta name="theme-color" content="#F5F1E8">
 <link rel="icon" href="fenxtek-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css">
-<link rel="stylesheet" href="assets/css/portal.css?v=3">
+<link rel="stylesheet" href="assets/css/site.css?v=5">
+<link rel="stylesheet" href="assets/css/portal.css?v=5">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin">
@@ -41,7 +41,7 @@
         <div>
           <span class="eyebrow">Admin CRM</span>
           <h1>Control <em>room.</em></h1>
-          <p>Edit the live website, manage batches and fees, read student accounts and capture leads — every save writes straight to Firebase Realtime Database.</p>
+          <p>Edit the live website, manage batches, fees and membership plans, post achievements, read student accounts and capture leads — every save writes straight to Firebase Realtime Database.</p>
         </div>
         <div class="crm-top-actions">
           <span class="crm-user"><i></i><span id="crmEmail">—</span></span>
@@ -56,10 +56,12 @@
           <button class="crm-nav" data-crm-tab="content">Site content <span>02</span></button>
           <button class="crm-nav" data-crm-tab="batches">Batches <span>03</span></button>
           <button class="crm-nav" data-crm-tab="fees">Fees <span>04</span></button>
-          <button class="crm-nav" data-crm-tab="faqs">FAQs <span>05</span></button>
-          <button class="crm-nav" data-crm-tab="testimonials">Testimonials <span>06</span></button>
-          <button class="crm-nav" data-crm-tab="students">Students <span>07</span></button>
-          <button class="crm-nav" data-crm-tab="leads">Leads <span>08</span></button>
+          <button class="crm-nav" data-crm-tab="memberships">Memberships <span>05</span></button>
+          <button class="crm-nav" data-crm-tab="achievements">Achievements <span>06</span></button>
+          <button class="crm-nav" data-crm-tab="faqs">FAQs <span>07</span></button>
+          <button class="crm-nav" data-crm-tab="testimonials">Testimonials <span>08</span></button>
+          <button class="crm-nav" data-crm-tab="students">Students <span>09</span></button>
+          <button class="crm-nav" data-crm-tab="leads">Leads <span>10</span></button>
           <div class="crm-side-foot">
             <button class="crm-add" id="seedBtn" type="button">Load starter content</button>
             <button class="crm-add" id="crmSignOut2" type="button">Sign out</button>
@@ -82,12 +84,16 @@
             <div class="crm-stats">
               <div class="crm-stat"><b id="statBatches">0</b><span>Batches</span></div>
               <div class="crm-stat"><b id="statFees">0</b><span>Fee plans</span></div>
+              <div class="crm-stat"><b id="statPlans">0</b><span>Membership plans</span></div>
+              <div class="crm-stat"><b id="statMembers">0</b><span>Active members</span></div>
+              <div class="crm-stat"><b id="statAchievements">0</b><span>Achievement posts</span></div>
               <div class="crm-stat"><b id="statFaqs">0</b><span>FAQs</span></div>
               <div class="crm-stat"><b id="statTestimonials">0</b><span>Testimonials</span></div>
               <div class="crm-stat"><b id="statStudents">0</b><span>Students</span></div>
               <div class="crm-stat"><b id="statLeads">0</b><span>Leads</span></div>
               <div class="crm-stat"><b id="statPrice">—</b><span>Starting price</span></div>
               <div class="crm-stat"><b id="statAnnounce">—</b><span>Announcement</span></div>
+              <div class="crm-stat"><b id="statEnquiries">0</b><span>Plan enquiries</span></div>
             </div>
 
             <div class="crm-card" style="margin-top:16px">
@@ -215,12 +221,175 @@
             </div>
           </section>
 
+          <!-- MEMBERSHIPS -->
+          <section class="crm-panel" data-crm-panel="memberships" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Membership plans</h2>
+                <p>Plans shown on the <a href="membership.html" target="_blank" rel="noopener">Membership page</a>. Write one feature per line. Untick “Visible on site” to hide a plan without deleting it.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="planAdd" type="button"><span>Create plan</span><svg><use href="#i-plus"/></svg></button>
+            </div>
+            <div class="crm-card">
+              <div class="crm-editor" id="planEditor"></div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="planState">Not saved yet</span>
+                <button class="p-btn p-btn--lime" id="planSave" type="button"><span>Save plans</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </div>
+
+            <div class="crm-panel-head" style="margin-top:34px">
+              <div>
+                <h2>Student memberships</h2>
+                <p>Activate a plan on a student account. Students see their plan and validity on their dashboard and on the Membership page. Stored under <code>members/&lt;uid&gt;</code>.</p>
+              </div>
+            </div>
+            <form class="crm-card" id="memberForm" novalidate>
+              <div class="crm-form">
+                <label class="p-field">
+                  <span class="p-label">Student</span>
+                  <select class="p-select" name="uid" id="memberStudent" required><option value="">Loading students…</option></select>
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Plan</span>
+                  <select class="p-select" name="planId" id="memberPlan" required><option value="">Create a plan first</option></select>
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Start date</span>
+                  <input class="p-input" type="date" name="start" id="memberStart" required>
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Valid till</span>
+                  <input class="p-input" type="date" name="end" id="memberEnd">
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Status</span>
+                  <select class="p-select" name="status">
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label class="p-field">
+                  <span class="p-label">Amount paid (₹, optional)</span>
+                  <input class="p-input" name="paid" inputmode="numeric" placeholder="549">
+                </label>
+                <label class="p-field p-field--wide">
+                  <span class="p-label">Note (only admins see this)</span>
+                  <input class="p-input" name="note" placeholder="Paid via UPI on 4 Nov">
+                </label>
+              </div>
+              <div class="crm-actions">
+                <span class="crm-save-state" id="memberState">Pick a student and a plan — “Valid till” fills from the plan length.</span>
+                <button class="p-btn p-btn--ghost p-btn--sm" type="reset"><span>Clear</span></button>
+                <button class="p-btn p-btn--lime" type="submit"><span>Save membership</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </form>
+            <div class="crm-table-wrap" style="margin-top:16px">
+              <table class="crm-table">
+                <thead>
+                  <tr><th>Student</th><th>Plan</th><th>Start</th><th>Valid till</th><th>Status</th><th class="actions">Action</th></tr>
+                </thead>
+                <tbody id="membersBody">
+                  <tr><td colspan="6" class="crm-table-empty">Loading memberships…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ACHIEVEMENTS -->
+          <section class="crm-panel" data-crm-panel="achievements" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Achievements</h2>
+                <p>Posts on the public <a href="achievements.html" target="_blank" rel="noopener">Achievements page</a> and the home page. Drag &amp; drop a photo (saved in Realtime Database as base64) or attach a picture link.</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="achNew" type="button"><span>New post</span><svg><use href="#i-plus"/></svg></button>
+            </div>
+
+            <form class="crm-card ach-composer" id="achForm" novalidate>
+              <div class="ach-composer-head">
+                <span class="eyebrow" id="achFormMode">New post</span>
+                <div class="ach-src-tabs" role="tablist" aria-label="Image source">
+                  <button type="button" class="ach-src" data-src="upload" aria-pressed="true"><svg><use href="#i-upload"/></svg><span>Upload / drag &amp; drop</span></button>
+                  <button type="button" class="ach-src" data-src="link" aria-pressed="false"><svg><use href="#i-link"/></svg><span>Picture link</span></button>
+                </div>
+              </div>
+
+              <div class="ach-composer-grid">
+                <div>
+                  <div class="ach-drop" id="achDrop" tabindex="0" role="button" aria-label="Drop an image here or press Enter to choose a file">
+                    <input type="file" id="achFile" accept="image/*" hidden>
+                    <div class="ach-drop-empty">
+                      <span class="ach-drop-ic"><svg><use href="#i-image"/></svg></span>
+                      <b>Drag &amp; drop a photo here</b>
+                      <span>or <u>browse</u> · paste with Ctrl/⌘ + V · PNG, JPG, WEBP, GIF</span>
+                    </div>
+                    <img class="ach-drop-img" id="achPreview" alt="Selected achievement picture" hidden>
+                    <button class="ach-drop-clear" id="achClear" type="button" aria-label="Remove picture" hidden><svg><use href="#i-x"/></svg></button>
+                  </div>
+                  <div class="ach-link" id="achLinkRow" hidden>
+                    <label class="p-field" style="margin:0">
+                      <span class="p-label">Picture link (https://…)</span>
+                      <input class="p-input" type="url" id="achUrl" placeholder="https://example.com/result.jpg">
+                    </label>
+                    <button class="p-btn p-btn--ghost p-btn--sm" id="achUrlUse" type="button"><span>Preview</span></button>
+                  </div>
+                  <p class="p-hint ach-file-meta" id="achMeta">Photos are kept sharp (up to ~4Large photos are resized to 1600&nbsp;px and compressed before saving.nbsp;MP, full width for tall result lists); screenshots stay PNG and transparent backgrounds become white.</p>
+                </div>
+
+                <div>
+                  <label class="p-field">
+                    <span class="p-label">Caption (shown to everyone)</span>
+                    <textarea class="p-textarea" name="caption" rows="4" maxlength="1200" placeholder="Priya Sharma cleared the AHC APS skill test at 80 WPM — first attempt!" required></textarea>
+                  </label>
+                  <label class="p-field">
+                    <span class="p-label">Title (optional)</span>
+                    <input class="p-input" name="title" maxlength="160" placeholder="Selected · AHC APS 2026">
+                  </label>
+                  <div class="p-row">
+                    <label class="p-field">
+                      <span class="p-label">Tag / exam (optional)</span>
+                      <input class="p-input" name="tag" maxlength="60" list="achTags" placeholder="AHC APS">
+                      <datalist id="achTags"></datalist>
+                    </label>
+                    <label class="p-field">
+                      <span class="p-label">Date</span>
+                      <input class="p-input" type="date" name="date">
+                    </label>
+                  </div>
+                  <label class="p-check">
+                    <input type="checkbox" name="published" checked>
+                    <span>Visible on the website</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="crm-actions">
+                <span class="crm-save-state" id="achState">Add a picture and a caption.</span>
+                <button class="p-btn p-btn--ghost p-btn--sm" id="achCancel" type="button" hidden><span>Cancel edit</span></button>
+                <button class="p-btn p-btn--lime" type="submit" id="achSubmit"><span>Publish post</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </form>
+
+            <div class="crm-panel-head" style="margin-top:30px">
+              <div>
+                <h2 style="font-size:20px">Published posts <span class="crm-count" id="achListCount">0</span></h2>
+                <p>Newest first. Use the arrows to change the order on the site.</p>
+              </div>
+            </div>
+            <div class="ach-warn" id="achPublicWarn" role="status" hidden></div>
+            <div class="ach-admin-list" id="achList">
+              <p class="cms-empty">Loading posts…</p>
+            </div>
+          </section>
+
           <!-- FAQS -->
           <section class="crm-panel" data-crm-panel="faqs" hidden>
             <div class="crm-panel-head">
               <div>
                 <h2>FAQs</h2>
-                <p>Answers on the Membership page. Keep them short and practical.</p>
+                <p>Answers on the Membership page, below the plans. Keep them short and practical.</p>
               </div>
               <button class="p-btn p-btn--ghost p-btn--sm" id="faqAdd" type="button"><span>Add question</span><svg><use href="#i-plus"/></svg></button>
             </div>
@@ -263,10 +432,10 @@
             <div class="crm-table-wrap">
               <table class="crm-table">
                 <thead>
-                  <tr><th>Name</th><th>Email</th><th>Phone</th><th>Target exam</th><th>Joined</th></tr>
+                  <tr><th>Name</th><th>Email</th><th>Phone</th><th>Target exam</th><th>Membership</th><th>Joined</th><th class="actions">Action</th></tr>
                 </thead>
                 <tbody id="studentsBody">
-                  <tr><td colspan="5" class="crm-table-empty">Loading students…</td></tr>
+                  <tr><td colspan="7" class="crm-table-empty">Loading students…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -277,7 +446,7 @@
             <div class="crm-panel-head">
               <div>
                 <h2>Leads</h2>
-                <p>Email addresses captured by the “Join now” form on the public site.</p>
+                <p>Email addresses captured by the “Join now” form on the public site. Leads that came from a membership plan’s “Choose plan” button show the plan.</p>
               </div>
               <div class="crm-top-actions">
                 <button class="p-btn p-btn--ghost p-btn--sm" id="leadsExport" type="button"><span>Export CSV</span><svg><use href="#i-arr-d"/></svg></button>
@@ -287,10 +456,10 @@
             <div class="crm-table-wrap">
               <table class="crm-table">
                 <thead>
-                  <tr><th>Email</th><th>Source</th><th>Captured</th><th class="actions">Action</th></tr>
+                  <tr><th>Email</th><th>Plan enquiry</th><th>Source</th><th>Captured</th><th class="actions">Action</th></tr>
                 </thead>
                 <tbody id="leadsBody">
-                  <tr><td colspan="4" class="crm-table-empty">Loading leads…</td></tr>
+                  <tr><td colspan="5" class="crm-table-empty">Loading leads…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -302,9 +471,9 @@
   </div>
 </main>
 
-<script src="assets/js/chrome.js?v=2"></script>
-<script src="assets/js/site.js"></script>
-<script type="module" src="assets/js/content.js?v=6"></script>
-<script type="module" src="assets/js/admin.js?v=4"></script>
+<script src="assets/js/chrome.js?v=5"></script>
+<script src="assets/js/site.js?v=2"></script>
+<script type="module" src="assets/js/content.js?v=10"></script>
+<script type="module" src="assets/js/admin.js?v=7"></script>
 </body>
 </html>

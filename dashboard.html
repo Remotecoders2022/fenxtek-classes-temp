@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css">
-<link rel="stylesheet" href="assets/css/portal.css?v=3">
+<link rel="stylesheet" href="assets/css/site.css?v=5">
+<link rel="stylesheet" href="assets/css/portal.css?v=5">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="dashboard">
@@ -66,6 +66,19 @@
             <span class="eyebrow">Announcement</span>
             <h2>From the academy</h2>
             <p id="dashAnnounceText"></p>
+          </section>
+
+          <section class="dash-card" style="margin-top:16px" id="dashMembership">
+            <span class="eyebrow">Membership</span>
+            <h2 id="dashMemberTitle">No membership yet</h2>
+            <p id="dashMemberText">Pick a plan on the Membership page — once the academy confirms your payment, your plan and validity show up here.</p>
+            <div class="dash-member" id="dashMemberInfo" hidden>
+              <span class="p-badge" id="dashMemberStatus">Active</span>
+              <div class="dash-member-bar" aria-hidden="true"><i id="dashMemberBar" style="width:0%"></i></div>
+            </div>
+            <div class="dash-body">
+              <a class="p-btn p-btn--ghost p-btn--sm" href="membership.html#plans" id="dashMemberLink"><span>See membership plans</span><svg><use href="#i-arr-ur"/></svg></a>
+            </div>
           </section>
 
           <section class="dash-card" style="margin-top:16px">
@@ -133,7 +146,8 @@
               <a class="dash-link" href="courses.html"><span>Courses &amp; fees</span><svg><use href="#i-arr-ur"/></svg></a>
               <a class="dash-link" href="exams.html"><span>Exam patterns</span><svg><use href="#i-arr-ur"/></svg></a>
               <a class="dash-link" href="method.html"><span>The method</span><svg><use href="#i-arr-ur"/></svg></a>
-              <a class="dash-link" href="membership.html"><span>Membership</span><svg><use href="#i-arr-ur"/></svg></a>
+              <a class="dash-link" href="membership.html#plans"><span>Membership plans</span><svg><use href="#i-arr-ur"/></svg></a>
+              <a class="dash-link" href="achievements.html"><span>Student achievements</span><svg><use href="#i-arr-ur"/></svg></a>
               <a class="dash-link" href="contact.html"><span>Book a demo</span><svg><use href="#i-arr-ur"/></svg></a>
               <a class="dash-link" id="adminLink" href="admin.html" hidden><span>Open admin CRM</span><svg><use href="#i-grid"/></svg></a>
             </div>
@@ -165,9 +179,9 @@
   </div>
 </main>
 
-<script src="assets/js/chrome.js?v=2"></script>
-<script src="assets/js/site.js"></script>
-<script type="module" src="assets/js/content.js?v=6"></script>
-<script type="module" src="assets/js/dashboard.js?v=6"></script>
+<script src="assets/js/chrome.js?v=5"></script>
+<script src="assets/js/site.js?v=2"></script>
+<script type="module" src="assets/js/content.js?v=10"></script>
+<script type="module" src="assets/js/dashboard.js?v=7"></script>
 </body>
 </html>
