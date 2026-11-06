@@ -554,12 +554,18 @@ function memberPromo(kind) {
   if (!list.length) return "";
   const from = Math.min(...list.map((p) => p.price));
   const best = list.find((p) => p.highlight) || list[0];
+  const inCart = Boolean(S.cart[best.id]);
   return (
-    `<a class="sp-mpromo sp-mpromo--${kind}" href="#membership">` +
-    `<span class="sp-mpromo-card" aria-hidden="true">${planMini(best, "sm")}</span>` +
-    `<span class="sp-mpromo-txt"><span class="sp-k sp-k--light">FenxTek membership</span><b>${kind === "store" ? "One plan. Everything you need to crack steno." : "Go all-in with a membership"}</b>` +
-    `<small>${list.length} plan${list.length === 1 ? "" : "s"} · from ${money(from)} · instant receipt</small></span>` +
-    `<span class="p-btn p-btn--lime p-btn--sm">${icon("i-crown")}<span>View plans</span></span></a>`
+    `<div class="sp-mpromo sp-mpromo--${kind}">` +
+    `<a class="sp-mpromo-card" href="#membership/${esc(best.planId)}" tabindex="-1" aria-hidden="true">${planMini(best, "sm")}</a>` +
+    `<a class="sp-mpromo-txt" href="#membership"><span class="sp-k sp-k--light">FenxTek membership</span><b>${kind === "store" ? "One plan. Everything you need to crack steno." : "Go all-in with a membership"}</b>` +
+    `<small>${list.length} plan${list.length === 1 ? "" : "s"} · from ${money(from)} · instant receipt</small></a>` +
+    `<span class="sp-mpromo-acts">` +
+    (inCart
+      ? `<a class="p-btn p-btn--lime p-btn--sm" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+      : `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-qbuy="${esc(best.id)}">${icon("i-cart")}<span>Buy ${esc(best.title)} · ${money(best.price)}</span></button>`) +
+    `<a class="p-btn p-btn--ghost p-btn--sm sp-btn-onDark" href="#membership">${icon("i-crown")}<span>View plans</span></a>` +
+    `</span></div>`
   );
 }
 
@@ -1202,6 +1208,8 @@ function vStore() {
     crumb: "Learn",
     html,
     mount(root) {
+      const promo = $(".sp-mpromo", root);
+      if (promo) bindAdd(promo);
       const paint = () => {
         const grid = $("#spStoreGrid", root);
         if (!S.coursesReady) {

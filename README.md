@@ -223,6 +223,11 @@ second plan replaces the first.
   (scrolls to the plan), and `dashboard.html#join/<planId>`, which adds the plan to the cart and opens the cart. The public
   `membership.html` buttons use `#join/<id>`, so a signed-out visitor goes through sign-in and lands in the cart.
   Plans without a price still link to `contact.html?plan=<id>`.
+- Purchase buttons: every plan card on `membership.html` has a **Buy now** button showing the plan's price and
+  validity, plus *Secure checkout · Instant activation · Receipt* and a "Questions? Talk to us" link. Signed-in members
+  see **Extend plan** on their own plan and **Switch to this plan** on the others. The signed-in banner above the cards
+  offers **Buy <plan>**, **Extend plan** or **Renew plan**, and the membership promo on the portal's Home and Store
+  has a direct **Buy <plan>** button next to *View plans*. A custom CTA text set in the CRM replaces "Buy now".
 - Plan prices: the CRM saves `price` / `was` as numbers. Plans saved by an older version may hold text such as
   `"749"`. The rules accept both, but open **Memberships** in the CRM and click **Save** once on each plan to store numbers.
 - Everything else requires an admin entry under `admins/`.

@@ -264,12 +264,39 @@ function planVisual(p, i, theme) {
 
 /* Plans with a numeric price and validity are bought in the student
    portal (same cart + checkout as courses); others stay an enquiry. */
-function planHref(p) {
-  const id = encodeURIComponent(p.id || "");
+function planBuyable(p) {
   const days = p.durationDays;
   const price = num(p.price);
-  const buyable = price > 0 && days !== "" && days != null && isFinite(Number(days)) && String(Math.round(price)) === String(p.price).trim();
-  return buyable ? `dashboard.html#join/${id}` : `contact.html?plan=${id}`;
+  return price > 0 && days !== "" && days != null && isFinite(Number(days)) && String(Math.round(price)) === String(p.price).trim();
+}
+function planHref(p) {
+  const id = encodeURIComponent(p.id || "");
+  return planBuyable(p) ? `dashboard.html#join/${id}` : `contact.html?plan=${id}`;
+}
+/* The CRM's default CTA text is "Choose plan"; on a buyable card that
+   becomes an explicit purchase button. A custom CTA text is kept. */
+function planBuyLabel(p) {
+  const custom = p.cta && p.cta !== "Choose plan" ? p.cta : "";
+  return custom || (planBuyable(p) ? "Buy now" : "Enquire now");
+}
+
+/* Purchase button + reassurance under the price. Buyable plans go to the
+   portal checkout (dashboard.html#join/<id>, through sign-in if needed). */
+function purchaseBlock(p, m, dur) {
+  const label = planBuyLabel(p);
+  if (!planBuyable(p)) {
+    return `<div class="mcard-buy"><a class="mcard-cta" href="${planHref(p)}"><span class="mcard-cta-txt"><b>${esc(label)}</b><small>Talk to the academy</small></span><svg><use href="#i-arr"/></svg></a></div>`;
+  }
+  return (
+    `<div class="mcard-buy">` +
+    `<a class="mcard-cta" href="${planHref(p)}" data-plan-buy="${esc(p.id || "")}" data-label="${esc(label)}">` +
+    `<span class="mcard-cta-ic" aria-hidden="true"><svg><use href="#i-cart"/></svg></span>` +
+    `<span class="mcard-cta-txt"><b data-buy-text>${esc(label)}</b><small>₹${esc(rupees(m.price))}${dur ? ` · ${esc(dur)}` : ""}</small></span>` +
+    `<svg><use href="#i-arr"/></svg></a>` +
+    `<div class="mcard-assure"><span><svg><use href="#i-shield"/></svg>Secure checkout</span><span><svg><use href="#i-zap"/></svg>Instant activation</span><span><svg><use href="#i-receipt"/></svg>Receipt</span></div>` +
+    `<a class="mcard-ask" href="contact.html?plan=${encodeURIComponent(p.id || "")}">Questions? Talk to us</a>` +
+    `</div>`
+  );
 }
 
 function planCard(p, i, theme) {
@@ -293,7 +320,7 @@ function planCard(p, i, theme) {
     (p.tagline ? `<p class="mcard-tag">${esc(p.tagline)}</p>` : "") +
     `<div class="mcard-price">${m.price ? `<span class="mcard-cur">₹</span><b>${esc(rupees(m.price))}</b>` : "<b>Free</b>"}${dur ? `<span class="mcard-per">/ ${esc(dur)}</span>` : ""}</div>` +
     (sub ? `<div class="mcard-sub">${sub}</div>` : "") +
-    `<a class="mcard-cta" href="${planHref(p)}"><span>${esc(p.cta || "Choose plan")}</span><svg><use href="#i-arr"/></svg></a>` +
+    purchaseBlock(p, m, dur) +
     (feats ? `<span class="mcard-inc">What’s included</span><ul class="mcard-feats">${feats}</ul>` : "") +
     `</div></article>`
   );
@@ -320,6 +347,8 @@ export function renderMemberships(value) {
   const plans = activePlans(value);
   setText("planCount", pad(plans.length));
   if (!plans.length) {
+    shownPlans = [];
+    paintMyMembership();
     wrap.innerHTML = '<p class="cms-empty">New membership plans are on the way — contact the academy for current offers.</p>';
     wrap.dataset.cols = "0";
     return;
@@ -329,6 +358,8 @@ export function renderMemberships(value) {
   wrap.innerHTML = plans.map((p, i) => planCard(p, i, themes[i])).join("");
   bindTilt(wrap);
   renderPlanStack(plans, themes);
+  shownPlans = plans;
+  paintMyMembership();
 
   /* The membership hero shows the lowest active plan price. */
   const prices = plans.map((p) => num(p.price)).filter((n) => isFinite(n) && n > 0);
@@ -367,36 +398,74 @@ export function bindTilt(root) {
   });
 }
 
-function bindMyMembership() {
+/* Signed-in state on the Membership page: a status banner with a purchase
+   action (buy / extend / renew), and plan buttons that say "Extend plan"
+   on the student's own plan and "Switch to this plan" on the others. */
+let shownPlans = [];
+let myAuth = { signedIn: false, rec: null };
+
+function paintPlanButtons() {
+  const st = myAuth.signedIn ? membershipStatus(myAuth.rec) : { key: "none" };
+  const mine = st.key === "active" && myAuth.rec ? String(myAuth.rec.planId || "") : "";
+  document.querySelectorAll("[data-plan-buy]").forEach((a) => {
+    const txt = a.querySelector("[data-buy-text]");
+    if (!txt) return;
+    const own = mine && a.dataset.planBuy === mine;
+    txt.textContent = own ? "Extend plan" : mine ? "Switch to this plan" : a.dataset.label || "Buy now";
+    a.closest(".mcard")?.classList.toggle("is-mine", Boolean(own));
+  });
+}
+
+function paintMyMembership() {
+  paintPlanButtons();
   const box = document.querySelector("[data-my-membership]");
   if (!box) return;
+  if (!myAuth.signedIn) {
+    box.hidden = true;
+    return;
+  }
+  const rec = myAuth.rec;
+  const st = membershipStatus(rec);
+  const buyable = shownPlans.filter(planBuyable);
+  const dash = `<a class="mm-link" href="dashboard.html">My dashboard <svg><use href="#i-arr-ur"/></svg></a>`;
+  box.hidden = false;
+  box.dataset.state = st.key;
+  if (st.key === "none") {
+    const best = buyable.find((p) => p.highlight) || buyable[0];
+    box.innerHTML =
+      `<span class="mm-dot"></span><span class="mm-txt"><b>You are signed in</b>` +
+      `<span>No membership on your account yet — ${best ? "buy a plan and it activates instantly." : "pick a plan below."}</span></span>` +
+      (best
+        ? `<a class="mm-buy" href="${planHref(best)}"><svg><use href="#i-cart"/></svg><span>Buy ${esc(best.name || best.title || "membership")} · ₹${esc(rupees(best.price))}</span></a>`
+        : "") +
+      dash;
+    return;
+  }
+  const left = daysLeft(rec);
+  const same = buyable.find((p) => String(p.id) === String(rec.planId || ""));
+  const action = st.key === "active" ? "Extend plan" : st.key === "expired" || st.key === "cancelled" ? "Renew plan" : "";
+  box.innerHTML =
+    `<span class="mm-dot"></span><span class="mm-txt"><b>${esc(rec.planName || "Membership")} · ${esc(st.label)}</b>` +
+    `<span>${rec.endAt ? `Valid till ${esc(formatDate(Number(rec.endAt)))}` : "Open-ended"}${
+      st.key === "active" && left != null ? ` · ${left} day${left === 1 ? "" : "s"} left` : ""
+    }</span></span>` +
+    (action
+      ? `<a class="mm-buy" href="${same ? planHref(same) : "dashboard.html#membership"}"><svg><use href="#i-${st.key === "active" ? "zap" : "refresh"}"/></svg><span>${action}</span></a>`
+      : "") +
+    dash;
+}
+
+function bindMyMembership() {
+  if (!document.querySelector("[data-my-membership]")) return;
   let stop = () => {};
   onAuthChange((user) => {
     stop();
-    if (!user) {
-      box.hidden = true;
-      return;
-    }
+    myAuth = { signedIn: Boolean(user), rec: null };
+    paintMyMembership();
+    if (!user) return;
     dbWatch(`members/${user.uid}`, (rec) => {
-      const st = membershipStatus(rec);
-      if (st.key === "none") {
-        box.hidden = false;
-        box.dataset.state = "none";
-        box.innerHTML =
-          `<span class="mm-dot"></span><span class="mm-txt"><b>You are signed in</b>` +
-          `<span>No membership on your account yet — pick a plan below and the academy will activate it.</span></span>` +
-          `<a class="mm-link" href="dashboard.html">My dashboard <svg><use href="#i-arr-ur"/></svg></a>`;
-        return;
-      }
-      const left = daysLeft(rec);
-      box.hidden = false;
-      box.dataset.state = st.key;
-      box.innerHTML =
-        `<span class="mm-dot"></span><span class="mm-txt"><b>${esc(rec.planName || "Membership")} · ${esc(st.label)}</b>` +
-        `<span>${rec.endAt ? `Valid till ${esc(formatDate(Number(rec.endAt)))}` : "Open-ended"}${
-          st.key === "active" && left != null ? ` · ${left} day${left === 1 ? "" : "s"} left` : ""
-        }</span></span>` +
-        `<a class="mm-link" href="dashboard.html">My dashboard <svg><use href="#i-arr-ur"/></svg></a>`;
+      myAuth = { signedIn: true, rec };
+      paintMyMembership();
     }).then((off) => {
       stop = off || (() => {});
     });
