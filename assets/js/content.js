@@ -207,28 +207,87 @@ export function renderTestimonials(value) {
 /* ---------------- memberships ---------------- */
 
 const activePlans = (value) => toList(value).filter((p) => p && p.active !== false && (p.name || p.title));
+const num = (v) => Number(String(v == null ? "" : v).replace(/[^\d.]/g, ""));
+export const PLAN_THEMES = ["ink", "violet", "gold", "pearl"];
 
-function planCard(p, i) {
+/* Explicit theme from the CRM, otherwise: highlighted plan = midnight,
+   the rest cycle through violet / gold / pearl. */
+function planThemes(plans) {
+  let k = 0;
+  const cycle = ["violet", "gold", "pearl"];
+  return plans.map((p) => {
+    if (PLAN_THEMES.includes(p.theme)) return p.theme;
+    if (p.highlight) return "ink";
+    return cycle[k++ % cycle.length];
+  });
+}
+
+function planMaths(p) {
+  const price = num(p.price);
+  const was = num(p.was);
+  const days = Number(p.durationDays) || 0;
+  const save = was > price && price > 0 ? Math.round(((was - price) / was) * 100) : 0;
+  let perDay = "";
+  if (price > 0 && days > 0) {
+    const d = price / days;
+    perDay = d >= 10 ? String(Math.round(d)) : d.toFixed(1).replace(/\.0$/, "");
+  }
+  return { price, was, save, perDay };
+}
+
+function planVisual(p, i, theme) {
   const name = p.name || p.title || "Membership";
-  const price = rupees(p.price);
-  const was = p.was ? `<s>₹${esc(rupees(p.was))}</s>` : "";
+  const dur = p.duration || (p.durationDays ? p.durationDays + " days" : "Flexible");
+  const yr = String(new Date().getFullYear()).slice(-2);
+  return (
+    `<div class="mvis mvis--${theme}"><div class="mvis-in">` +
+    `<div class="mvis-row"><img src="fenxtek-logo.png" alt="" width="30" height="30"><span class="mvis-brand">FenxTek<small>Membership</small></span><span class="mvis-chip" aria-hidden="true"></span></div>` +
+    `<div class="mvis-name">${esc(name)}</div>` +
+    `<div class="mvis-row mvis-foot"><span><small>Valid</small>${esc(dur)}</span><span><small>Member no.</small>FX · ${pad(i + 1)} · ${yr}</span><span class="mvis-mark" aria-hidden="true">✦</span></div>` +
+    `<span class="mvis-sheen" aria-hidden="true"></span></div></div>`
+  );
+}
+
+function planCard(p, i, theme) {
+  const name = p.name || p.title || "Membership";
+  const m = planMaths(p);
   const feats = toLines(p.features)
     .map((f) => `<li><svg><use href="#i-check"/></svg><span>${esc(f)}</span></li>`)
     .join("");
-  const cta = p.cta || "Choose plan";
-  const href = `contact.html?plan=${encodeURIComponent(p.id || "")}`;
+  const dur = p.duration || (p.durationDays ? p.durationDays + " days" : "");
+  const sub = [
+    m.was > m.price ? `<s>₹${esc(rupees(m.was))}</s>` : "",
+    m.save ? `<span class="mcard-save">Save ${m.save}%</span>` : "",
+    m.perDay ? `<span class="mcard-day">≈ ₹${esc(m.perDay)} a day</span>` : ""
+  ].join("");
   return (
-    `<article class="plan${p.highlight ? " plan--hot" : ""} cms-fade" style="--d:${(i * 0.06).toFixed(2)}s" data-plan="${esc(p.id || "")}">` +
-    (p.highlight ? `<span class="plan-flag">${esc(p.badge || "Most popular")}</span>` : "") +
-    `<span class="plan-n">${pad(i + 1)} / Plan</span>` +
-    `<h3 class="plan-name">${esc(name)}</h3>` +
-    (p.tagline ? `<p class="plan-tag">${esc(p.tagline)}</p>` : "") +
-    `<div class="plan-price">${price ? `<b><small>₹</small>${esc(price)}</b>` : "<b>Free</b>"}${was}</div>` +
-    `<span class="plan-dur">${esc(p.duration || (p.durationDays ? p.durationDays + " days" : "Flexible"))} validity</span>` +
-    (feats ? `<ul class="plan-feats">${feats}</ul>` : "") +
-    `<a class="btn ${p.highlight ? "btn--lime" : ""} plan-cta" href="${href}"><span>${esc(cta)}</span> <svg><use href="#i-arr"/></svg></a>` +
-    `</article>`
+    `<article class="mcard${p.highlight ? " mcard--hot" : ""} cms-fade" style="--d:${(i * 0.07).toFixed(2)}s" data-plan="${esc(p.id || "")}" data-theme="${theme}">` +
+    `<div class="mcard-top"><span class="mcard-n">Tier ${pad(i + 1)}</span>${p.highlight ? `<span class="mcard-flag">${esc(p.badge || "Most popular")}</span>` : ""}</div>` +
+    `<div class="mcard-vis" data-tilt>${planVisual(p, i, theme)}</div>` +
+    `<div class="mcard-body">` +
+    `<h3 class="mcard-name">${esc(name)}</h3>` +
+    (p.tagline ? `<p class="mcard-tag">${esc(p.tagline)}</p>` : "") +
+    `<div class="mcard-price">${m.price ? `<span class="mcard-cur">₹</span><b>${esc(rupees(m.price))}</b>` : "<b>Free</b>"}${dur ? `<span class="mcard-per">/ ${esc(dur)}</span>` : ""}</div>` +
+    (sub ? `<div class="mcard-sub">${sub}</div>` : "") +
+    `<a class="mcard-cta" href="contact.html?plan=${encodeURIComponent(p.id || "")}"><span>${esc(p.cta || "Choose plan")}</span><svg><use href="#i-arr"/></svg></a>` +
+    (feats ? `<span class="mcard-inc">What’s included</span><ul class="mcard-feats">${feats}</ul>` : "") +
+    `</div></article>`
   );
+}
+
+/* Hero: fan out up to three plan cards, highlighted plan in front. */
+function renderPlanStack(plans, themes) {
+  const stack = document.querySelector("[data-plan-stack]");
+  if (!stack || !plans.length) return;
+  const idx = plans.map((p, i) => i);
+  const hot = idx.find((i) => plans[i].highlight);
+  const order = (hot == null ? idx : [hot].concat(idx.filter((i) => i !== hot))).slice(0, 3);
+  stack.innerHTML = order
+    .map((pi, k) => `<div class="mstack-card" style="--i:${k}"${k === 0 ? " data-tilt" : ""}>${planVisual(plans[pi], pi, themes[pi])}</div>`)
+    .reverse()
+    .join("");
+  stack.dataset.cols = String(order.length);
+  bindTilt(stack);
 }
 
 export function renderMemberships(value) {
@@ -238,18 +297,50 @@ export function renderMemberships(value) {
   setText("planCount", pad(plans.length));
   if (!plans.length) {
     wrap.innerHTML = '<p class="cms-empty">New membership plans are on the way — contact the academy for current offers.</p>';
-    wrap.dataset.count = "0";
+    wrap.dataset.cols = "0";
     return;
   }
-  wrap.dataset.count = String(Math.min(plans.length, 4));
-  wrap.innerHTML = plans.map(planCard).join("");
+  const themes = planThemes(plans);
+  wrap.dataset.cols = String(Math.min(plans.length, 4));
+  wrap.innerHTML = plans.map((p, i) => planCard(p, i, themes[i])).join("");
+  bindTilt(wrap);
+  renderPlanStack(plans, themes);
 
   /* The membership hero shows the lowest active plan price. */
-  const prices = plans.map((p) => Number(String(p.price || "").replace(/[^\d.]/g, ""))).filter((n) => isFinite(n) && n > 0);
+  const prices = plans.map((p) => num(p.price)).filter((n) => isFinite(n) && n > 0);
   if (prices.length) {
     const min = String(Math.min.apply(null, prices));
     document.querySelectorAll('[data-cms="planFrom"]').forEach((el) => (el.textContent = rupees(min)));
   }
+}
+
+/* Pointer tilt + moving sheen on the membership card visuals. */
+const canTilt = window.matchMedia("(pointer: fine)").matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export function bindTilt(root) {
+  if (!canTilt) return;
+  (root || document).querySelectorAll("[data-tilt]").forEach((el) => {
+    if (el.dataset.tiltBound) return;
+    el.dataset.tiltBound = "1";
+    const host = el.closest(".mcard") || el;
+    host.addEventListener(
+      "pointermove",
+      (e) => {
+        const r = el.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+        const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+        el.style.setProperty("--ry", ((x - 0.5) * 14).toFixed(2) + "deg");
+        el.style.setProperty("--rx", ((0.5 - y) * 10).toFixed(2) + "deg");
+        el.style.setProperty("--mx", (x * 100).toFixed(1) + "%");
+        el.style.setProperty("--my", (y * 100).toFixed(1) + "%");
+        el.classList.add("is-tilting");
+      },
+      { passive: true }
+    );
+    host.addEventListener("pointerleave", () => {
+      el.classList.remove("is-tilting");
+      ["--rx", "--ry", "--mx", "--my"].forEach((k) => el.style.removeProperty(k));
+    });
+  });
 }
 
 function bindMyMembership() {
@@ -539,3 +630,6 @@ if (configured) {
 } else if (page === "achievements") {
   renderAchievements(null);
 }
+
+/* Static fallback cards get the tilt too (runs even without Firebase). */
+if (page === "membership") bindTilt(document);

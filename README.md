@@ -125,7 +125,8 @@ site
  ├── faqs           { <id>: { q, a, order } }
  ├── testimonials   { <id>: { quote, name, exam, badge, order } }
  ├── memberships    { <id>: { name, tagline, price, was, duration, durationDays,
- │                            features: [..], badge, cta, highlight, active, order } }
+ │                            features: [..], badge, cta, highlight, active, order,
+ │                            theme: "" | "ink" | "violet" | "gold" | "pearl" } }
  ├── achievements   { <id>: { caption, title, tag, date, published, order,
  │                            imageSource: "upload" | "link", imageUrl?, width?, height?,
  │                            createdAt, updatedAt, createdBy } }
@@ -159,7 +160,7 @@ Open `admin.html` and sign in with the admin account.
 - **Overview** — live counts, current price, published announcement.
 - **Site content** — hero paragraph, counters, starting price, phone/email/social handles, director details and the student-dashboard announcement.
 - **Batches / Fees / FAQs / Testimonials** — add, edit, reorder or remove rows, then **Save**. Public pages re-render from RTDB immediately (no rebuild).
-- **Memberships** — **Create plan** adds a plan card to the Membership page (name, price, struck-through price, validity label and days, one feature per line, highlight badge, visible on site). Below that, **Student memberships** activates a plan on a student account: pick the student and plan, and "Valid till" fills in from the plan length. Students see it on their dashboard and the Membership page. The Students tab has an **Assign plan** shortcut too.
+- **Memberships** — **Create plan** adds a plan card to the Membership page (name, price, struck-through price, validity label and days, one feature per line, highlight badge, **card style**, visible on site). Each plan shows as a premium membership card: *Midnight black*, *Royal violet*, *Champagne gold* or *Pearl white*. Leave the style on **Auto** and the highlighted plan becomes the Midnight card with the animated border, while the others cycle violet → gold → pearl. The page works out "Save X%" from the struck-through price and "≈ ₹N a day" from the validity in days, and the hero shows up to three plan cards fanned out, highlighted plan in front. Below that, **Student memberships** activates a plan on a student account: pick the student and plan, and "Valid till" fills in from the plan length. Students see it on their dashboard and the Membership page. The Students tab has an **Assign plan** shortcut too.
 - **Achievements** — drag & drop a photo onto the drop zone (or click to browse, or paste with Ctrl/⌘ + V), or switch to **Picture link** and paste an `https://` image URL. Add a caption (required), optional title, tag and date, then **Publish post**. Uploaded photos are saved in RTDB as base64; links are saved as-is. Posts can be edited, hidden, reordered with the arrows, or deleted. `admin.html#achievements` opens the tab directly.
 - **Students** — accounts created through the portal.
 - **Leads** — emails captured by the public “Join now” forms, with CSV export and delete. Leads that came through a plan's **Choose plan** button (`contact.html?plan=<id>`) record which plan.

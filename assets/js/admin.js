@@ -297,6 +297,18 @@ const EDITORS = {
     fields: [
       { key: "name", label: "Plan name", placeholder: "Quarterly Membership" },
       { key: "badge", label: "Highlight badge text", placeholder: "Most popular" },
+      {
+        key: "theme",
+        label: "Card style",
+        type: "select",
+        options: [
+          ["", "Auto (highlighted = Midnight)"],
+          ["ink", "Midnight black"],
+          ["violet", "Royal violet"],
+          ["gold", "Champagne gold"],
+          ["pearl", "Pearl white"]
+        ]
+      },
       { key: "tagline", label: "Short description", wide: true, placeholder: "All courses, dictations and mock tests in one plan." },
       { key: "price", label: "Price (₹)", placeholder: "549" },
       { key: "was", label: "Original price (optional)", placeholder: "799" },
@@ -311,6 +323,7 @@ const EDITORS = {
     blank: () => ({
       name: "",
       badge: "Most popular",
+      theme: "",
       tagline: "",
       price: "",
       was: "",
@@ -329,6 +342,7 @@ const EDITORS = {
         id: item.id,
         name,
         badge: String(item.badge || "").trim(),
+        theme: ["ink", "violet", "gold", "pearl"].includes(item.theme) ? item.theme : "",
         tagline: String(item.tagline || "").trim(),
         price: String(item.price == null ? "" : item.price).replace(/[^\d.]/g, ""),
         was: String(item.was == null ? "" : item.was).replace(/[^\d.]/g, ""),
@@ -388,7 +402,11 @@ function renderField(f, item) {
   }
   const label = `<span class="p-label">${esc(f.label)}</span>`;
   let control;
-  if (f.type === "lines") {
+  if (f.type === "select") {
+    control = `<select class="p-select" data-field="${f.key}">${f.options
+      .map(([v, l]) => `<option value="${esc(v)}"${String(raw || "") === v ? " selected" : ""}>${esc(l)}</option>`)
+      .join("")}</select>`;
+  } else if (f.type === "lines") {
     control = `<textarea class="p-textarea" data-field="${f.key}" rows="${f.rows || 4}"${ph}>${esc(toLines(raw).join("\n"))}</textarea>`;
   } else if (f.type === "textarea") {
     control = `<textarea class="p-textarea" data-field="${f.key}" rows="${f.rows || 3}"${ph}>${esc(raw == null ? "" : raw)}</textarea>`;
