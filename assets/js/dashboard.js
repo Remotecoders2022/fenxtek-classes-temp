@@ -13,6 +13,7 @@ import {
   waitForUser,
   signOutUser,
   isAdmin,
+  sendVerification,
   dbGet,
   dbSet,
   dbUpdate,
@@ -22,6 +23,7 @@ import {
   friendlyError
 } from "./firebase.js?v=5";
 import { membershipStatus, daysLeft, safeImageUrl, safeDataImage } from "./media.js?v=2";
+import { loadQR } from "./qr.js?v=1";
 import {
   PATH,
   DAY,
@@ -75,6 +77,7 @@ const S = {
   ordersReady: false,
   enroll: {}, // courseId -> { orderId, since, until, ... }
   member: null,
+  invite: null, // pending memberInvites/<emailKey> (gift by email)
   plans: [],
   plansReady: false,
   batches: [],
@@ -129,7 +132,8 @@ const ROUTES = [
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll"] },
   { id: "success", parent: "orders", view: vSuccess, deps: ["orders"] },
   { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] },
-  { id: "join", parent: "membership", view: vJoin, deps: ["plans", "member", "cart"] }
+  { id: "join", parent: "membership", view: vJoin, deps: ["plans", "member", "cart"] },
+  { id: "redeem", parent: "membership", view: vRedeem, deps: ["plans", "member"] }
 ];
 const routeById = (id) => ROUTES.find((r) => r.id === id);
 
@@ -554,12 +558,18 @@ function memberPromo(kind) {
   if (!list.length) return "";
   const from = Math.min(...list.map((p) => p.price));
   const best = list.find((p) => p.highlight) || list[0];
+  const inCart = Boolean(S.cart[best.id]);
   return (
-    `<a class="sp-mpromo sp-mpromo--${kind}" href="#membership">` +
-    `<span class="sp-mpromo-card" aria-hidden="true">${planMini(best, "sm")}</span>` +
-    `<span class="sp-mpromo-txt"><span class="sp-k sp-k--light">FenxTek membership</span><b>${kind === "store" ? "One plan. Everything you need to crack steno." : "Go all-in with a membership"}</b>` +
-    `<small>${list.length} plan${list.length === 1 ? "" : "s"} · from ${money(from)} · instant receipt</small></span>` +
-    `<span class="p-btn p-btn--lime p-btn--sm">${icon("i-crown")}<span>View plans</span></span></a>`
+    `<div class="sp-mpromo sp-mpromo--${kind}">` +
+    `<a class="sp-mpromo-card" href="#membership/${esc(best.planId)}" tabindex="-1" aria-hidden="true">${planMini(best, "sm")}</a>` +
+    `<a class="sp-mpromo-txt" href="#membership"><span class="sp-k sp-k--light">FenxTek membership</span><b>${kind === "store" ? "One plan. Everything you need to crack steno." : "Go all-in with a membership"}</b>` +
+    `<small>${list.length} plan${list.length === 1 ? "" : "s"} · from ${money(from)} · instant receipt</small></a>` +
+    `<span class="sp-mpromo-acts">` +
+    (inCart
+      ? `<a class="p-btn p-btn--lime p-btn--sm" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+      : `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-qbuy="${esc(best.id)}">${icon("i-cart")}<span>Buy ${esc(best.title)} · ${money(best.price)}</span></button>`) +
+    `<a class="p-btn p-btn--ghost p-btn--sm sp-btn-onDark" href="#membership">${icon("i-crown")}<span>View plans</span></a>` +
+    `</span></div>`
   );
 }
 
@@ -1017,7 +1027,7 @@ async function payUPI(pricing) {
 async function renderQR(box, text) {
   if (!box) return;
   try {
-    if (!window.qrcode) await loadScript("https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js");
+    if (!window.qrcode) await loadQR();
     const qr = window.qrcode(0, "M");
     qr.addData(text);
     qr.make();
@@ -1078,6 +1088,7 @@ function vHome() {
     stat("i-tag", money(saved), "Total saved", "#orders") +
     `</div>` +
     memberPromo("home") +
+    inviteBanner() +
     (ann ? `<section class="sp-announce">${icon("i-bolt")}<div><span class="sp-k">From the academy</span><p>${esc(ann)}</p></div></section>` : "") +
     `<section class="sp-sec">` +
     sectionHead("Continue", "My courses", activeOwned.length ? `<a class="sp-link" href="#my-courses">View all ${icon("i-arr")}</a>` : "") +
@@ -1101,7 +1112,15 @@ function vHome() {
       .map((r) => `<a href="#${r.id}" class="sp-soon-item">${icon(r.icon)}<span><b>${esc(r.label)}</b><small>${esc(r.blurb)}</small></span></a>`)
       .join("")}</div></section>` +
     `</div>`;
-  return { title: "Home", crumb: "Student portal", html, mount: bindAdd };
+  return {
+    title: "Home",
+    crumb: "Student portal",
+    html,
+    mount(root) {
+      bindAdd(root);
+      bindGift(root);
+    }
+  };
 }
 
 function stat(ic, value, label, href) {
@@ -1202,6 +1221,8 @@ function vStore() {
     crumb: "Learn",
     html,
     mount(root) {
+      const promo = $(".sp-mpromo", root);
+      if (promo) bindAdd(promo);
       const paint = () => {
         const grid = $("#spStoreGrid", root);
         if (!S.coursesReady) {
@@ -1740,6 +1761,8 @@ function vMembership(focus) {
 
   const html =
     hero +
+    inviteBanner() +
+    redeemForm(false) +
     `<section class="sp-sec" id="spPlans">` +
     sectionHead("Plans", st.key === "active" ? "Extend or switch your plan" : "Choose your plan", planOffers.length ? `<span class="sp-muted sp-small">${icon("i-tag")} ${planOffers.length} offer${planOffers.length === 1 ? "" : "s"} available</span>` : "") +
     (planOffers.length
@@ -1761,6 +1784,8 @@ function vMembership(focus) {
     html,
     mount(root) {
       bindAdd(root);
+      bindGift(root);
+      bindRedeemForm(root);
       $$("[data-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.buy, b, true)));
       $$("[data-copy]", root).forEach((b) => b.addEventListener("click", () => copyText(b.dataset.copy)));
       $$("[data-jump]", root).forEach((a) =>
@@ -1798,6 +1823,317 @@ function vJoin(planId) {
       }, 0);
     }
   };
+}
+
+/* ============================================================
+   gifted memberships — email invites (memberInvites/<emailKey>)
+   and QR join codes (memberCodes/<CODE>, #redeem/<CODE>)
+   ============================================================ */
+const MP = { invites: "memberInvites", codes: "memberCodes", usage: "memberCodeUsage" };
+const JOIN_CODE_RE = /^[A-Z0-9-]{4,24}$/;
+const myEmailKey = () => String((S.user && S.user.email) || "").trim().toLowerCase().replace(/\./g, ",");
+const cleanJoinCode = (v) => String(v || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
+const userErr = (message) => Object.assign(new Error(message), { userFacing: true });
+const snapVal = (s) => (s && s.exists && s.exists() ? s.val() : null);
+
+/* members/<uid> record for a granted plan. If the same plan is still
+   running the new days are added on top of the current end date. */
+function grantRecord(cur, grant, now, extra) {
+  const live = Boolean(cur && cur.planId === grant.planId && cur.status === "active" && num(cur.endAt) > now);
+  const startAt = live && num(cur.startAt) ? num(cur.startAt) : now;
+  const days = Math.max(0, Math.round(num(grant.days)));
+  const rec = {
+    planId: grant.planId,
+    planName: grant.planName || "Membership",
+    startAt,
+    status: "active",
+    name: String(S.profile.name || S.user.displayName || "").trim(),
+    email: S.user.email || "",
+    updatedAt: now,
+    ...extra
+  };
+  if (days > 0) rec.endAt = (live ? num(cur.endAt) : startAt) + days * DAY;
+  return rec;
+}
+/* already on this plan with no end date — nothing to add */
+const holdsForever = (cur, planId) => Boolean(cur && cur.planId === planId && cur.status === "active" && !num(cur.endAt));
+
+let inviteBusy = false;
+async function checkInvite({ recheck = false } = {}) {
+  const key = myEmailKey();
+  if (!key || inviteBusy) return;
+  inviteBusy = true;
+  let inv = null;
+  try {
+    inv = snapVal(await dbGet(`${MP.invites}/${key}`).catch(() => null));
+    if (!inv || !inv.planId) {
+      if (S.invite) {
+        S.invite = null;
+        changed("member");
+      }
+      return;
+    }
+    /* the rules only release an invite to a verified email address */
+    if (!S.user.emailVerified || recheck) {
+      try {
+        await S.user.reload();
+        await S.user.getIdToken(true);
+      } catch (e) {
+        /* offline — keep the banner */
+      }
+    }
+    if (!S.user.emailVerified) {
+      S.invite = { ...inv, needsVerify: true };
+      changed("member");
+      if (recheck) toast("Your email isn’t verified yet — open the link we emailed you, then tap “I’ve verified”.", "err");
+      return;
+    }
+    const cur = snapVal(await dbGet(`members/${S.user.uid}`).catch(() => null)) || S.member;
+    if (holdsForever(cur, inv.planId)) {
+      S.invite = null;
+      changed("member");
+      return;
+    }
+    const rec = grantRecord(cur, inv, Date.now(), { source: "invite", ...(inv.paid ? { paid: inv.paid } : {}) });
+    await dbUpdateRoot({ [`members/${S.user.uid}`]: rec, [`${MP.invites}/${key}`]: null });
+    S.invite = null;
+    S.member = rec;
+    changed("member");
+    toast(`You’ve been given ${rec.planName} — it’s active now.`);
+  } catch (err) {
+    console.warn("[portal] invite claim failed", err);
+    if (inv) {
+      S.invite = { ...inv, needsVerify: !S.user.emailVerified, error: friendlyError(err) };
+      changed("member");
+    }
+    if (recheck) toast(friendlyError(err), "err");
+  } finally {
+    inviteBusy = false;
+  }
+}
+
+function inviteBanner() {
+  const inv = S.invite;
+  if (!inv) return "";
+  return (
+    `<section class="sp-gift">${icon("i-gift")}<div class="sp-gift-txt"><span class="sp-k">A gift from the academy</span>` +
+    `<p><b>${esc(inv.planName || "A membership")}</b> is waiting for you. ${
+      inv.needsVerify ? `Verify <b>${esc(S.user.email || "your email")}</b> to activate it.` : "Tap below to activate it."
+    }</p>` +
+    `<div class="sp-gift-cta">` +
+    (inv.needsVerify ? `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-gift-send>${icon("i-mail")}<span>Send verification email</span></button>` : "") +
+    `<button class="p-btn p-btn--ghost p-btn--sm" type="button" data-gift-check>${icon(inv.needsVerify ? "i-refresh" : "i-check")}<span>${inv.needsVerify ? "I’ve verified" : "Activate now"}</span></button>` +
+    `</div></div></section>`
+  );
+}
+
+function bindGift(root) {
+  const send = $("[data-gift-send]", root);
+  if (send)
+    send.addEventListener("click", () =>
+      busy(send, "Sending", async () => {
+        try {
+          await sendVerification();
+          toast("Verification email sent — check your inbox (and spam), then tap “I’ve verified”.");
+        } catch (err) {
+          toast(friendlyError(err), "err");
+        }
+      })
+    );
+  const chk = $("[data-gift-check]", root);
+  if (chk) chk.addEventListener("click", () => busy(chk, "Checking", () => checkInvite({ recheck: true })));
+}
+
+function redeemForm(big) {
+  return (
+    `<form class="sp-redeem${big ? " sp-redeem--big" : ""}" data-redeem-form data-sp-keep novalidate>` +
+    `<span class="sp-redeem-ic">${icon("i-qr")}</span>` +
+    `<div class="sp-redeem-txt"><b>Have a membership code?</b><span>Scanned a QR or got a code from the academy? Enter it to activate your plan — no payment needed.</span></div>` +
+    `<div class="sp-redeem-in"><input class="p-input" name="code" placeholder="e.g. GOLD-7KQ2XM" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24" aria-label="Membership code">` +
+    `<button class="p-btn p-btn--sm" type="submit"><span>Apply code</span>${icon("i-arr")}</button></div></form>`
+  );
+}
+
+function bindRedeemForm(root) {
+  $$("[data-redeem-form]", root).forEach((form) => {
+    const input = form.elements.code;
+    input.addEventListener("input", () => {
+      const v = cleanJoinCode(input.value);
+      if (v !== input.value) input.value = v;
+    });
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const code = cleanJoinCode(input.value);
+      if (!JOIN_CODE_RE.test(code)) {
+        toast("Enter the code exactly as shown — 4 to 24 letters and numbers.", "err");
+        input.focus();
+        return;
+      }
+      input.blur();
+      redeemCache.delete(code);
+      go(`#redeem/${code}`);
+    });
+  });
+}
+
+const redeemCache = new Map(); // CODE -> { state, c, count, usedAt, error }
+function loadRedeem(code) {
+  if (redeemCache.has(code)) return;
+  redeemCache.set(code, { state: "loading" });
+  const uid = S.user.uid;
+  Promise.all([
+    dbGet(`${MP.codes}/${code}`),
+    dbGet(`${MP.usage}/${code}/count`).catch(() => null),
+    dbGet(`${MP.usage}/${code}/users/${uid}`).catch(() => null)
+  ])
+    .then(([c, n, u]) => {
+      const val = snapVal(c);
+      redeemCache.set(code, val ? { state: "ok", c: val, count: num(snapVal(n)), usedAt: num(snapVal(u)) } : { state: "missing" });
+    })
+    .catch((err) => redeemCache.set(code, { state: "error", error: friendlyError(err) }))
+    .finally(() => {
+      if (current.route && current.route.id === "redeem" && cleanJoinCode(current.arg) === code) render({ quiet: true });
+    });
+}
+
+function codeProblem(code, r, cur) {
+  const c = r.c;
+  if (r.usedAt || (cur && cur.source === "code" && cur.code === code)) return ["Already redeemed", "You’ve already used this code on your account. Each code works once per student."];
+  if (c.active === false) return ["Code paused", "The academy has paused this code for now. Ask them to switch it back on, or for a new QR."];
+  if (num(c.expiresAt) && num(c.expiresAt) <= Date.now()) return ["Code expired", `This code stopped working on ${formatDate(num(c.expiresAt))}. Ask the academy for a fresh one.`];
+  if (num(c.maxUses) && r.count >= num(c.maxUses)) return ["All places taken", "This code has reached its student limit. Ask the academy for a new code."];
+  if (holdsForever(cur, c.planId)) return ["You already have this plan", "Your membership on this plan never expires, so there’s nothing to add."];
+  return null;
+}
+
+function vRedeem(arg) {
+  const code = cleanJoinCode(arg);
+  const base = { title: "Redeem code", crumb: "Membership" };
+  const back = `<a class="p-btn p-btn--ghost p-btn--sm" href="#membership">${icon("i-chev-l")}<span>Membership</span></a>`;
+  if (!code)
+    return {
+      ...base,
+      html: `<section class="sp-redeem-solo">${redeemForm(true)}</section>`,
+      mount: bindRedeemForm
+    };
+  if (code !== arg) {
+    setTimeout(() => location.replace(`#redeem/${code}`), 0);
+    return { ...base, html: "" };
+  }
+  if (!JOIN_CODE_RE.test(code))
+    return { ...base, html: empty("i-qr", "That doesn’t look like a code", "Membership codes are 4–24 letters and numbers.", "") + `<section class="sp-redeem-solo">${redeemForm(true)}</section>`, mount: bindRedeemForm };
+
+  loadRedeem(code);
+  const r = redeemCache.get(code);
+  if (r.state === "loading")
+    return { ...base, html: `<div class="sp-boot-card" style="padding:60px 0"><span class="sp-spin sp-spin--lg"></span><b>Checking code ${esc(code)}…</b></div>` };
+  if (r.state === "missing")
+    return {
+      ...base,
+      html: empty("i-qr", "Code not found", `We couldn’t find “${code}”. Check the letters, or ask the academy for a new QR.`, back) + `<section class="sp-redeem-solo">${redeemForm(true)}</section>`,
+      mount: bindRedeemForm
+    };
+  if (r.state === "error")
+    return {
+      ...base,
+      html: empty("i-info", "Couldn’t check the code", r.error || "Please try again.", `<button class="p-btn p-btn--sm" type="button" data-redeem-retry>${icon("i-refresh")}<span>Try again</span></button>`),
+      mount(root) {
+        const b = $("[data-redeem-retry]", root);
+        if (b)
+          b.addEventListener("click", () => {
+            redeemCache.delete(code);
+            render({ quiet: true });
+          });
+      }
+    };
+
+  const c = r.c;
+  const days = Math.max(0, Math.round(num(c.days)));
+  const plan = planById(c.planId);
+  const holder = String(S.profile.name || S.user.displayName || "").trim() || "Member";
+  const vis = { ...(plan || { theme: "violet" }), title: c.planName || (plan && plan.title) || "Membership", duration: validityLabel(days).replace(" access", "") };
+  const cur = S.member;
+  const problem = codeProblem(code, r, cur);
+  const curActive = membershipStatus(cur).key === "active";
+  let effect = "";
+  if (!problem && curActive && cur.planId === c.planId && num(cur.endAt) > Date.now())
+    effect = `${icon("i-refresh")}<span>Adds <b>${days} days</b> to your current plan — new end date <b>${esc(formatDate(num(cur.endAt) + days * DAY))}</b>.</span>`;
+  else if (!problem && curActive && cur.planId !== c.planId)
+    effect = `${icon("i-info")}<span>This replaces your current <b>${esc(cur.planName || "membership")}</b>.</span>`;
+  const features = (plan && Array.isArray(plan.features) ? plan.features : []).slice(0, 4);
+
+  const html =
+    `<section class="sp-redeem-card">` +
+    `<div class="sp-redeem-vis">${planVisual(vis, holder)}</div>` +
+    `<div class="sp-redeem-body">` +
+    `<span class="sp-k">Membership code · <code class="sp-redeem-code">${esc(code)}</code></span>` +
+    `<h2>${esc(vis.title)}</h2>` +
+    `<ul class="sp-redeem-facts">` +
+    `<li>${icon("i-clock")}<span>Validity</span><b>${days ? `${days} days` : "Open-ended"}</b></li>` +
+    `<li>${icon("i-zap")}<span>Activates</span><b>Right away</b></li>` +
+    `<li>${icon("i-tag")}<span>Price</span><b>Free with code</b></li>` +
+    `</ul>` +
+    (features.length ? `<ul class="sp-redeem-feat">${features.map((f) => `<li>${icon("i-check")}${esc(f)}</li>`).join("")}</ul>` : "") +
+    (effect ? `<p class="sp-redeem-note">${effect}</p>` : "") +
+    (problem
+      ? `<div class="sp-redeem-block">${icon("i-info")}<div><b>${esc(problem[0])}</b><span>${esc(problem[1])}</span></div></div><div class="sp-redeem-cta">${back}</div>`
+      : `<div class="sp-redeem-cta"><button class="p-btn p-btn--lime" type="button" data-redeem-go>${icon("i-check")}<span>Activate membership</span></button>${back}</div>`) +
+    `<p class="sp-muted sp-small">Signed in as ${esc(S.user.email || "")}. The plan is added to this account.</p>` +
+    `</div></section>`;
+  return {
+    ...base,
+    html,
+    mount(root) {
+      const b = $("[data-redeem-go]", root);
+      if (b) b.addEventListener("click", () => redeemCode(code, b));
+    }
+  };
+}
+
+async function redeemCode(code, btn) {
+  const uid = S.user.uid;
+  await busy(btn, "Activating", async () => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const [cs, ns, us, ms] = await Promise.all([
+          dbGet(`${MP.codes}/${code}`),
+          dbGet(`${MP.usage}/${code}/count`),
+          dbGet(`${MP.usage}/${code}/users/${uid}`),
+          dbGet(`members/${uid}`)
+        ]);
+        const c = snapVal(cs);
+        if (!c) throw userErr("This code no longer exists.");
+        const r = { c, count: num(snapVal(ns)), usedAt: num(snapVal(us)) };
+        const cur = snapVal(ms);
+        const problem = codeProblem(code, r, cur);
+        if (problem) throw userErr(problem[0] + " — " + problem[1]);
+        const now = Date.now();
+        const rec = grantRecord(cur, c, now, { source: "code", code });
+        await dbUpdateRoot({
+          [`members/${uid}`]: rec,
+          [`${MP.usage}/${code}/count`]: r.count + 1,
+          [`${MP.usage}/${code}/users/${uid}`]: now
+        });
+        S.member = rec;
+        redeemCache.delete(code);
+        changed("member");
+        toast(`${rec.planName} is active — welcome aboard!`);
+        go("#membership");
+        return;
+      } catch (err) {
+        if (err && err.userFacing) {
+          toast(err.message, "err");
+          redeemCache.delete(code);
+          render({ quiet: true });
+          return;
+        }
+        /* someone else joined at the same instant — re-read the count once */
+        if (attempt === 0 && /permission|denied/i.test(String((err && (err.code || err.message)) || ""))) continue;
+        toast(friendlyError(err), "err");
+        return;
+      }
+    }
+  });
 }
 
 function vProfile() {
@@ -1960,6 +2296,7 @@ async function init() {
   $("#signOutBtn").addEventListener("click", signOut);
   window.addEventListener("hashchange", () => render());
   render();
+  checkInvite();
 
   /* live data */
   dbWatch(PATH.courses, (v) => {
