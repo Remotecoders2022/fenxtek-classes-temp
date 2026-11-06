@@ -115,7 +115,7 @@ const owns = (id) => {
    ============================================================ */
 const ROUTES = [
   { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content"] },
-  { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll"] },
+  { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart"] },
   { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member"] },
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
@@ -451,39 +451,63 @@ function buyButtons(c, compact) {
   return `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-add="${esc(c.id)}">${icon("i-cart")}<span>${a ? "Renew" : "Add to cart"}</span></button>`;
 }
 
-/* Premium course card: inset cover with shine, accent glow + gradient
-   border on hover, highlights, chips, savings and a two-button footer. */
+/* Premium store card (v3): inset cover with badge + discount sticker,
+   kicker, title, a three-cell spec strip, highlights, a price row with a
+   quick add-to-cart button and full-width Explore / Buy now actions.
+   Owned courses swap the price for remaining access and "Continue". */
 function courseCard(c) {
   const a = access(c.id);
   const active = Boolean(a && a.active);
+  const expired = Boolean(a && !a.active);
+  const inCart = Boolean(S.cart[c.id]);
   const off = offPercent(c.price, c.mrp);
   const acc = accentOf(c.accent);
   const pd = perDay(c.price, c.validityDays);
   const feats = (c.features || []).slice(0, 2);
   const href = `#course/${esc(c.id)}`;
-  const pct = active && a.until ? Math.round((1 - a.progress) * 100) : 100;
+  const validity = c.validityDays ? validityLabel(c.validityDays).replace(" access", "") : "Lifetime";
+  const specs = [
+    ["i-clock", validity, "Validity"],
+    c.lessons ? ["i-play", String(c.lessons), "Lessons"] : ["i-book", c.language, "Language"],
+    ["i-headphones", c.mode, "Mode"]
+  ];
+  const left = active && a.until ? Math.max(4, Math.round((1 - a.progress) * 100)) : 100;
+  const foot = active
+    ? `<div class="sc-prog"><div class="sc-prog-top"><b>${a.until ? `${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"} left` : "Lifetime access"}</b>` +
+      `<small>${a.until ? `till ${esc(formatDate(a.until))}` : "never expires"}</small></div>` +
+      `<span class="sc-meter"><i style="width:${left}%"></i></span></div>` +
+      `<div class="sc-acts"><a class="sc-btn sc-btn--ghost" href="${href}">Details</a>` +
+      `<a class="sc-btn sc-btn--go" href="#learn/${esc(c.id)}">${icon("i-play")}<span>Continue learning</span></a></div>`
+    : `<div class="sc-price"><div class="sc-price-main"><div class="sc-price-row"><b>${c.price ? money(c.price) : "Free"}</b>${off ? `<s>${money(c.mrp)}</s>` : ""}</div>` +
+      `<small>${off ? `<em>Save ${money(c.mrp - c.price)}</em>` : ""}${pd ? `≈ ₹${esc(pd)}/day` : "One-time payment"}</small></div>` +
+      (inCart
+        ? `<a class="sc-cart is-on" href="#cart" title="In your cart" aria-label="In your cart">${icon("i-check")}</a>`
+        : `<button class="sc-cart" type="button" data-add="${esc(c.id)}" title="Add to cart" aria-label="Add ${esc(c.title)} to cart">${icon("i-cart")}<i aria-hidden="true">+</i></button>`) +
+      `</div>` +
+      `<div class="sc-acts"><a class="sc-btn sc-btn--ghost" href="${href}">Explore</a>` +
+      (inCart
+        ? `<a class="sc-btn sc-btn--buy" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+        : `<button class="sc-btn sc-btn--buy" type="button" data-qbuy="${esc(c.id)}"><span>${expired ? "Renew now" : c.price ? "Buy now" : "Get it free"}</span>${icon("i-arr")}</button>`) +
+      `</div>`;
   return (
-    `<article class="sp-card sp-card--pro${active ? " is-owned" : ""}" data-id="${esc(c.id)}" style="--acc:${acc.a};--acc2:${acc.b};--acc-t:${acc.text || acc.b}">` +
-    `<a class="sp-card-media" href="${href}" aria-label="${esc(c.title)}">${cover(c, "md")}` +
-    (off && !active ? `<span class="sp-card-off">${off}% off</span>` : "") +
-    (active ? `<span class="sp-owned-tag">${icon("i-check")}Enrolled</span>` : "") +
-    `<span class="sp-card-shine" aria-hidden="true"></span></a>` +
-    `<div class="sp-card-body">` +
-    `<div class="sp-card-kick"><span>${esc(c.category)}</span><i aria-hidden="true"></i><span>${esc(c.language)}</span></div>` +
-    `<a class="sp-card-title" href="${href}">${esc(c.title)}</a>` +
-    (c.subtitle ? `<p class="sp-card-sub">${esc(c.subtitle)}</p>` : "") +
-    (feats.length ? `<ul class="sp-card-feats">${feats.map((f) => `<li>${icon("i-check")}<span>${esc(f)}</span></li>`).join("")}</ul>` : "") +
-    `<ul class="sp-card-chips"><li>${icon("i-clock")}${esc(validityLabel(c.validityDays).replace(" access", ""))}</li><li>${icon("i-headphones")}${esc(c.mode)}</li>` +
-    (c.lessons ? `<li>${icon("i-play")}${esc(c.lessons)} lessons</li>` : "") +
-    `</ul>` +
-    (active ? `<div class="sp-card-prog"><span class="sp-bar"><i style="width:${pct}%"></i></span><small>${a.until ? `${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"} left · till ${esc(formatDate(a.until))}` : "Lifetime access"}</small></div>` : "") +
-    `<div class="sp-card-foot">` +
-    (active
-      ? `<div class="sp-card-price"><small class="is-ok">${icon("i-check")}You own this course</small></div>`
-      : `<div class="sp-card-price"><div><b>${c.price ? money(c.price) : "Free"}</b>${off ? `<s>${money(c.mrp)}</s>` : ""}</div>` +
-        `<small${off ? ` class="is-ok"` : ""}>${off ? `You save ${money(c.mrp - c.price)}` : pd ? `≈ ₹${esc(pd)} a day` : "Incl. all taxes"}</small></div>`) +
-    `<div class="sp-card-cta"><a class="sp-card-eye" href="${href}" aria-label="View ${esc(c.title)}" title="View details">${icon("i-arr")}</a>${buyButtons(c, true)}</div>` +
-    `</div></div></article>`
+    `<article class="sc${active ? " is-owned" : ""}${inCart ? " is-incart" : ""}" data-id="${esc(c.id)}" style="--acc:${acc.a};--acc2:${acc.b};--acc-t:${acc.text || acc.b}">` +
+    `<a class="sc-media" href="${href}" aria-label="${esc(c.title)}">${cover(c, "md")}` +
+    (c.badge || a
+      ? `<span class="sc-tags">` +
+        (active ? `<span class="sc-owned">${icon("i-check")}Enrolled</span>` : expired ? `<span class="sc-owned is-exp">${icon("i-clock")}Expired</span>` : "") +
+        (c.badge ? `<span class="sc-badge">${icon("i-award")}${esc(c.badge)}</span>` : "") +
+        `</span>`
+      : "") +
+    (off && !active ? `<span class="sc-off"><b>${off}%</b><small>off</small></span>` : "") +
+    `<span class="sc-shine" aria-hidden="true"></span></a>` +
+    `<div class="sc-body">` +
+    `<div class="sc-kick"><span>${esc(c.category)}</span><i aria-hidden="true"></i><span>${esc(c.language)}</span></div>` +
+    `<a class="sc-title" href="${href}">${esc(c.title)}</a>` +
+    (c.subtitle ? `<p class="sc-sub">${esc(c.subtitle)}</p>` : "") +
+    `<ul class="sc-specs">${specs.map(([ic, v, l]) => `<li title="${esc(l)}: ${esc(v)}">${icon(ic)}<b>${esc(v)}</b><small>${l}</small></li>`).join("")}</ul>` +
+    (feats.length ? `<ul class="sc-feats">${feats.map((f) => `<li>${icon("i-check")}<span>${esc(f)}</span></li>`).join("")}</ul>` : "") +
+    `<div class="sc-foot">${foot}</div>` +
+    `</div></article>`
   );
 }
 
@@ -555,6 +579,13 @@ function bindAdd(root) {
     b.addEventListener("click", (e) => {
       e.preventDefault();
       addToCart(b.dataset.add, b);
+    })
+  );
+  /* card "Buy now" / "Renew": add to cart and open checkout */
+  $$("[data-qbuy]", root).forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      addToCart(b.dataset.qbuy, b, true);
     })
   );
 }
@@ -1051,7 +1082,7 @@ function vHome() {
     `<section class="sp-sec">` +
     sectionHead("Continue", "My courses", activeOwned.length ? `<a class="sp-link" href="#my-courses">View all ${icon("i-arr")}</a>` : "") +
     (activeOwned.length
-      ? `<div class="sp-rail">${activeOwned.slice(0, 4).map(ownedCard).join("")}</div>`
+      ? `<div class="sp-lc-grid">${activeOwned.slice(0, 3).map(ownedCard).join("")}</div>`
       : empty("i-book", "No courses yet", "Courses you buy appear here with their validity and class links.", `<a class="p-btn p-btn--sm" href="#store">${icon("i-bolt")}<span>Browse the store</span></a>`)) +
     `</section>` +
     (S.coursesReady && recs.length
@@ -1077,16 +1108,47 @@ function stat(ic, value, label, href) {
   return `<a class="sp-stat" href="${href}"><span class="sp-stat-ic">${icon(ic)}</span><b>${esc(value)}</b><span>${esc(label)}</span></a>`;
 }
 
+/* Learn tile (My courses + Home): cover with status pill and play button,
+   a ring showing how much access is left, and Continue / Renew / Receipt. */
 function ownedCard(c) {
-  const a = access(c.id);
-  const pct = a && a.until ? Math.round((1 - a.progress) * 100) : 100;
+  const a = access(c.id) || { active: false, until: 0, daysLeft: 0, progress: 1 };
+  const acc = accentOf(c.accent);
+  const life = a.active && !a.until;
+  const total = a.until ? Math.max(1, Math.round((num(a.until) - num(a.since)) / DAY)) : 0;
+  const frac = life ? 1 : a.active ? Math.max(0.03, 1 - a.progress) : 0;
+  const state = !a.active ? "expired" : life ? "life" : a.daysLeft <= 7 ? "ending" : "active";
+  const label = { expired: "Expired", life: "Lifetime", ending: `Ends in ${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"}`, active: "Active" }[state];
+  const R = 19;
+  const L = +(2 * Math.PI * R).toFixed(2);
+  const learn = `#learn/${esc(c.id)}`;
+  const hasOrder = a.orderId && S.orders.some((o) => o.id === a.orderId);
   return (
-    `<a class="sp-owned${a && a.active ? "" : " is-expired"}" href="#learn/${esc(c.id)}">` +
-    `${cover(c, "sm")}` +
-    `<div class="sp-owned-body"><b>${esc(c.title)}</b>` +
-    `<span class="sp-owned-meta">${a && a.active ? (a.until ? `${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"} left · till ${formatDate(a.until)}` : "Lifetime access") : `Expired on ${formatDate(a && a.until)}`}</span>` +
-    `<span class="sp-bar"><i style="width:${pct}%"></i></span></div>` +
-    `<span class="sp-owned-go">${icon(a && a.active ? "i-play" : "i-refresh")}</span></a>`
+    `<article class="lc lc--${state}" style="--acc:${acc.a};--acc2:${acc.b};--acc-t:${acc.text || acc.b}">` +
+    `<a class="lc-media" href="${learn}" aria-label="${esc(a.active ? "Open" : "Renew")} ${esc(c.title)}">${cover(c, "md")}` +
+    `<span class="lc-status"><i aria-hidden="true"></i>${esc(label)}</span>` +
+    `<span class="lc-play" aria-hidden="true">${icon(a.active ? "i-play" : "i-lock")}</span>` +
+    `<span class="sc-shine" aria-hidden="true"></span></a>` +
+    `<div class="lc-body">` +
+    `<div class="sc-kick"><span>${esc(c.category)}</span><i aria-hidden="true"></i><span>${esc(c.language)}</span></div>` +
+    `<a class="lc-title" href="${learn}">${esc(c.title)}</a>` +
+    `<div class="lc-meter">` +
+    `<span class="lc-ring"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="lc-ring-bg" cx="22" cy="22" r="${R}"/>` +
+    `<circle class="lc-ring-fg" cx="22" cy="22" r="${R}" stroke-dasharray="${L}" stroke-dashoffset="${(L * (1 - frac)).toFixed(2)}"/></svg>` +
+    (a.active ? `<b>${life ? "∞" : a.daysLeft}</b>` : icon("i-clock")) + `</span>` +
+    `<div class="lc-meter-txt"><b>${life ? "Lifetime access" : a.active ? `${a.daysLeft} of ${total} days left` : "Access ended"}</b>` +
+    `<small>${life ? "Never expires" : a.active ? `Valid till ${esc(formatDate(a.until))}` : `Expired on ${esc(formatDate(a.until))}`}</small></div>` +
+    `</div>` +
+    `<div class="lc-acts">` +
+    (a.active
+      ? `<a class="sc-btn sc-btn--go" href="${learn}">${icon("i-play")}<span>Continue learning</span></a>`
+      : S.cart[c.id]
+      ? `<a class="sc-btn sc-btn--buy" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+      : courseById(c.id)
+      ? `<button class="sc-btn sc-btn--buy" type="button" data-qbuy="${esc(c.id)}">${icon("i-refresh")}<span>Renew course</span></button>`
+      : `<a class="sc-btn sc-btn--ghost" href="contact.html">${icon("i-phone")}<span>Ask the academy</span></a>`) +
+    (hasOrder ? `<a class="sc-ico" href="#receipt/${esc(a.orderId)}" title="Receipt" aria-label="Receipt">${icon("i-receipt")}</a>` : "") +
+    (courseById(c.id) ? `<a class="sc-ico" href="#course/${esc(c.id)}" title="Course details" aria-label="Course details">${icon("i-info")}</a>` : "") +
+    `</div></div></article>`
   );
 }
 
@@ -1104,13 +1166,13 @@ function vMyCourses() {
   const html =
     (owned.length
       ? `<section class="sp-sec">${sectionHead("Enrolled", `Active <span class="sp-pill-n">${active.length}</span>`)}` +
-        (active.length ? `<div class="sp-owned-grid">${active.map(ownedCard).join("")}</div>` : `<p class="sp-muted">No active courses — renew one below.</p>`) +
+        (active.length ? `<div class="sp-lc-grid">${active.map(ownedCard).join("")}</div>` : `<p class="sp-muted">No active courses — renew one below.</p>`) +
         `</section>` +
         (expired.length
-          ? `<section class="sp-sec">${sectionHead("History", `Expired <span class="sp-pill-n">${expired.length}</span>`)}<div class="sp-owned-grid">${expired.map(ownedCard).join("")}</div></section>`
+          ? `<section class="sp-sec">${sectionHead("History", `Expired <span class="sp-pill-n">${expired.length}</span>`)}<div class="sp-lc-grid">${expired.map(ownedCard).join("")}</div></section>`
           : "")
       : empty("i-book", "You haven’t enrolled in a course yet", "Browse the store, add a course to your cart and apply a coupon if you have one.", `<a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-bolt")}<span>Explore courses</span></a>`));
-  return { title: "My courses", html };
+  return { title: "My courses", html, mount: bindAdd };
 }
 
 function vStore() {
