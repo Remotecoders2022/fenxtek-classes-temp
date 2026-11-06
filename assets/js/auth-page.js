@@ -16,7 +16,7 @@ import {
   setPersistenceMode,
   friendlyError,
   onAuthChange
-} from "./firebase.js?v=3";
+} from "./firebase.js?v=4";
 
 const $ = (sel) => document.querySelector(sel);
 const alertBox = $("#authAlert");

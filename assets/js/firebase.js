@@ -230,6 +230,24 @@ export async function dbRemove(path) {
   return f.d.remove(f.d.ref(f.db, path));
 }
 
+/* Atomic multi-path write: { "a/b": 1, "c/d": {...} }. Either every
+   path is written or none is (the rules see the combined new state). */
+export async function dbUpdateRoot(updates) {
+  const f = await requireConfigured();
+  return f.d.update(f.d.ref(f.db), updates);
+}
+
+/* A fresh, chronologically sortable push key (nothing is written). */
+export async function dbKey(path) {
+  const f = await requireConfigured();
+  return f.d.push(f.d.ref(f.db, path)).key;
+}
+
+export async function dbTransaction(path, fn) {
+  const f = await requireConfigured();
+  return f.d.runTransaction(f.d.ref(f.db, path), fn);
+}
+
 export async function dbWatch(path, cb) {
   const f = await initFirebase().catch(() => null);
   if (!f || !f.db) return () => {};

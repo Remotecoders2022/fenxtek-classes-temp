@@ -10,8 +10,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css?v=6">
+<link rel="stylesheet" href="assets/css/site.css?v=7">
 <link rel="stylesheet" href="assets/css/portal.css?v=5">
+<link rel="stylesheet" href="assets/css/store.css?v=1">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin">
@@ -41,7 +42,7 @@
         <div>
           <span class="eyebrow">Admin CRM</span>
           <h1>Control <em>room.</em></h1>
-          <p>Edit the live website, manage batches, fees and membership plans, post achievements, read student accounts and capture leads — every save writes straight to Firebase Realtime Database.</p>
+          <p>Edit the live website, run the course store — orders, courses, coupons and receipts — manage batches, fees and memberships, and read student accounts. Every save writes straight to Firebase Realtime Database.</p>
         </div>
         <div class="crm-top-actions">
           <span class="crm-user"><i></i><span id="crmEmail">—</span></span>
@@ -62,6 +63,11 @@
           <button class="crm-nav" data-crm-tab="testimonials">Testimonials <span>08</span></button>
           <button class="crm-nav" data-crm-tab="students">Students <span>09</span></button>
           <button class="crm-nav" data-crm-tab="leads">Leads <span>10</span></button>
+          <span class="crm-side-label">Store</span>
+          <button class="crm-nav" data-crm-tab="orders">Orders &amp; receipts <span>11</span></button>
+          <button class="crm-nav" data-crm-tab="courses">Courses <span>12</span></button>
+          <button class="crm-nav" data-crm-tab="coupons">Coupons <span>13</span></button>
+          <button class="crm-nav" data-crm-tab="payments">Payment settings <span>14</span></button>
           <div class="crm-side-foot">
             <button class="crm-add" id="seedBtn" type="button">Load starter content</button>
             <button class="crm-add" id="crmSignOut2" type="button">Sign out</button>
@@ -441,6 +447,149 @@
             </div>
           </section>
 
+          <!-- ORDERS -->
+          <section class="crm-panel" data-crm-panel="orders" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Orders &amp; receipts</h2>
+                <p>Every checkout from the student portal. Approve UPI payments after matching the UTR in your bank app, verify Razorpay payments against your Razorpay dashboard, and download any receipt as PNG.</p>
+              </div>
+              <div class="crm-top-actions">
+                <button class="p-btn p-btn--ghost p-btn--sm" id="asOrderExport" type="button"><span>Export CSV</span><svg><use href="#i-arr-d"/></svg></button>
+                <button class="p-btn p-btn--lime p-btn--sm" id="asOrderSale" type="button"><span>Record offline sale</span><svg><use href="#i-plus"/></svg></button>
+              </div>
+            </div>
+            <div class="crm-stats" id="asOrderStats"></div>
+            <div class="as-toolbar" style="margin-top:16px">
+              <input class="p-input as-grow" id="asOrderQ" type="search" placeholder="Search order no, student, phone, UTR, payment ID, coupon…">
+              <select class="p-select" id="asOrderStatus" aria-label="Status">
+                <option value="all">All statuses</option>
+                <option value="pending">Awaiting verification</option>
+                <option value="paid">Paid</option>
+                <option value="rejected">Rejected</option>
+                <option value="refunded">Refunded</option>
+              </select>
+              <select class="p-select" id="asOrderMethod" aria-label="Method">
+                <option value="all">All methods</option>
+                <option value="razorpay">Razorpay</option>
+                <option value="upi">UPI</option>
+                <option value="free">Free (coupon)</option>
+                <option value="cash">Cash</option>
+                <option value="bank">Bank transfer</option>
+                <option value="offline">Offline</option>
+              </select>
+              <select class="p-select" id="asOrderRange" aria-label="Date range">
+                <option value="all">All time</option>
+                <option value="today">Today</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+              </select>
+              <span class="crm-save-state" id="asOrderCount"></span>
+            </div>
+            <div class="crm-table-wrap">
+              <table class="crm-table">
+                <thead>
+                  <tr><th>Order</th><th>Student</th><th>Courses</th><th>Amount</th><th>Payment</th><th>Status</th><th class="actions">Actions</th></tr>
+                </thead>
+                <tbody id="asOrdersBody">
+                  <tr><td colspan="7" class="crm-table-empty">Loading orders…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- COURSES -->
+          <section class="crm-panel" data-crm-panel="courses" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Courses</h2>
+                <p>The catalogue students buy from in their portal (<code>site/courses</code>). Set price, MRP and validity, pick a cover, then add class links under <b>Classroom</b> — only enrolled students can open them.</p>
+              </div>
+              <div class="crm-top-actions">
+                <button class="p-btn p-btn--ghost p-btn--sm" id="asCourseImport" type="button"><span>Import fee plans</span><svg><use href="#i-download"/></svg></button>
+                <button class="p-btn p-btn--lime p-btn--sm" id="asCourseNew" type="button"><span>New course</span><svg><use href="#i-plus"/></svg></button>
+              </div>
+            </div>
+            <div class="crm-card" id="asCourseEditor" hidden></div>
+            <p class="crm-save-state" id="asCourseCount" style="margin:14px 0 10px"></p>
+            <div class="as-course-list" id="asCourseList"><p class="crm-table-empty">Loading courses…</p></div>
+          </section>
+
+          <!-- COUPONS -->
+          <section class="crm-panel" data-crm-panel="coupons" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Coupons</h2>
+                <p>Create a code with a percentage or a flat rupee discount, limit it to particular courses, cap its uses and set dates — or generate hundreds of unique codes at once. Students can’t list codes; they only work when typed.</p>
+              </div>
+            </div>
+            <div class="crm-stats" id="asCouponStats"></div>
+            <div class="crm-card" id="asCouponCreate" style="margin-top:16px"></div>
+            <div class="as-toolbar" style="margin-top:22px">
+              <input class="p-input as-grow" id="asCouponQ" type="search" placeholder="Search codes or notes…">
+              <select class="p-select" id="asCouponStatus" aria-label="Status">
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="upcoming">Scheduled</option>
+                <option value="expired">Expired</option>
+                <option value="exhausted">Used up</option>
+                <option value="off">Disabled</option>
+              </select>
+              <select class="p-select" id="asCouponBatch" aria-label="Batch"><option value="">All batches</option></select>
+              <button class="p-btn p-btn--danger p-btn--sm" id="asCouponBatchDel" type="button" hidden><span>Delete batch</span></button>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="asCouponExport" type="button"><span>Export CSV</span><svg><use href="#i-arr-d"/></svg></button>
+              <span class="crm-save-state" id="asCouponCount"></span>
+            </div>
+            <div class="crm-table-wrap">
+              <table class="crm-table">
+                <thead>
+                  <tr><th>Code</th><th>Discount</th><th>Applies to</th><th>Used</th><th>Validity</th><th>Status</th><th class="actions">Actions</th></tr>
+                </thead>
+                <tbody id="asCouponsBody">
+                  <tr><td colspan="7" class="crm-table-empty">Loading coupons…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- PAYMENTS -->
+          <section class="crm-panel" data-crm-panel="payments" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Payment settings</h2>
+                <p>How students pay at checkout and what prints on their receipt. Stored in <code>site/payments</code> (public — never put secret keys here).</p>
+              </div>
+              <button class="p-btn p-btn--ghost p-btn--sm" id="asPayPreview" type="button"><span>Preview receipt</span><svg><use href="#i-eye"/></svg></button>
+            </div>
+            <form class="crm-card" id="asPayForm" novalidate>
+              <div class="as-pay-grid">
+                <div class="crm-form" style="grid-template-columns:1fr">
+                  <span class="eyebrow">UPI (manual verification)</span>
+                  <label class="as-check"><input type="checkbox" name="upiEnabled">Accept UPI — students scan a QR, pay and submit their UTR</label>
+                  <label class="p-field"><span class="p-label">UPI ID</span><input class="p-input" name="upiId" placeholder="fenxtek@okaxis" autocomplete="off"></label>
+                  <label class="p-field"><span class="p-label">Payee name shown in UPI apps</span><input class="p-input" name="payeeName" placeholder="FenxTek Shorthand Classes"></label>
+                  <span class="eyebrow" style="margin-top:12px">Razorpay (instant)</span>
+                  <label class="as-check"><input type="checkbox" name="razorpayEnabled">Accept cards, UPI, netbanking &amp; wallets via Razorpay Checkout</label>
+                  <label class="p-field"><span class="p-label">Razorpay Key ID (public)</span><input class="p-input" name="razorpayKey" placeholder="rzp_live_xxxxxxxxxxxx" autocomplete="off"></label>
+                  <p class="as-note">Use the <b>Key ID</b> only — never the Key Secret. Without a server, Razorpay payments are recorded by the browser, so they show as <b>Not verified</b> until you tick them off against your Razorpay dashboard. For fully automatic verification add a Cloud Function webhook later.</p>
+                </div>
+                <div class="crm-form" style="grid-template-columns:1fr">
+                  <span class="eyebrow">Receipt details</span>
+                  <label class="p-field"><span class="p-label">Business name</span><input class="p-input" name="businessName" placeholder="FenxTek Shorthand Classes"></label>
+                  <label class="p-field"><span class="p-label">Address</span><input class="p-input" name="address" placeholder="Kanpur, Uttar Pradesh, India"></label>
+                  <label class="p-field"><span class="p-label">GSTIN (optional)</span><input class="p-input" name="gstin" placeholder="09ABCDE1234F1Z5"></label>
+                  <label class="p-field"><span class="p-label">Support phone</span><input class="p-input" name="supportPhone" placeholder="+91 73090 82749"></label>
+                  <label class="p-field"><span class="p-label">Thank-you note on receipt</span><textarea class="p-textarea" name="receiptNote" rows="3" placeholder="Thank you for learning with FenxTek…"></textarea></label>
+                  <p class="as-note">If no online method is switched on, checkout asks students to call or message the academy — record those with <b>Orders → Record offline sale</b>.</p>
+                </div>
+              </div>
+              <div class="crm-actions">
+                <span class="crm-save-state">Prices are treated as inclusive of all taxes.</span>
+                <button class="p-btn p-btn--lime" type="submit"><span>Save payment settings</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </form>
+          </section>
+
           <!-- LEADS -->
           <section class="crm-panel" data-crm-panel="leads" hidden>
             <div class="crm-panel-head">
@@ -471,9 +620,9 @@
   </div>
 </main>
 
-<script src="assets/js/chrome.js?v=6"></script>
+<script src="assets/js/chrome.js?v=7"></script>
 <script src="assets/js/site.js?v=3"></script>
 <script type="module" src="assets/js/content.js?v=10"></script>
-<script type="module" src="assets/js/admin.js?v=7"></script>
+<script type="module" src="assets/js/admin.js?v=8"></script>
 </body>
 </html>

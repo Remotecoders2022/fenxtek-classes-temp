@@ -1754,3 +1754,15 @@ html.fx-in-view .to-top{opacity:0;pointer-events:none;transform:translateY(16px)
 @media (prefers-reduced-motion:reduce){
   .fx-status i,.fx-clock-dot::after{animation:none}
 }
+
+/* ---------- courses: buy-online strip ---------- */
+.buy-strip{display:flex;align-items:center;gap:18px;margin-top:28px;padding:18px 20px;border-radius:var(--r);background:var(--lime);color:var(--ink);transition:transform .4s var(--ease),box-shadow .4s var(--ease)}
+.buy-strip:hover{transform:translateY(-3px);box-shadow:0 24px 50px -24px rgba(217,255,87,.6)}
+.buy-strip-ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--ink);color:var(--lime);flex:none}
+.buy-strip-ic svg{width:22px;height:22px}
+.buy-strip-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.buy-strip-txt b{font-size:clamp(16px,1.6vw,19px);font-weight:650;letter-spacing:-.02em}
+.buy-strip-txt span{font-size:14px;opacity:.72}
+.buy-strip-go{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:12px 18px;border-radius:999px;background:var(--ink);color:var(--paper);flex:none}
+.buy-strip-go svg{width:14px;height:14px}
+@media (max-width:640px){.buy-strip{flex-wrap:wrap}.buy-strip-go{width:100%;justify-content:center}}

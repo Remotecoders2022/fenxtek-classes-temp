@@ -4,7 +4,7 @@
    "check your inbox" state with a resend option.
    ============================================================ */
 
-import { configured, sendReset, friendlyError, onAuthChange } from "./firebase.js?v=3";
+import { configured, sendReset, friendlyError, onAuthChange } from "./firebase.js?v=4";
 
 const $ = (sel) => document.querySelector(sel);
 
