@@ -19,7 +19,7 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=5";
-import { initStore, storeTabOpened } from "./admin-store.js?v=3";
+import { initStore, storeTabOpened } from "./admin-store.js?v=4";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
 import {

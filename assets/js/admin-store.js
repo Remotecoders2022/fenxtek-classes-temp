@@ -40,6 +40,7 @@ import {
   memberRecordFor
 } from "./commerce.js?v=2";
 import { downloadReceipt, receiptDataURL } from "./receipt.js?v=2";
+import { openContentManager, watchContent, contentCount, contentDeleteUpdates } from "./admin-content.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -526,16 +527,18 @@ function paintCourses() {
   box.innerHTML = A.courses
     .map((c, i) => {
       const sold = salesOf(c.id);
+      const cc = contentCount(c.id);
       return (
         `<div class="as-course${c.published ? "" : " is-off"}" data-cid="${esc(c.id)}">` +
         `<div class="as-course-cover" data-acover="${esc(c.id)}">${coverHTML(c, courseImgSrc(c), { size: "sm" })}</div>` +
         `<div><h4>${esc(c.title)}</h4><p>${money(c.price)}${c.mrp > c.price ? ` <s>${money(c.mrp)}</s> · ${offPercent(c.price, c.mrp)}% off` : ""} · ${esc(validityLabel(c.validityDays))} · ${esc(c.category)} · ${esc(c.mode)}</p>` +
-        `<p><span class="as-pill ${c.published ? "as-pill--ok" : "as-pill--muted"}">${c.published ? "Published" : "Hidden"}</span> <span class="as-pill as-pill--violet">${sold} sold</span>${c.badge ? ` <span class="as-pill as-pill--warn">${esc(c.badge)}</span>` : ""}</p></div>` +
+        `<p><span class="as-pill ${c.published ? "as-pill--ok" : "as-pill--muted"}">${c.published ? "Published" : "Hidden"}</span> <span class="as-pill as-pill--violet">${sold} sold</span> <button class="as-pill as-pill--cc" type="button" data-c-content="${esc(c.id)}">${cc.items || cc.folders ? `${cc.folders} folder${cc.folders === 1 ? "" : "s"} · ${cc.items} item${cc.items === 1 ? "" : "s"}` : "No content yet"}</button>${c.badge ? ` <span class="as-pill as-pill--warn">${esc(c.badge)}</span>` : ""}</p></div>` +
         `<div class="as-course-acts">` +
         `<button class="as-icon" type="button" data-c-up="${esc(c.id)}" title="Move up"${i === 0 ? " disabled" : ""}>${icon("i-arr-u")}</button>` +
         `<button class="as-icon" type="button" data-c-down="${esc(c.id)}" title="Move down"${i === A.courses.length - 1 ? " disabled" : ""}>${icon("i-arr-d")}</button>` +
         `<button class="as-icon" type="button" data-c-pub="${esc(c.id)}" title="${c.published ? "Hide from store" : "Publish"}">${icon(c.published ? "i-eye" : "i-lock")}</button>` +
-        `<button class="as-icon" type="button" data-c-access="${esc(c.id)}" title="Classroom links">${icon("i-link")}</button>` +
+        `<button class="as-btn-cc" type="button" data-c-content="${esc(c.id)}" title="Folders, videos, PDFs and links">${icon("i-book")}<span>Content</span></button>` +
+        `<button class="as-icon" type="button" data-c-access="${esc(c.id)}" title="Notice &amp; class links">${icon("i-link")}</button>` +
         `<button class="as-icon" type="button" data-c-edit="${esc(c.id)}" title="Edit">${icon("i-edit")}</button>` +
         `<button class="as-icon as-icon--danger" type="button" data-c-del="${esc(c.id)}" title="Delete">${icon("i-trash")}</button>` +
         `</div></div>`
@@ -752,7 +755,7 @@ async function deleteCourse(id) {
   const sold = salesOf(id);
   if (!window.confirm(`Delete “${c.title}”?${sold ? ` ${sold} student(s) bought it — they keep their enrolment, but the course disappears from the store.` : ""} This can’t be undone.`)) return;
   try {
-    await dbUpdateRoot({ [`${PATH.courses}/${id}`]: null, [`${PATH.courseImages}/${id}`]: null, [`${PATH.courseAccess}/${id}`]: null });
+    await dbUpdateRoot({ [`${PATH.courses}/${id}`]: null, [`${PATH.courseImages}/${id}`]: null, [`${PATH.courseAccess}/${id}`]: null, ...contentDeleteUpdates(id) });
     alert("ok", `Deleted “${c.title}”.`);
   } catch (err) {
     alert("err", friendlyError(err));
@@ -768,8 +771,8 @@ async function editAccess(id) {
   const row = (l = {}) =>
     `<div class="as-link-row"><input class="p-input" data-l="label" placeholder="Label — e.g. Telegram batch group" value="${esc(l.label || "")}"><input class="p-input" data-l="url" placeholder="https://t.me/…" value="${esc(l.url || "")}"><button class="as-icon as-icon--danger" type="button" data-l-rm title="Remove">${icon("i-trash")}</button></div>`;
   adminModal(
-    `Classroom · ${c.title}`,
-    `<p class="as-note">Only <b>enrolled students with active validity</b> can read this (enforced by the database rules). Add the Telegram group, YouTube playlist, Zoom/Meet link, Drive folder or PDFs for this course.</p>` +
+    `Notice & class links · ${c.title}`,
+    `<p class="as-note">Shown at the top of the classroom, above the course content. Only <b>enrolled students with active validity</b> can read this (enforced by the database rules). Use it for the batch notice, Telegram group or a standing Zoom/Meet link — add lectures, notes and files with <b>Content</b> instead.</p>` +
       `<label class="p-field"><span class="p-label">Message for students</span><textarea class="p-textarea" id="asAccMsg" rows="3" placeholder="Classes run Mon–Sat, 7 PM. Join the Telegram group first.">${esc(v.message || "")}</textarea></label>` +
       `<div class="p-field"><span class="p-label">Links</span><div class="as-links" id="asAccLinks">${(links.length ? links : [{}]).map(row).join("")}</div></div>` +
       `<div class="crm-actions"><button class="p-btn p-btn--ghost p-btn--sm" type="button" id="asAccAdd">${icon("i-plus")}<span>Add link</span></button><button class="p-btn p-btn--lime" type="button" id="asAccSave">${icon("i-check")}<span>Save classroom</span></button></div>`,
@@ -866,6 +869,10 @@ function bindCourses() {
     else if (d.cUp) moveCourse(d.cUp, -1);
     else if (d.cDown) moveCourse(d.cDown, 1);
     else if (d.cAccess) editAccess(d.cAccess);
+    else if (d.cContent) {
+      const c = A.courses.find((x) => x.id === d.cContent);
+      if (c) openContentManager(c, { alert, busy });
+    }
     else if (d.cPub) {
       const c = A.courses.find((x) => x.id === d.cPub);
       if (c) dbSet(`${PATH.courses}/${c.id}/published`, !c.published).catch((err) => alert("err", friendlyError(err)));
@@ -1260,6 +1267,7 @@ export function initStore(ctx) {
     console.warn("[admin-store] bind", err);
   }
 
+  watchContent(() => paintCourses());
   dbWatch(PATH.courses, (v) => {
     A.coursesRaw = v || {};
     A.courses = coursesFrom(v, { all: true });
