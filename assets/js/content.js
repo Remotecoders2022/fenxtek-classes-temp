@@ -68,6 +68,8 @@ function setLink(selector, href) {
   document.querySelectorAll(selector).forEach((a) => a.setAttribute("href", href));
 }
 
+const SUPPORT_EMAIL = "Support.fenxtek@gmail.com";
+
 export function applyContent(data) {
   if (!data || typeof data !== "object") return;
 
@@ -89,8 +91,17 @@ export function applyContent(data) {
     setWhatsApp(data.phone);
   }
 
+  /* the old address may still be saved in Site content — show the new one */
+  if (data.email && /^fenxtekshorthandclasses20@gmail\.com$/i.test(String(data.email).trim())) data = { ...data, email: SUPPORT_EMAIL };
   if (data.email) {
-    setText("email", data.email);
+    /* a soft break after "@" so narrow cards wrap as "name@" / "gmail.com" */
+    const em = String(data.email).trim();
+    const at = em.indexOf("@");
+    document.querySelectorAll('[data-cms="email"]').forEach((el) => {
+      el.textContent = "";
+      if (at > 0) el.append(em.slice(0, at + 1), document.createElement("wbr"), em.slice(at + 1));
+      else el.textContent = em;
+    });
     const mail = "mailto:" + String(data.email).trim();
     setLink('[data-cms-link="email"]', mail);
     document.querySelectorAll('a[href^="mailto:"]').forEach((a) => a.setAttribute("href", mail));

@@ -35,7 +35,7 @@ import {
   defaultFaqs,
   defaultTestimonials,
   defaultMemberships
-} from "./cms-defaults.js?v=2";
+} from "./cms-defaults.js?v=3";
 
 import {
   esc,
@@ -249,7 +249,10 @@ async function loadContent() {
   if (form) {
     CONTENT_FIELDS.forEach((key) => {
       const input = form.elements[key];
-      if (input) input.value = state.content[key] == null ? "" : state.content[key];
+      let v = state.content[key] == null ? "" : state.content[key];
+      /* old contact address → new one, so the next save updates the database */
+      if (key === "email" && /^fenxtekshorthandclasses20@gmail\.com$/i.test(String(v).trim())) v = "Support.fenxtek@gmail.com";
+      if (input) input.value = v;
     });
   }
   setState("#contentState", snap && snap.exists && snap.exists() ? "Live values loaded" : "Static site values — save to publish");
