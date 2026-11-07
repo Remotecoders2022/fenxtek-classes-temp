@@ -1558,7 +1558,7 @@ function receiptSettings() {
   return {
     ...S.pay,
     supportPhone: S.pay.supportPhone || S.content.phone || "+91 73090 82749",
-    supportEmail: S.content.email || "fenxtekshorthandclasses20@gmail.com"
+    supportEmail: S.content.email && !/^fenxtekshorthandclasses20@gmail\.com$/i.test(String(S.content.email).trim()) ? S.content.email : "Support.fenxtek@gmail.com"
   };
 }
 

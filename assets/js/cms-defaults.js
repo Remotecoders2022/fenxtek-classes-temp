@@ -12,7 +12,7 @@ export const defaultContent = {
   dictations: 500,
   patterns: 50,
   phone: "+91 73090 82749",
-  email: "fenxtekshorthandclasses20@gmail.com",
+  email: "Support.fenxtek@gmail.com",
   telegram: "@fenxtekshorthand_classes",
   instagram: "@fenxtek_shorthand_classes",
   announcement: "Admissions open for the 2026 batches — book a free demo dictation this week.",

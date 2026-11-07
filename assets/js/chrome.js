@@ -151,7 +151,7 @@
   var menu =
     '<div class="menu" id="menu" aria-hidden="true"><nav class="menu-list" aria-label="Mobile">' + menuHTML + '</nav>' +
     '<div class="menu-foot"><a href="tel:+917309082749">+91 73090 82749</a>' +
-    '<a href="mailto:fenxtekshorthandclasses20@gmail.com">fenxtekshorthandclasses20@gmail.com</a>' +
+    '<a href="mailto:Support.fenxtek@gmail.com">Support.fenxtek@gmail.com</a>' +
     '<a href="https://t.me/fenxtekshorthand_classes">Telegram</a>' +
     '<a href="https://www.instagram.com/fenxtek_shorthand_classes/">Instagram</a></div></div>';
 
@@ -193,7 +193,7 @@
     "</div>" +
     '<div class="fx-reach">' +
     tile("phone", "tel:+917309082749", "i-phone", "Call", '<span data-cms="phone">+91 73090 82749</span>') +
-    tile("email", "mailto:fenxtekshorthandclasses20@gmail.com", "i-mail", "Email", '<span data-cms="email">fenxtekshorthandclasses20@gmail.com</span>') +
+    tile("email", "mailto:Support.fenxtek@gmail.com", "i-mail", "Email", '<span data-cms="email">Support.fenxtek@<wbr>gmail.com</span>') +
     tile("telegram", "https://t.me/fenxtekshorthand_classes", "i-send", "Telegram", '<span data-cms="telegramHandle">@fenxtekshorthand_classes</span>', true) +
     tile("instagram", "https://www.instagram.com/fenxtek_shorthand_classes/", "i-ig", "Instagram", '<span data-cms="instagramHandle">@fenxtek_shorthand_classes</span>', true) +
     "</div></div>") +
