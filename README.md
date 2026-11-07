@@ -18,6 +18,8 @@ Static multi-page website with a student portal and an admin CRM. Pages are plai
 | `dashboard.html` | Student portal app: home, My courses + classroom, Course store, course pages, cart with coupons, checkout, orders and PNG receipts, **membership plans bought through the same cart and checkout**, profile |
 | `admin.html` | Admin CRM (content, collections, membership plans, student memberships, achievements, students, leads) plus the **Store**: orders & receipts, courses, coupons, payment settings |
 | `forgot.html` / `404.html` | Password reset / not-found page |
+| `design.html` | Internal design system (colour, typography, layout, motion, components, icons, keyboard wordmark). `noindex`, not linked from the site |
+| `llms.txt` | Plain-text summary of the academy and its pages for AI assistants ([llmstxt.org](https://llmstxt.org)). Not linked from the site |
 
 ### Page map — which page reads which RTDB node
 
@@ -29,7 +31,7 @@ Static multi-page website with a student portal and an admin CRM. Pages are plai
 | Courses | `site/content`, `site/batches`, `site/fees` |
 | Membership | `site/content`, `site/memberships`, `site/faqs`, `members/<uid>` (signed-in only) |
 | Achievements | `site/content`, `site/achievements`, `site/achievementImages/<id>` (lazy, per picture) |
-| Contact | `site/content`, `site/memberships/<id>` when opened as `contact.html?plan=<id>`; writes `site/leads` |
+| Contact | `site/content`, `site/courses`, `site/batches`, `site/memberships` (for the “Interested in” list; `?plan=<id>` / `?course=<id>` preselects one); writes `site/leads` |
 | About | `site/content`, `site/testimonials` |
 | Exams, Method, Auth, Forgot, 404 | `site/content` (footer contact details) |
 | Dashboard | `users/<uid>`, `members/<uid>`, `site/content`, `site/courses`, `site/courseImages`, `site/offers`, `site/payments`, `carts/<uid>`, `orders/<uid>`, `enrollments/<uid>`, `courseAccess/<id>` and `courseContent/<id>` (enrolled only), `courseOutline/<id>`, `coursePreview/<id>`, `progress/<uid>`, `coupons/<CODE>` (one code at a time, when typed) |
@@ -142,7 +144,7 @@ site
  │                            imageSource: "upload" | "link", imageUrl?, width?, height?,
  │                            createdAt, updatedAt, createdBy } }
  ├── achievementImages { <id>: "data:image/jpeg;base64,…" }   ← uploaded pictures only
- ├── leads          { <pushId>: { email, source, at, plan? } }
+ ├── leads          { <pushId>: { name, phone, email, course, courseId?, message?, plan?, source, at, status, note?, updatedAt? } }
  ├── courses        { <id>: { title, subtitle, price, mrp, validityDays (0 = lifetime), category, mode,
  │                            language, badge, lessons, features: [..], description, accent,
  │                            published, order } }
@@ -199,7 +201,7 @@ admins
 - Achievement pictures are stored separately from the post text so list pages stay light and each
   base64 image is downloaded only when it scrolls into view. The rules cap one picture at ~1.5 MB of
   base64. The CRM keeps them readable: up to ~4.2 MP with a 3600 px long side (tall result lists keep their full width), PNG for screenshots when it fits, JPEG 0.92→0.76 otherwise, always flattened onto white so transparent screenshots don't turn into dark-on-dark text, and capped at ~1.15 MB of base64 (the rules allow < 1.5 MB).
-- Public write access: create-only on `site/leads` (email validated by the rules).
+- Public write access: create-only on `site/leads`. New enquiries must have a name, a valid Indian mobile (`+91` + 10 digits starting 6–9), email, course and a current timestamp, arrive with status `new` and no note, and carry no unknown keys. Only admins can read, change status/notes or delete.
 - `users/<uid>` is readable/writable by that user; admins can read all students.
 - Store: `site/courses`, `site/courseImages`, `site/offers` and `site/payments` are public. Signed-in students
   read and write their own `carts/<uid>`, read their own `orders` / `enrollments`, and can read a single
@@ -352,7 +354,7 @@ Open `admin.html` and sign in with the admin account.
 - **Store → Courses** — create and edit the courses sold in the portal: price, struck-through MRP, validity (or lifetime), category, mode, language, badge, features, description, cover colour or uploaded cover, publish / hide, reorder. **Content** opens the content manager: folders, videos, PDFs, notes, webpages, audio and live classes (see *Course content* above). The link icon (**Notice & class links**) sets the notice board message and standing links (Telegram group, Zoom room…) shown at the top of the classroom. **Import from batches** turns the existing batch list into draft courses.
 - **Store → Coupons** — a single code or **Bulk generate** up to 500 unique codes per run (run it as often as you like). Each coupon is **percent** (with an optional ₹ cap) or **flat ₹** off, for everything or particular courses and membership plans, with optional minimum cart value, total-use limit (0 = unlimited), start and expiry dates. Every student can redeem a code once; set total uses to 1 for single-use codes. Tick **Show as offer** to advertise a code in the portal. Filter by batch, pause or delete a whole batch, and export codes with their usage to CSV.
 - **Store → Payment settings** — UPI ID and payee name (the portal shows a QR and an "Open UPI app" button and asks for the UTR), the Razorpay key id, and the business name, address, GSTIN, phone and note printed on receipts. **Preview receipt** draws a sample.
-- **Leads** — emails captured by the public “Join now” forms, with CSV export and delete. Leads that came through a plan's **Choose plan** button (`contact.html?plan=<id>`) record which plan.
+- **Leads & enquiries** — every enquiry from the contact page form (name, mobile, email, course of interest, optional message). Stat cards double as filters (New / Demo booked / Joined), plus search (name, phone, email, course, message), status and course filters. Each row has one-tap **Call** and **WhatsApp** (pre-filled greeting), a status dropdown (New → Contacted → Demo booked → Joined / Not interested) and **Details** with the full enquiry and a private admin note. **Export CSV** exports the filtered list. Older email-only sign-ups still show as *Newsletter sign-up*. Batch cards on the Courses page and plan *Questions?* links open the form with that course/plan preselected.
 - **Load starter content** — writes the default website content (from `assets/js/cms-defaults.js`) to RTDB, including one starter membership plan. It never touches achievements, student memberships, students or leads.
 
 > **After pulling this update, republish `database.rules.json`** (Realtime Database → Rules). Until you do,

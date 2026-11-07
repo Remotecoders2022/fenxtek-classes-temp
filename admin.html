@@ -4,15 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin CRM — FenxTek Shorthand Classes</title>
-<meta name="description" content="FenxTek admin CRM — edit site content, batches, fees, membership plans, achievements, FAQs, testimonials, students and leads.">
+<meta name="description" content="FenxTek admin CRM — edit site content, batches, fees, membership plans, achievements, FAQs, testimonials, students and enquiries.">
 <meta name="theme-color" content="#F5F1E8">
 <link rel="icon" href="fenxtek-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css?v=8">
-<link rel="stylesheet" href="assets/css/portal.css?v=5">
-<link rel="stylesheet" href="assets/css/store.css?v=7">
+<link rel="stylesheet" href="assets/css/site.css?v=11">
+<link rel="stylesheet" href="assets/css/portal.css?v=6">
+<link rel="stylesheet" href="assets/css/store.css?v=8">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin">
@@ -100,7 +100,7 @@
               <div class="crm-stat"><b id="statLeads">0</b><span>Leads</span></div>
               <div class="crm-stat"><b id="statPrice">—</b><span>Starting price</span></div>
               <div class="crm-stat"><b id="statAnnounce">—</b><span>Announcement</span></div>
-              <div class="crm-stat"><b id="statEnquiries">0</b><span>Plan enquiries</span></div>
+              <div class="crm-stat"><b id="statEnquiries">0</b><span>New enquiries</span></div>
             </div>
 
             <div class="crm-card" style="margin-top:16px">
@@ -701,21 +701,37 @@
           <section class="crm-panel" data-crm-panel="leads" hidden>
             <div class="crm-panel-head">
               <div>
-                <h2>Leads</h2>
-                <p>Email addresses captured by the “Join now” form on the public site. Leads that came from a membership plan’s “Choose plan” button show the plan.</p>
+                <h2>Leads &amp; enquiries</h2>
+                <p>Every enquiry sent from the contact page — name, mobile, email and the course they are interested in. Call or WhatsApp straight from here, track each lead’s status and keep private notes.</p>
               </div>
               <div class="crm-top-actions">
                 <button class="p-btn p-btn--ghost p-btn--sm" id="leadsExport" type="button"><span>Export CSV</span><svg><use href="#i-arr-d"/></svg></button>
-                <button class="p-btn p-btn--ghost p-btn--sm" id="leadsRefresh" type="button"><span>Refresh</span><svg><use href="#i-zap"/></svg></button>
+                <button class="p-btn p-btn--ghost p-btn--sm" id="leadsRefresh" type="button"><span>Refresh</span><svg><use href="#i-refresh"/></svg></button>
               </div>
             </div>
+            <div class="crm-stats" id="leadsStats"></div>
+            <div class="as-toolbar" style="margin-top:16px">
+              <input class="p-input as-grow" id="leadsQ" type="search" placeholder="Search name, phone, email, course, message…">
+              <select class="p-select" id="leadsStatus" aria-label="Status">
+                <option value="all">All statuses</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="demo">Demo booked</option>
+                <option value="joined">Joined</option>
+                <option value="closed">Not interested</option>
+              </select>
+              <select class="p-select" id="leadsCourse" aria-label="Course">
+                <option value="all">All courses</option>
+              </select>
+              <span class="as-sub" id="leadsCount"></span>
+            </div>
             <div class="crm-table-wrap">
-              <table class="crm-table">
+              <table class="crm-table ld-table">
                 <thead>
-                  <tr><th>Email</th><th>Plan enquiry</th><th>Source</th><th>Captured</th><th class="actions">Action</th></tr>
+                  <tr><th>Student</th><th>Mobile</th><th>Interested in</th><th>Received</th><th>Status</th><th class="actions">Action</th></tr>
                 </thead>
                 <tbody id="leadsBody">
-                  <tr><td colspan="5" class="crm-table-empty">Loading leads…</td></tr>
+                  <tr><td colspan="6" class="crm-table-empty">Loading leads…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -727,9 +743,9 @@
   </div>
 </main>
 
-<script src="assets/js/chrome.js?v=8"></script>
-<script src="assets/js/site.js?v=3"></script>
-<script type="module" src="assets/js/content.js?v=13"></script>
-<script type="module" src="assets/js/admin.js?v=13"></script>
+<script src="assets/js/chrome.js?v=11"></script>
+<script src="assets/js/site.js?v=5"></script>
+<script type="module" src="assets/js/content.js?v=14"></script>
+<script type="module" src="assets/js/admin.js?v=14"></script>
 </body>
 </html>

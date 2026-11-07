@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design system · FenxTek Shorthand Classes</title>
+<meta name="description" content="FenxTek design system: colour, typography, layout, motion and components used across the website.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0B0B10">
+<link rel="icon" href="fenxtek-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css?v=11">
+<noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
+<style>
+/* ============================================================
+   design.html only — layout for the style guide itself (ds-*)
+   Everything shown as a sample uses the real site classes.
+   ============================================================ */
+.ds-hero .phero-grid{align-items:end}
+.ds-hero .phero-title{font-size:clamp(56px,9vw,150px)}
+.ds-hero-meta{display:grid;gap:10px;justify-items:end;text-align:right;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.ds-hero-meta b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:clamp(40px,5vw,72px);letter-spacing:-.02em;line-height:1;color:var(--lime);text-transform:none}
+
+.ds-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:clamp(30px,5vw,80px);align-items:start;padding-top:clamp(48px,6vw,90px);padding-bottom:clamp(60px,8vw,120px)}
+.ds-toc{position:sticky;top:100px;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.ds-toc a{display:flex;justify-content:space-between;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line);font-size:13.5px;font-weight:500;letter-spacing:-.01em;color:var(--muted);transition:color .3s,padding .4s var(--ease)}
+.ds-toc a span{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:rgba(11,11,16,.32)}
+.ds-toc a:hover,.ds-toc a.on{color:var(--ink);padding-left:8px}
+.ds-toc a.on span{color:var(--violet)}
+
+.ds-sec{padding-bottom:clamp(64px,8vw,120px)}
+.ds-sec + .ds-sec{padding-top:6px}
+.ds-sec > .sec-head{margin-bottom:clamp(26px,3vw,40px)}
+.ds-sec .sec-head .h2{max-width:none}
+.ds-sub{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:clamp(40px,5vw,64px) 0 18px;padding-top:16px;border-top:1px solid var(--line)}
+.ds-sub h3{font-size:clamp(20px,2vw,26px);font-weight:600;letter-spacing:-.03em}
+.ds-sub span{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.ds-p{font-size:15px;line-height:1.7;color:var(--muted);max-width:68ch}
+.ds-p + .ds-p{margin-top:10px}
+.ds-p b,.ds-p code{color:var(--ink)}
+code,.ds-code{font-family:var(--mono);font-size:.86em;letter-spacing:0}
+.ds-code-pill{display:inline-block;padding:2px 8px;border-radius:6px;background:rgba(11,11,16,.06);font-family:var(--mono);font-size:11px;color:var(--ink)}
+.ds-panel{border:1px solid var(--line);border-radius:var(--r);background:rgba(255,255,255,.4);padding:clamp(20px,2.6vw,34px)}
+.ds-panel--ink{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.ds-panel--lime{background:var(--lime);border-color:var(--lime)}
+.ds-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.ds-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ds-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.ds-grid3 > .p-card,.ds-grid3 > .ftile,.ds-grid3 > .exam-card{grid-column:auto!important;min-height:280px}
+.ds-cap{margin-top:12px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ds-panel--ink .ds-cap{color:rgba(255,255,255,.4)}
+
+/* principles */
+.ds-principles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line)}
+.ds-pr{padding:22px 22px 26px 0;border-bottom:1px solid var(--line)}
+.ds-pr + .ds-pr{padding-left:22px;border-left:1px solid var(--line)}
+.ds-pr i{font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--violet)}
+.ds-pr h4{margin-top:26px;font-size:19px;font-weight:600;letter-spacing:-.025em;line-height:1.2}
+.ds-pr h4 em{font-family:var(--serif);font-weight:400;font-size:1.14em;color:var(--violet)}
+.ds-pr p{margin-top:8px;font-size:13.5px;line-height:1.6;color:var(--muted)}
+
+/* colour */
+.ds-swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.ds-sw{display:flex;flex-direction:column;align-items:stretch;text-align:left;padding:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
+.ds-sw:hover{transform:translateY(-4px);box-shadow:0 24px 40px -28px rgba(11,11,16,.5)}
+.ds-sw-chip{display:block;width:100%;height:118px;position:relative}
+.ds-sw-chip::after{content:"Copy";position:absolute;right:10px;bottom:10px;padding:4px 8px;border-radius:999px;background:rgba(11,11,16,.7);color:#fff;font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;opacity:0;transition:opacity .3s}
+.ds-sw:hover .ds-sw-chip::after{opacity:1}
+.ds-sw-meta{padding:12px 12px 14px;display:grid;gap:3px}
+.ds-sw-meta b{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.ds-sw-meta code{font-size:10.5px;color:var(--muted)}
+.ds-sw-meta small{font-size:11.5px;line-height:1.4;color:var(--muted);margin-top:4px}
+.ds-sw--big{grid-column:span 2}
+.ds-sw--big .ds-sw-chip{height:180px}
+.ds-ratio{display:flex;height:54px;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.ds-ratio span{display:flex;align-items:flex-end;padding:8px 10px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+.ds-grads{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ds-grad{height:150px;border-radius:16px;position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:14px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase}
+
+/* typography */
+.ds-fonts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ds-font{position:relative;display:flex;flex-direction:column;min-height:330px;padding:clamp(20px,2.4vw,30px);border:1px solid var(--line);border-radius:var(--r);background:rgba(255,255,255,.45);overflow:hidden}
+.ds-font--ink{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.ds-font-top{display:flex;justify-content:space-between;gap:14px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.ds-font--ink .ds-font-top{color:rgba(255,255,255,.45)}
+.ds-font-aa{margin-top:auto;font-size:clamp(96px,11vw,170px);line-height:.85;letter-spacing:-.05em}
+.ds-font h4{margin-top:16px;font-size:22px;font-weight:600;letter-spacing:-.03em}
+.ds-font p{margin-top:6px;font-size:13.5px;line-height:1.6;color:var(--muted);max-width:44ch}
+.ds-font--ink p{color:rgba(255,255,255,.6)}
+.ds-weights{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:14px;font-size:15px}
+.ds-weights span{display:inline-flex;align-items:baseline;gap:6px}
+.ds-weights small{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.ds-scale{border-top:1px solid var(--line)}
+.ds-ts{display:grid;grid-template-columns:200px minmax(0,1fr);gap:clamp(16px,3vw,40px);align-items:center;padding:clamp(20px,2.6vw,30px) 0;border-bottom:1px solid var(--line)}
+.ds-ts-meta{font-family:var(--mono);font-size:9.5px;line-height:1.85;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ds-ts-meta b{display:block;margin-bottom:4px;font-family:var(--sans);font-size:14px;font-weight:600;letter-spacing:-.01em;text-transform:none;color:var(--ink)}
+.ds-ts-sample{min-width:0;overflow:hidden}
+.ds-hero-comp{line-height:.82}
+.ds-hero-comp span{display:block}
+.ds-hero-comp .a{font-size:clamp(40px,6.6vw,104px);font-weight:700;letter-spacing:-.055em;text-transform:uppercase}
+.ds-hero-comp .b{font-family:var(--serif);font-style:italic;font-weight:400;font-size:clamp(44px,7.3vw,120px);letter-spacing:-.03em;color:var(--violet);margin-left:clamp(0px,4vw,70px)}
+.ds-hero-comp .c{font-size:clamp(40px,6.2vw,98px);font-weight:700;letter-spacing:-.055em;text-transform:uppercase;text-align:right}
+.ds-hero-comp .c em{font-family:var(--serif);font-style:italic;font-weight:400;text-transform:none;letter-spacing:-.02em}
+.ds-rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ds-rule{padding:20px 22px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.4)}
+.ds-rule b{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase}
+.ds-rule b svg{width:14px;height:14px}
+.ds-rule--do b{color:#2E7D32}
+.ds-rule--dont b{color:#C62828}
+.ds-rule ul{margin-top:12px;display:grid;gap:8px}
+.ds-rule li{position:relative;padding-left:16px;font-size:14px;line-height:1.55;color:var(--muted)}
+.ds-rule li::before{content:"";position:absolute;left:0;top:9px;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.5}
+
+/* spacing */
+.ds-tokens{width:100%;border-collapse:collapse;font-size:14px}
+.ds-tokens th{text-align:left;font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:0 12px 10px 0;border-bottom:1px solid var(--line)}
+.ds-tokens td{padding:13px 12px 13px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+.ds-tokens td:first-child{white-space:nowrap}
+.ds-tokens td:last-child{color:var(--muted)}
+.ds-radii{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.ds-radius{display:grid;gap:8px;justify-items:center;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ds-radius i{display:block;width:96px;height:72px;background:var(--ink);border:1px solid var(--ink)}
+.ds-space{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.ds-space div{display:grid;gap:8px;justify-items:center;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.ds-space i{display:block;width:22px;background:var(--violet);border-radius:3px}
+
+/* motion */
+.ds-motion{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:14px}
+.ds-curve svg{width:100%;height:auto;display:block}
+.ds-race{display:grid;gap:14px}
+.ds-lane{position:relative;height:46px;border-radius:999px;background:rgba(11,11,16,.05);overflow:hidden}
+.ds-lane i{position:absolute;left:5px;top:5px;width:36px;height:36px;border-radius:50%;background:var(--ink);transition:left 1s linear}
+.ds-lane--ease i{background:var(--violet);transition-timing-function:var(--ease)}
+.ds-lane span{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ds-race.go .ds-lane i{left:calc(100% - 41px)}
+.ds-durs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+.ds-dur{padding:16px;border-radius:14px;border:1px solid var(--line)}
+.ds-dur b{display:block;font-family:var(--serif);font-style:italic;font-weight:400;font-size:34px;letter-spacing:-.02em;line-height:1;color:var(--violet)}
+.ds-dur span{display:block;margin-top:8px;font-size:12.5px;line-height:1.45;color:var(--muted)}
+
+/* icons */
+.ds-icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.ds-ic{display:grid;justify-items:center;gap:12px;padding:20px 8px 14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.45);transition:background .3s,color .3s,border-color .3s,transform .4s var(--ease)}
+.ds-ic svg{width:22px;height:22px}
+.ds-ic span{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--muted);transition:color .3s}
+.ds-ic:hover{background:var(--ink);color:var(--lime);border-color:var(--ink);transform:translateY(-3px)}
+.ds-ic:hover span{color:rgba(255,255,255,.6)}
+
+/* keyboard */
+.ds-kb{padding:clamp(24px,3vw,44px) clamp(18px,3vw,40px) 6px;border-radius:calc(var(--r) + 4px);background:var(--ink);color:var(--paper);overflow:hidden}
+.ds-kb .kb{margin-top:0}
+.ds-anat{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:14px}
+.ds-anat div{padding:16px;border-radius:14px;border:1px solid var(--line)}
+.ds-anat i{font-style:normal;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--violet)}
+.ds-anat b{display:block;margin-top:14px;font-size:15px;font-weight:600;letter-spacing:-.02em}
+.ds-anat span{display:block;margin-top:6px;font-size:12.5px;line-height:1.5;color:var(--muted)}
+
+/* brand */
+.ds-brand{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.ds-logo{display:grid;place-items:center;aspect-ratio:4/3;border-radius:var(--r);border:1px solid var(--line)}
+.ds-logo img{width:38%;height:auto}
+.ds-voice{margin-top:14px;border-top:1px solid var(--line)}
+.ds-voice div{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;padding:16px 0;border-bottom:1px solid var(--line);font-size:14.5px;line-height:1.6}
+.ds-voice b{font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding-top:4px}
+
+@media (max-width:1100px){
+  .ds-swatches{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ds-principles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ds-pr:nth-child(3){padding-left:0;border-left:0}
+  .ds-anat{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:980px){
+  .ds-layout{grid-template-columns:minmax(0,1fr)}
+  .ds-toc{position:static;flex-direction:row;flex-wrap:wrap;gap:6px;border-top:0}
+  .ds-toc a{border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:12px}
+  .ds-toc a span{display:none}
+  .ds-toc a:hover,.ds-toc a.on{padding-left:12px}
+  .ds-grid3,.ds-brand{grid-template-columns:minmax(0,1fr)}
+  .ds-motion,.ds-fonts,.ds-rules,.ds-grid2{grid-template-columns:minmax(0,1fr)}
+  .ds-grads{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:640px){
+  .ds-swatches{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ds-sw--big{grid-column:span 2}
+  .ds-principles{grid-template-columns:minmax(0,1fr)}
+  .ds-pr + .ds-pr{padding-left:0;border-left:0}
+  .ds-ts{grid-template-columns:minmax(0,1fr);gap:10px}
+  .ds-durs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ds-voice div{grid-template-columns:minmax(0,1fr);gap:4px}
+  .ds-hero-meta{justify-items:start;text-align:left}
+  .ds-tokens td:last-child,.ds-tokens th:last-child{display:none}
+}
+</style>
+</head>
+<body data-page="design">
+<main>
+
+<!-- ============ COVER ============ -->
+<section class="phero on-dark page-start ds-hero" id="top">
+  <div class="wrap phero-grid">
+    <div class="phero-copy" data-reveal>
+      <span class="eyebrow eyebrow--lime">Internal reference · not linked from the site</span>
+      <h1 class="phero-title">Design <em>system.</em></h1>
+      <p class="lead">Every colour, typeface, spacing rule, motion curve and component the FenxTek website is built from — in one place, rendered with the live stylesheet so nothing drifts.</p>
+      <dl class="phero-stats">
+        <div><dt>Typefaces</dt><dd>3<small>+1</small></dd></div>
+        <div><dt>Core colours</dt><dd>6</dd></div>
+        <div><dt>Icons</dt><dd data-ds-iconcount>40<small>+</small></dd></div>
+      </dl>
+    </div>
+    <div class="ds-hero-meta" data-reveal style="--d:.12s">
+      <span>Stylesheet</span>
+      <b>site.css</b>
+      <span>assets/css/site.css · v11</span>
+      <span>Editorial · kinetic · warm paper &amp; ink</span>
+    </div>
+  </div>
+</section>
+
+<div class="wrap ds-layout">
+  <nav class="ds-toc" aria-label="Design system sections">
+    <a href="#principles">Principles<span>01</span></a>
+    <a href="#colour">Colour<span>02</span></a>
+    <a href="#type">Typography<span>03</span></a>
+    <a href="#layout">Layout &amp; space<span>04</span></a>
+    <a href="#motion">Motion<span>05</span></a>
+    <a href="#buttons">Buttons<span>06</span></a>
+    <a href="#chips">Chips &amp; tags<span>07</span></a>
+    <a href="#cards">Cards<span>08</span></a>
+    <a href="#rows">Lists &amp; rows<span>09</span></a>
+    <a href="#icons">Icons<span>10</span></a>
+    <a href="#keyboard">Keyboard<span>11</span></a>
+    <a href="#brand">Brand &amp; voice<span>12</span></a>
+  </nav>
+
+  <div class="ds-body">
+
+  <!-- ============ 01 PRINCIPLES ============ -->
+  <section class="ds-sec" id="principles">
+    <div class="sec-head">
+      <span class="eyebrow">01 — Principles</span>
+      <h2 class="h2">Editorial, kinetic, <em>exam-serious.</em></h2>
+      <p class="lead">The site should feel like a well-set magazine about a skill — calm paper, confident ink, one bright accent, and motion that always has somewhere to go.</p>
+    </div>
+    <div class="ds-principles">
+      <div class="ds-pr"><i>(01)</i><h4>Warm paper, <em>deep ink</em></h4><p>Light pages sit on <code>--paper</code>, never pure white. Dark bands use <code>--ink</code>, never pure black.</p></div>
+      <div class="ds-pr"><i>(02)</i><h4>Grotesk × <em>italic serif</em></h4><p>Inter Tight carries the message; one or two words switch to Instrument Serif italic for the voice.</p></div>
+      <div class="ds-pr"><i>(03)</i><h4>Mono for <em>metadata</em></h4><p>JetBrains Mono, uppercase and widely tracked, labels numbers, eyebrows, chips and captions.</p></div>
+      <div class="ds-pr"><i>(04)</i><h4>One ease, <em>long tails</em></h4><p>Everything moves on <code>cubic-bezier(.16,1,.3,1)</code> — fast start, soft landing.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ 02 COLOUR ============ -->
+  <section class="ds-sec" id="colour">
+    <div class="sec-head">
+      <span class="eyebrow">02 — Colour</span>
+      <h2 class="h2">Paper, ink and <em>two sparks.</em></h2>
+      <p class="lead">Six core colours do almost all of the work. Violet is the accent on light backgrounds, lime is the accent on dark ones. Click any swatch to copy its CSS variable.</p>
+    </div>
+    <div class="ds-swatches" id="dsSwatches">
+      <button class="ds-sw ds-sw--big" type="button" data-copy="var(--paper)"><span class="ds-sw-chip" style="background:var(--paper)"></span><span class="ds-sw-meta"><b>Paper</b><code>--paper · #F3F0E8</code><small>Default page background. Warm, never white.</small></span></button>
+      <button class="ds-sw ds-sw--big" type="button" data-copy="var(--ink)"><span class="ds-sw-chip" style="background:var(--ink)"></span><span class="ds-sw-meta"><b>Ink</b><code>--ink · #0B0B10</code><small>Text, dark sections, footer, primary buttons.</small></span></button>
+      <button class="ds-sw ds-sw--big" type="button" data-copy="var(--lime)"><span class="ds-sw-chip" style="background:var(--lime)"></span><span class="ds-sw-meta"><b>Lime</b><code>--lime · #D9FF57</code><small>Accent on dark, hover fills, selection, pricing band.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--violet)"><span class="ds-sw-chip" style="background:var(--violet)"></span><span class="ds-sw-meta"><b>Violet</b><code>--violet · #5A4BFF</code><small>Accent on light: italic words, dots, focus ring.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--violet-soft)"><span class="ds-sw-chip" style="background:var(--violet-soft)"></span><span class="ds-sw-meta"><b>Violet soft</b><code>--violet-soft · #DDD8FF</code><small>Tag and icon-tile fills.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--sky)"><span class="ds-sw-chip" style="background:var(--sky)"></span><span class="ds-sw-meta"><b>Sky</b><code>--sky · #8FE3FF</code><small>Rare highlight, charts, glows.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--paper-2)"><span class="ds-sw-chip" style="background:var(--paper-2)"></span><span class="ds-sw-meta"><b>Paper 2</b><code>--paper-2 · #ECE8DD</code><small>Tinted sections.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--paper-3)"><span class="ds-sw-chip" style="background:var(--paper-3)"></span><span class="ds-sw-meta"><b>Paper 3</b><code>--paper-3 · #E4DFD2</code><small>Pressed / deeper paper.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--ink-2)"><span class="ds-sw-chip" style="background:var(--ink-2)"></span><span class="ds-sw-meta"><b>Ink 2</b><code>--ink-2 · #14141B</code><small>Raised surfaces on dark.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--ink-3)"><span class="ds-sw-chip" style="background:var(--ink-3)"></span><span class="ds-sw-meta"><b>Ink 3</b><code>--ink-3 · #1D1D26</code><small>Cards and hovers on dark.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--muted)"><span class="ds-sw-chip" style="background:var(--muted)"></span><span class="ds-sw-meta"><b>Muted</b><code>--muted · #6C6A66</code><small>Secondary text on paper.</small></span></button>
+      <button class="ds-sw" type="button" data-copy="var(--muted-d)"><span class="ds-sw-chip" style="background:var(--ink)"><span style="position:absolute;inset:28% 20%;border-radius:8px;background:var(--muted-d)"></span></span><span class="ds-sw-meta"><b>Muted on dark</b><code>--muted-d · 58% white</code><small>Secondary text on ink.</small></span></button>
+    </div>
+
+    <div class="ds-sub"><h3>Proportion</h3><span>Roughly how much of a page each colour covers</span></div>
+    <div class="ds-ratio" aria-hidden="true">
+      <span style="flex:56;background:var(--paper)">Paper 56%</span>
+      <span style="flex:30;background:var(--ink);color:var(--paper)">Ink 30%</span>
+      <span style="flex:8;background:var(--lime)">Lime</span>
+      <span style="flex:6;background:var(--violet);color:#fff">Violet</span>
+    </div>
+
+    <div class="ds-sub"><h3>Lines, glows &amp; gradients</h3><span>Hairlines are translucent ink or white, never grey</span></div>
+    <div class="ds-grads">
+      <div class="ds-grad" style="background:var(--ink);color:rgba(255,255,255,.6)"><span style="position:absolute;inset:0;background:radial-gradient(260px 200px at 78% 30%,rgba(90,75,255,.45),transparent 70%),radial-gradient(220px 160px at 100% 100%,rgba(217,255,87,.2),transparent 70%)"></span><span style="position:relative">Dark hero glow · .phero</span></div>
+      <div class="ds-grad" style="background:var(--paper);border:1px solid var(--line);color:var(--muted)"><span style="position:absolute;inset:0;background:radial-gradient(260px 200px at 82% 8%,rgba(79,70,229,.14),transparent 65%),radial-gradient(240px 170px at 8% 92%,rgba(255,194,51,.3),transparent 66%)"></span><span style="position:relative">Home hero glow · .hero</span></div>
+      <div class="ds-grad" style="background:var(--paper);border:1px solid var(--line);color:var(--muted);flex-direction:column;align-items:stretch;justify-content:flex-end;gap:12px"><span style="height:1px;background:var(--line)"></span><span style="height:1px;background:var(--line)"></span><span style="padding:12px;background:var(--ink);border-radius:10px;display:grid;gap:10px"><i style="display:block;height:1px;background:var(--line-d)"></i><i style="display:block;height:1px;background:var(--line-d)"></i></span><span>--line 14% ink · --line-d 16% white</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 03 TYPOGRAPHY ============ -->
+  <section class="ds-sec" id="type">
+    <div class="sec-head">
+      <span class="eyebrow">03 — Typography</span>
+      <h2 class="h2">A grotesk that talks, a serif that <em>sings.</em></h2>
+      <p class="lead">Three Google Fonts families, plus a Devanagari face for Hindi. Headlines are tight and heavy; one phrase per headline turns italic serif.</p>
+    </div>
+
+    <div class="ds-fonts">
+      <div class="ds-font">
+        <div class="ds-font-top"><span>Primary · --sans</span><span>300 — 800</span></div>
+        <div class="ds-font-aa" style="font-weight:700">Aa</div>
+        <h4>Inter Tight</h4>
+        <p>Headlines, body copy, buttons and UI. Negative tracking on large sizes (−.03 to −.055em).</p>
+        <div class="ds-weights"><span style="font-weight:300">Light<small>300</small></span><span style="font-weight:400">Regular<small>400</small></span><span style="font-weight:500">Medium<small>500</small></span><span style="font-weight:600">Semibold<small>600</small></span><span style="font-weight:700">Bold<small>700</small></span><span style="font-weight:800">Heavy<small>800</small></span></div>
+      </div>
+      <div class="ds-font ds-font--ink">
+        <div class="ds-font-top"><span>Voice · --serif</span><span>400 · italic</span></div>
+        <div class="ds-font-aa" style="font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.03em;color:var(--lime)">Aa</div>
+        <h4 style="font-family:var(--serif);font-style:italic;font-weight:400;font-size:28px;letter-spacing:-.01em">Instrument Serif</h4>
+        <p>The accent voice: the italic word inside a headline, quotes, big numbers and small "units" next to stats.</p>
+      </div>
+      <div class="ds-font">
+        <div class="ds-font-top"><span>Meta · --mono</span><span>400 — 600</span></div>
+        <div class="ds-font-aa" style="font-family:var(--mono);font-weight:500;letter-spacing:-.06em">Aa</div>
+        <h4 style="font-family:var(--mono);font-weight:500;font-size:18px;letter-spacing:0">JetBrains Mono</h4>
+        <p>Eyebrows, numbering (01, 02…), chips, captions, prices and WPM readouts. Uppercase, tracked .12–.2em, 9–11px.</p>
+      </div>
+      <div class="ds-font">
+        <div class="ds-font-top"><span>Hindi · .hindi</span><span>400 · italic</span></div>
+        <div class="ds-font-aa hindi" style="font-size:clamp(80px,9vw,140px);line-height:1">अ आ</div>
+        <h4>Tiro Devanagari Hindi</h4>
+        <p>Hindi lines such as the pricing aside. Never fake Hindi with the Latin fonts; always set <code>lang="hi"</code>.</p>
+      </div>
+    </div>
+
+    <div class="ds-sub"><h3>Type scale</h3><span>Fluid sizes with clamp() · resize the window</span></div>
+    <div class="ds-scale">
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Hero composition</b>.hero-head .l1 / .l2 / .l3<br>56→168 · lh .82 · −.055em</div>
+        <div class="ds-ts-sample ds-hero-comp"><span class="a">Master</span><span class="b">shorthand</span><span class="c"><em>&amp;</em> <span class="outline">typing.</span></span></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>H1</b>.h1 · 54→176px<br>lh .84 · −.05em · 700 · caps</div>
+        <div class="ds-ts-sample"><div class="h1" style="font-size:clamp(44px,7vw,110px)">Exam speed</div></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Page title</b>.phero-title · 48→112px<br>lh .92 · −.05em · 600</div>
+        <div class="ds-ts-sample"><div class="phero-title" style="margin:0;font-size:clamp(40px,5.6vw,88px)">The mentor behind <em style="font-family:var(--serif);font-style:italic;font-weight:400;color:var(--violet)">FenxTek.</em></div></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>H2</b>.h2 · 38→88px<br>lh .95 · −.042em · 600</div>
+        <div class="ds-ts-sample"><h3 class="h2">Built for the <em>exam hall.</em></h3></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>H3</b>.h3 · 26→42px<br>lh 1.05 · −.03em · 600</div>
+        <div class="ds-ts-sample"><h4 class="h3">Daily dictation, <em>reviewed.</em></h4></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Lead</b>.lead · 15→18px<br>lh 1.65 · 56ch · muted</div>
+        <div class="ds-ts-sample"><p class="lead">Exam-accurate Hindi &amp; English shorthand dictations, typing practice and preparation for SSC, UPSSSC, AHC and 50+ government exam patterns.</p></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Body</b>body · 16px<br>lh 1.55 · 400</div>
+        <div class="ds-ts-sample"><p style="max-width:62ch">A focused academy for Hindi and English shorthand, typing and government exam preparation — from Kanpur, for aspirants across India.</p></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Quote</b>.voice blockquote / .method-quote<br>serif italic 19→27px</div>
+        <div class="ds-ts-sample"><p class="method-quote" style="margin:0">“Shorthand is a skill for life — practise it daily and the speed follows.”</p></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Stat</b>.stat / .phero-stats dd<br>600 · −.04em + serif unit</div>
+        <div class="ds-ts-sample"><div class="ds-row" style="gap:40px"><div class="stat"><b>160<small>wpm</small></b><span>Top speed trained</span></div><div class="stat"><b>50<small>+</small></b><span>Exam patterns</span></div><div class="stat"><b>2</b><span>Languages</span></div></div></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Eyebrow</b>.eyebrow · .eyebrow--lime<br>mono 10.5px · .2em · caps</div>
+        <div class="ds-ts-sample"><div class="ds-row" style="gap:28px"><span class="eyebrow">03 — Method</span><span class="mono" style="color:var(--muted)">.mono · Admissions open</span></div></div>
+      </div>
+      <div class="ds-ts">
+        <div class="ds-ts-meta"><b>Section note</b>.sec-note<br>serif number + mono caption</div>
+        <div class="ds-ts-sample"><div class="sec-note" style="text-align:left;justify-self:start;max-width:none"><b>06</b>exam categories covered</div></div>
+      </div>
+    </div>
+
+    <div class="ds-sub"><h3>Rules</h3><span>How the pairing works</span></div>
+    <div class="ds-rules">
+      <div class="ds-rule ds-rule--do"><b><svg><use href="#i-check"/></svg>Do</b><ul>
+        <li>Italicise <b>one</b> phrase per headline with <code>&lt;em&gt;</code> — it becomes serif automatically.</li>
+        <li>Violet italics on paper, lime italics on ink (<code>.on-dark</code> swaps it).</li>
+        <li>End display headlines with a full stop: “clear <em>it.</em>”</li>
+        <li>Use mono caps for numbers, labels and anything that reads like data.</li>
+      </ul></div>
+      <div class="ds-rule ds-rule--dont"><b><svg><use href="#i-x"/></svg>Don’t</b><ul>
+        <li>Set whole paragraphs in the serif or in mono.</li>
+        <li>Use bold serif, or serif without italics, in headlines.</li>
+        <li>Track body text, or loosen tracking on display sizes.</li>
+        <li>Mix violet and lime italics in the same section.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- ============ 04 LAYOUT ============ -->
+  <section class="ds-sec" id="layout">
+    <div class="sec-head">
+      <span class="eyebrow">04 — Layout &amp; space</span>
+      <h2 class="h2">Wide pages, <em>generous air.</em></h2>
+      <p class="lead">Content lives in a 1560px wrap with fluid side padding. Sections breathe with large clamp() paddings, and hairline rules organise everything.</p>
+    </div>
+    <table class="ds-tokens">
+      <thead><tr><th>Token</th><th>Value</th><th>Used for</th></tr></thead>
+      <tbody>
+        <tr><td><span class="ds-code-pill">.wrap</span></td><td><code>max-width:1560px</code></td><td>Every content container</td></tr>
+        <tr><td><span class="ds-code-pill">--pad</span></td><td><code>clamp(20px, 4vw, 64px)</code></td><td>Side padding of .wrap</td></tr>
+        <tr><td><span class="ds-code-pill">.section</span></td><td><code>clamp(84px, 11vw, 156px) 0</code></td><td>Vertical rhythm between sections</td></tr>
+        <tr><td><span class="ds-code-pill">--r</span></td><td><code>20px</code></td><td>Cards, panels, photos</td></tr>
+        <tr><td><span class="ds-code-pill">999px</span></td><td><code>pill</code></td><td>Buttons, chips, tags, status badges</td></tr>
+        <tr><td><span class="ds-code-pill">gap</span></td><td><code>14px</code> cards · <code>12px</code> buttons · <code>8px</code> chips</td><td>Grid and flex gaps</td></tr>
+        <tr><td><span class="ds-code-pill">.sec-head</span></td><td><code>border-top + 26px</code></td><td>Every section opens with a hairline, eyebrow, H2 and lead</td></tr>
+      </tbody>
+    </table>
+    <div class="ds-sub"><h3>Radii</h3><span>Soft, but never bubbly</span></div>
+    <div class="ds-radii">
+      <div class="ds-radius"><i style="border-radius:4px"></i>4 · focus</div>
+      <div class="ds-radius"><i style="border-radius:12px"></i>12 · icon tile</div>
+      <div class="ds-radius"><i style="border-radius:16px"></i>16 · small card</div>
+      <div class="ds-radius"><i style="border-radius:20px"></i>20 · --r</div>
+      <div class="ds-radius"><i style="border-radius:24px"></i>24 · photo</div>
+      <div class="ds-radius"><i style="border-radius:999px;width:140px"></i>999 · pill</div>
+    </div>
+    <div class="ds-sub"><h3>Spacing steps</h3><span>Most gaps come from this ladder</span></div>
+    <div class="ds-space">
+      <div><i style="height:4px"></i>4</div><div><i style="height:8px"></i>8</div><div><i style="height:12px"></i>12</div><div><i style="height:14px"></i>14</div><div><i style="height:18px"></i>18</div><div><i style="height:22px"></i>22</div><div><i style="height:26px"></i>26</div><div><i style="height:34px"></i>34</div><div><i style="height:44px"></i>44</div><div><i style="height:56px"></i>56</div><div><i style="height:90px"></i>90</div><div><i style="height:156px"></i>156</div>
+    </div>
+    <div class="ds-sub"><h3>Section header</h3><span>Live .sec-head markup</span></div>
+    <div class="ds-panel">
+      <div class="sec-head">
+        <span class="eyebrow">02 — Practice</span>
+        <h3 class="h2" style="font-size:clamp(32px,4.4vw,60px)">Practise like it’s <em>exam day.</em></h3>
+        <p class="lead">Timed dictations at real exam speeds, with transcription checked the way examiners do.</p>
+        <div class="sec-note"><b>365</b>days of dictation</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 MOTION ============ -->
+  <section class="ds-sec" id="motion">
+    <div class="sec-head">
+      <span class="eyebrow">05 — Motion</span>
+      <h2 class="h2">Fast start, <em>soft landing.</em></h2>
+      <p class="lead">One easing curve everywhere, generous durations, and masked reveals. Everything respects “reduce motion”.</p>
+    </div>
+    <div class="ds-motion">
+      <div class="ds-panel ds-curve">
+        <svg viewBox="0 0 220 220" role="img" aria-label="Ease curve cubic-bezier(.16,1,.3,1)">
+          <rect x="10" y="10" width="200" height="200" fill="none" stroke="rgba(11,11,16,.14)"/>
+          <path d="M10 210 L210 10" stroke="rgba(11,11,16,.18)" stroke-dasharray="4 5" fill="none"/>
+          <path d="M10 210 C42 10 70 10 210 10" stroke="#5A4BFF" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <circle cx="42" cy="10" r="4" fill="#0B0B10"/><circle cx="70" cy="10" r="4" fill="#0B0B10"/>
+          <path d="M10 210 L42 10 M210 10 L70 10" stroke="rgba(11,11,16,.3)" fill="none"/>
+        </svg>
+        <p class="ds-cap">--ease · cubic-bezier(.16, 1, .3, 1)</p>
+      </div>
+      <div class="ds-panel">
+        <div class="ds-race" id="dsRace">
+          <div class="ds-lane"><i></i><span>linear</span></div>
+          <div class="ds-lane ds-lane--ease"><i></i><span>--ease</span></div>
+        </div>
+        <div class="ds-row" style="margin-top:16px"><button class="btn btn--sm" type="button" id="dsRaceBtn">Play<svg><use href="#i-arr"/></svg></button><span class="ds-cap" style="margin:0">Same 1s duration, different feel</span></div>
+        <div class="ds-durs">
+          <div class="ds-dur"><b>.35s</b><span>Colour and border changes</span></div>
+          <div class="ds-dur"><b>.55s</b><span>Button fills, hovers, lifts</span></div>
+          <div class="ds-dur"><b>.95s</b><span>[data-reveal] fade + rise</span></div>
+          <div class="ds-dur"><b>1.15s</b><span>Hero line mask reveals</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="ds-sub"><h3>Scroll reveal</h3><span>Add data-reveal and stagger with --d</span></div>
+    <div class="ds-grid3">
+      <div class="ds-panel" data-reveal><span class="eyebrow">--d: 0s</span><p class="ds-p" style="margin-top:12px">Rises 30px and fades in when 15% visible.</p></div>
+      <div class="ds-panel" data-reveal style="--d:.1s"><span class="eyebrow">--d: .1s</span><p class="ds-p" style="margin-top:12px">Stagger siblings by about .08–.12s.</p></div>
+      <div class="ds-panel" data-reveal style="--d:.2s"><span class="eyebrow">--d: .2s</span><p class="ds-p" style="margin-top:12px"><code>data-reveal="fade"</code> skips the rise.</p></div>
+    </div>
+    <div class="ds-sub"><h3>Marquee</h3><span>.marquee · .marquee--lime · pauses on hover</span></div>
+    <div class="marquee" aria-hidden="true" style="border-radius:16px">
+      <div class="marquee-in">
+        <div class="mq"><span>SSC Stenographer</span><i>✦</i><span>UPSSSC Steno</span><i>✦</i><span>AHC APS</span><i>✦</i><span>Parliamentary Reporter</span><i>✦</i><span>Hindi &amp; English</span><i>✦</i></div>
+        <div class="mq"><span>SSC Stenographer</span><i>✦</i><span>UPSSSC Steno</span><i>✦</i><span>AHC APS</span><i>✦</i><span>Parliamentary Reporter</span><i>✦</i><span>Hindi &amp; English</span><i>✦</i></div>
+      </div>
+    </div>
+    <div class="marquee marquee--lime" aria-hidden="true" style="border-radius:16px;margin-top:10px">
+      <div class="marquee-in" style="animation-direction:reverse">
+        <div class="mq"><span>Better skills</span><i>✦</i><span>Higher confidence</span><i>✦</i><span>Brighter future</span><i>✦</i><span>50–160 WPM</span><i>✦</i></div>
+        <div class="mq"><span>Better skills</span><i>✦</i><span>Higher confidence</span><i>✦</i><span>Brighter future</span><i>✦</i><span>50–160 WPM</span><i>✦</i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 06 BUTTONS ============ -->
+  <section class="ds-sec" id="buttons">
+    <div class="sec-head">
+      <span class="eyebrow">06 — Buttons</span>
+      <h2 class="h2">Pills that <em>fill up.</em></h2>
+      <p class="lead">Every button is a pill; on hover a contrasting colour slides up from below and the arrow nudges up-right. Plain <code>.btn</code> is the dark variant.</p>
+    </div>
+    <div class="ds-panel">
+      <div class="ds-row">
+        <a class="btn" href="#buttons">Explore courses<svg><use href="#i-arr-ur"/></svg></a>
+        <a class="btn btn--lime" href="#buttons">Book a free demo<svg><use href="#i-arr-ur"/></svg></a>
+        <a class="btn btn--ghost" href="#buttons">Login to portal<svg><use href="#i-arr"/></svg></a>
+      </div>
+      <p class="ds-cap">.btn · .btn--lime · .btn--ghost — on paper</p>
+    </div>
+    <div class="ds-panel ds-panel--ink on-dark" style="margin-top:14px">
+      <div class="ds-row">
+        <a class="btn btn--lime" href="#buttons">Enrol now<svg><use href="#i-arr-ur"/></svg></a>
+        <a class="btn btn--light" href="#buttons">WhatsApp us<svg><use href="#i-wa"/></svg></a>
+      </div>
+      <p class="ds-cap">.btn--lime · .btn--light — on ink</p>
+    </div>
+    <div class="ds-panel" style="margin-top:14px">
+      <div class="ds-row">
+        <a class="btn btn--sm" href="#buttons">Small<svg><use href="#i-arr"/></svg></a>
+        <a class="btn" href="#buttons">Default<svg><use href="#i-arr"/></svg></a>
+        <a class="btn btn--lg" href="#buttons">Large<svg><use href="#i-arr"/></svg></a>
+        <button class="fx-up" type="button" style="color:var(--ink)"><span>Back to top</span><i><svg><use href="#i-arr-u"/></svg></i></button>
+      </div>
+      <p class="ds-cap">.btn--sm · .btn · .btn--lg · round icon button</p>
+    </div>
+  </section>
+
+  <!-- ============ 07 CHIPS ============ -->
+  <section class="ds-sec" id="chips">
+    <div class="sec-head">
+      <span class="eyebrow">07 — Chips &amp; tags</span>
+      <h2 class="h2">Small labels, <em>mono voice.</em></h2>
+      <p class="lead">Filters, tags and status badges all share the mono caps style. Filter chips toggle with <code>aria-pressed</code>.</p>
+    </div>
+    <div class="ds-panel">
+      <div class="chips" id="dsChips">
+        <button class="chip" type="button" aria-pressed="true">All <em>24</em></button>
+        <button class="chip" type="button" aria-pressed="false">Hindi <em>12</em></button>
+        <button class="chip" type="button" aria-pressed="false">English <em>8</em></button>
+        <button class="chip" type="button" aria-pressed="false">Typing <em>4</em></button>
+      </div>
+      <p class="ds-cap">.chip · click to toggle</p>
+      <div class="ds-row" style="margin-top:22px">
+        <div class="p-chips" style="margin:0"><span>Mangal</span><span>KrutiDev</span><span>80 WPM</span></div>
+        <span class="step-tag" style="margin:0">Week 1–4</span>
+        <span class="dir-badge" style="position:static">Director</span>
+        <span class="live-wpm" style="margin:0">96 WPM</span>
+      </div>
+      <p class="ds-cap">.p-chips · .step-tag · .dir-badge · .live-wpm</p>
+    </div>
+    <div class="ds-panel ds-panel--ink on-dark" style="margin-top:14px">
+      <div class="ds-row">
+        <div class="fx-chips" style="margin:0"><span>SSC Steno</span><span>UPSSSC</span><span>AHC APS</span><span>50–160 WPM</span></div>
+        <span class="fx-status"><i></i>Admissions open · 2026</span>
+      </div>
+      <p class="ds-cap">.fx-chips · .fx-status — on ink</p>
+    </div>
+  </section>
+
+  <!-- ============ 08 CARDS ============ -->
+  <section class="ds-sec" id="cards">
+    <div class="sec-head">
+      <span class="eyebrow">08 — Cards</span>
+      <h2 class="h2">Quiet until <em>touched.</em></h2>
+      <p class="lead">Cards rest as translucent paper with a hairline. On hover they lift, and practice cards invert to ink with a cursor-following glow.</p>
+    </div>
+    <div class="ds-grid3">
+      <article class="p-card">
+        <div class="p-card-top"><span class="p-num">01</span><span class="p-ic"><svg><use href="#i-headphones"/></svg></span></div>
+        <h3>Exam-pattern dictation</h3>
+        <p>Hindi and English passages at 60–120 WPM, timed like the real paper.</p>
+        <div class="p-chips"><span>Audio</span><span>Timed</span></div>
+      </article>
+      <article class="ftile">
+        <span class="ftile-k">Daily</span>
+        <span class="ftile-ic"><svg><use href="#i-keyboard"/></svg></span>
+        <h3>Typing drills</h3>
+        <p>Mangal and KrutiDev layouts with accuracy tracking.</p>
+      </article>
+      <article class="ftile ftile--ink on-dark">
+        <span class="ftile-ic"><svg><use href="#i-award"/></svg></span>
+        <h3>Mentor reviews</h3>
+        <p>Every transcription marked the way the examiner will.</p>
+        <a class="ftile-link" href="#cards">See the method<svg><use href="#i-arr"/></svg></a>
+      </article>
+    </div>
+    <p class="ds-cap">.p-card · .ftile · .ftile--ink</p>
+    <div class="ds-grid2" style="margin-top:14px">
+      <article class="exam-card" style="min-height:0">
+        <div class="n"><span>03 · Central Government</span><i></i></div>
+        <h3>SSC Stenographer Grade C &amp; D</h3>
+        <ul><li>Skill test at 100 / 80 WPM</li><li>Hindi or English</li><li>Computer transcription</li></ul>
+      </article>
+      <div class="section--ink on-dark" style="border-radius:var(--r);padding:14px">
+        <article class="voice" style="height:100%">
+          <div class="voice-mark">“</div>
+          <blockquote>The daily dictations felt exactly like the exam. I walked in calm.</blockquote>
+          <footer><div><b>Student name</b><small>UPSSSC Steno</small></div><span class="v-ok">Selected</span></footer>
+        </article>
+      </div>
+    </div>
+    <p class="ds-cap">.exam-card · .voice (on ink)</p>
+  </section>
+
+  <!-- ============ 09 ROWS ============ -->
+  <section class="ds-sec" id="rows">
+    <div class="sec-head">
+      <span class="eyebrow">09 — Lists &amp; rows</span>
+      <h2 class="h2">Rows that <em>flood</em> on hover.</h2>
+      <p class="lead">Long lists use full-width rows separated by hairlines. Hover floods the row with ink (on paper) or lime (on ink) from the bottom.</p>
+    </div>
+    <div class="why-list" style="margin-top:0">
+      <div class="why-row"><span class="w-n">01</span><h3>Expert guidance &amp; strategy</h3><p>Right direction for better results.</p></div>
+      <div class="why-row"><span class="w-n">02</span><h3>Structured daily practice</h3><p>Build speed, accuracy and confidence.</p></div>
+    </div>
+    <p class="ds-cap">.why-row</p>
+    <div class="faq-list">
+      <div class="faq"><button class="faq-btn" type="button" aria-expanded="false"><span class="faq-n">01</span><span class="faq-q">Do you teach both Hindi and English shorthand?</span><span class="faq-plus"><svg><use href="#i-plus"/></svg></span></button><div class="faq-a"><div><p>Sample answer — <b>FAQ rows</b> open with a grid-rows transition and the plus rotates into a cross.</p></div></div></div>
+      <div class="faq"><button class="faq-btn" type="button" aria-expanded="false"><span class="faq-n">02</span><span class="faq-q">Can I study online?</span><span class="faq-plus"><svg><use href="#i-plus"/></svg></span></button><div class="faq-a"><div><p>Sample answer text set in muted 14.5px with a 74ch measure.</p></div></div></div>
+    </div>
+    <p class="ds-cap">.faq · click to open</p>
+    <div class="section--ink on-dark" style="border-radius:var(--r);padding:clamp(16px,2.4vw,30px);margin-top:14px">
+      <div class="batch-list" style="margin-top:0">
+        <a class="batch-row" href="#rows"><span class="b-i">01</span><span class="b-n">Hindi Shorthand — Foundation</span><span class="b-t">Morning · Offline</span><span class="b-a"><svg><use href="#i-arr-ur"/></svg></span></a>
+        <a class="batch-row" href="#rows"><span class="b-i">02</span><span class="b-n">English Shorthand — 100 WPM</span><span class="b-t">Evening · Online</span><span class="b-a"><svg><use href="#i-arr-ur"/></svg></span></a>
+      </div>
+      <div class="fees-grid" style="margin-top:10px">
+        <div class="fee"><b>Hindi Shorthand</b><small>Monthly</small><span class="pr">₹1,500<s>₹2,000</s></span></div>
+        <div class="fee"><b>Typing</b><small>Monthly</small><span class="pr">₹800</span></div>
+      </div>
+    </div>
+    <p class="ds-cap">.batch-row · .fee (on ink)</p>
+  </section>
+
+  <!-- ============ 10 ICONS ============ -->
+  <section class="ds-sec" id="icons">
+    <div class="sec-head">
+      <span class="eyebrow">10 — Icons</span>
+      <h2 class="h2">One sprite, <em>one stroke.</em></h2>
+      <p class="lead">Line icons on a 24px grid with a 1.6–1.8 stroke, injected once by chrome.js. Use <code>&lt;svg&gt;&lt;use href="#i-name"/&gt;&lt;/svg&gt;</code> — click an icon to copy it. Prefer icons over text glyphs (such as arrows) for UI controls.</p>
+    </div>
+    <div class="ds-icons" id="dsIcons"></div>
+  </section>
+
+  <!-- ============ 11 KEYBOARD ============ -->
+  <section class="ds-sec" id="keyboard">
+    <div class="sec-head">
+      <span class="eyebrow">11 — Keyboard wordmark</span>
+      <h2 class="h2">The name, <em>typed out.</em></h2>
+      <p class="lead">The footer signs off with FenxTek spelled on seven 3D keycaps — a nod to typing and shorthand. Hover a key to press it, move the mouse to tilt the board, or type F, E, N, X, T, K on your own keyboard.</p>
+    </div>
+    <div class="ds-kb on-dark"><div data-kb-mount></div></div>
+    <div class="ds-anat">
+      <div><i>(01)</i><b>Plate</b><span>Dark aluminium gradient, 1px top highlight, solid edge shadow for thickness. Tilted 15° back.</span></div>
+      <div><i>(02)</i><b>Cap</b><span>Cream for F-E-N-X, lime for T-E-K. Side shading plus a two-tone wall drawn with box-shadow.</span></div>
+      <div><i>(03)</i><b>Dish</b><span>Lighter top surface set back toward the rear; a highlight follows the cursor.</span></div>
+      <div><i>(04)</i><b>Legend</b><span>Inter Tight 600 on cream, Instrument Serif italic on lime, mono index 01–07.</span></div>
+      <div><i>(05)</i><b>Press</b><span>Cap travels 82% of its wall in .16s; under-glow lights (lime / sky) while held.</span></div>
+    </div>
+    <p class="ds-cap">Markup: chrome.js keyboard() · styles: .kb / .kk in site.css · behaviour: site.js</p>
+  </section>
+
+  <!-- ============ 12 BRAND ============ -->
+  <section class="ds-sec" id="brand">
+    <div class="sec-head">
+      <span class="eyebrow">12 — Brand &amp; voice</span>
+      <h2 class="h2">Your success, <em>our priority.</em></h2>
+      <p class="lead">How we write the name, the lines we repeat, and the tone we use.</p>
+    </div>
+    <div class="ds-brand">
+      <div class="ds-logo" style="background:var(--paper)"><img src="fenxtek-logo.png" alt="FenxTek logo on paper"></div>
+      <div class="ds-logo" style="background:var(--ink);border-color:var(--ink)"><img src="fenxtek-logo.png" alt="FenxTek logo on ink"></div>
+      <div class="ds-logo" style="background:var(--paper-2)"><a class="brand" href="#brand" style="pointer-events:none"><img src="fenxtek-logo.png" alt="" width="52" height="52" style="width:52px"><span class="brand-txt"><b>FenxTek</b><span>Shorthand Classes</span></span></a></div>
+    </div>
+    <div class="ds-voice">
+      <div><b>Name</b><span><strong>FenxTek</strong> — one word, capital F and capital T. Full name: FenxTek Shorthand Classes.</span></div>
+      <div><b>Promise</b><span>Your Success, Our Priority</span></div>
+      <div><b>Taglines</b><span>Better Skills · Higher Confidence · Brighter Future &nbsp;/&nbsp; Skills · Practice · Success &nbsp;/&nbsp; Shorthand is a skill for life.</span></div>
+      <div><b>Tone</b><span>Calm, exact and encouraging — like a good mentor. Short sentences, real exam names, real numbers (WPM, posts, dates). No hype, no exclamation marks in headlines.</span></div>
+      <div><b>Hindi</b><span>Use real Devanagari in <code>.hindi</code> with <code>lang="hi"</code> — e.g. <span class="hindi" lang="hi" style="font-size:20px">आशुलिपि जीवन भर का कौशल है।</span></span></div>
+      <div><b>Location</b><span>Kanpur, Uttar Pradesh — classroom batches and live online classes.</span></div>
+    </div>
+  </section>
+
+  </div>
+</div>
+</main>
+
+<script src="assets/js/chrome.js?v=11"></script>
+<script src="assets/js/site.js?v=5"></script>
+<script>
+(function () {
+  "use strict";
+  var toastEl = document.getElementById("toast"), tT;
+  function toast(msg) {
+    if (!toastEl) return;
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(tT); tT = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+  function copy(text, label) {
+    var done = function () { toast("Copied " + (label || text)); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done);
+    else done();
+  }
+
+  /* swatches */
+  document.querySelectorAll("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () { copy(b.getAttribute("data-copy")); });
+  });
+
+  /* icon grid, built from the live sprite so it never goes out of date */
+  var grid = document.getElementById("dsIcons");
+  var ids = Array.prototype.map.call(document.querySelectorAll("svg symbol[id^='i-']"), function (s) { return s.id; });
+  grid.innerHTML = ids.map(function (id) {
+    return '<button class="ds-ic" type="button" data-ic="' + id + '"><svg aria-hidden="true"><use href="#' + id + '"/></svg><span>' + id + "</span></button>";
+  }).join("");
+  grid.addEventListener("click", function (e) {
+    var b = e.target.closest(".ds-ic"); if (!b) return;
+    var id = b.getAttribute("data-ic");
+    copy('<svg><use href="#' + id + '"/></svg>', id);
+  });
+  var cnt = document.querySelector("[data-ds-iconcount]");
+  if (cnt && ids.length) cnt.textContent = ids.length;
+
+  /* filter chips */
+  var chips = document.getElementById("dsChips");
+  chips.addEventListener("click", function (e) {
+    var c = e.target.closest(".chip"); if (!c) return;
+    chips.querySelectorAll(".chip").forEach(function (x) { x.setAttribute("aria-pressed", String(x === c)); });
+  });
+
+  /* easing race */
+  var race = document.getElementById("dsRace");
+  document.getElementById("dsRaceBtn").addEventListener("click", function () { race.classList.toggle("go"); });
+
+  /* table of contents: highlight the section in view */
+  var links = Array.prototype.slice.call(document.querySelectorAll(".ds-toc a"));
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + en.target.id); });
+      });
+    }, { rootMargin: "-40% 0px -55% 0px" });
+    document.querySelectorAll(".ds-sec[id]").forEach(function (s) { io.observe(s); });
+  }
+})();
+</script>
+</body>
+</html>

@@ -273,28 +273,132 @@ if (form){
   });
 }
 
-/* ---------- footer wordmark: cursor spotlight + tilt ---------- */
-const fWord = $('#fWord');
-if (fWord && fine && !reduce){
-  fWord.addEventListener('pointermove', (e) => {
-    const r = fWord.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-    const nx = x / r.width - 0.5, ny = y / r.height - 0.5;
-    fWord.style.setProperty('--mx', x + 'px');
-    fWord.style.setProperty('--my', y + 'px');
-    fWord.style.setProperty('--ry', (nx * 3).toFixed(2) + 'deg');
-    fWord.style.setProperty('--rx', (ny * -2).toFixed(2) + 'deg');
-    fWord.style.setProperty('--tx', (nx * -12).toFixed(2) + 'px');
-    fWord.style.setProperty('--ty', (ny * -6).toFixed(2) + 'px');
-  }, { passive: true });
-  fWord.addEventListener('pointerleave', () => {
-    fWord.style.setProperty('--mx', '50%');
-    fWord.style.setProperty('--my', '55%');
-    fWord.style.setProperty('--rx', '0deg');
-    fWord.style.setProperty('--ry', '0deg');
-    fWord.style.setProperty('--tx', '0px');
-    fWord.style.setProperty('--ty', '0px');
+/* ---------- footer wordmark: 3D keycaps — hover presses, board follows the cursor ---------- */
+const keyboards = $$('.kb');
+const kbVisible = new Set();
+keyboards.forEach((kb) => {
+  const plate = $('.kb-plate', kb);
+  const keys = $$('.kk', kb);
+  const out = $('.kb-txt', kb);
+  const hint = $('.kb-hint', kb);
+  if (hint && !fine) hint.textContent = 'Tap to type';
+  let buf = '', typingT = 0, demoT = 0, touched = false;
+
+  const type = (ch) => {
+    buf = (buf + ch).slice(-14);
+    if (out) out.textContent = buf;
+    kb.classList.add('is-typing');
+    clearTimeout(typingT);
+    typingT = setTimeout(() => kb.classList.remove('is-typing'), 140);
+  };
+  const press = (k, silent) => {
+    if (k.classList.contains('is-down')) return;
+    k.classList.add('is-down');
+    if (!silent) type(k.dataset.k);
+  };
+  const release = (k) => k.classList.remove('is-down');
+  const stopDemo = () => { touched = true; clearTimeout(demoT); };
+
+  /* mouse/pen: hovering a key holds it down; touch: press while the finger is on it */
+  keys.forEach((k) => {
+    k.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch'){ stopDemo(); press(k); } });
+    k.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'touch') release(k); });
+    k.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch'){ stopDemo(); press(k); }
+      else if (k.classList.contains('is-down')){ release(k); requestAnimationFrame(() => press(k)); }
+    });
+    ['pointerup', 'pointercancel'].forEach((ev) => k.addEventListener(ev, (e) => { if (e.pointerType === 'touch') setTimeout(() => release(k), 90); }));
   });
+
+  /* rise in, then type the name once so the interaction explains itself */
+  const reveal = () => {
+    kb.classList.add('is-in');
+    if (reduce){ buf = 'fenxtek'; if (out) out.textContent = buf; return; }
+    demoT = setTimeout(function step(i = 0){
+      if (touched || i >= keys.length) return;
+      const k = keys[i];
+      press(k);
+      setTimeout(() => release(k), 130);
+      demoT = setTimeout(() => step(i + 1), 165);
+    }, 1100);
+  };
+  if (!('IntersectionObserver' in window)) { reveal(); kbVisible.add(kb); }
+  else {
+    let shown = false;
+    new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) kbVisible.add(kb); else kbVisible.delete(kb);
+        if (en.isIntersecting && en.intersectionRatio >= 0.35 && !shown){ shown = true; reveal(); }
+      });
+    }, { threshold: [0, 0.35] }).observe(kb);
+  }
+
+  /* the board tilts toward the cursor; a soft light moves across every cap */
+  if (fine && !reduce){
+    let raf = 0, px = 0, py = 0;
+    const paint = () => {
+      raf = 0;
+      const r = kb.getBoundingClientRect();
+      const nx = Math.min(1, Math.max(0, (px - r.left) / r.width)) - 0.5;
+      const ny = Math.min(1, Math.max(0, (py - r.top) / r.height)) - 0.5;
+      kb.style.setProperty('--mx', (px - r.left) + 'px');
+      kb.style.setProperty('--my', (py - r.top) + 'px');
+      plate.style.setProperty('--tx', (nx * 9).toFixed(2) + 'deg');
+      plate.style.setProperty('--ty', (ny * -7).toFixed(2) + 'deg');
+      keys.forEach((k) => {
+        const kr = k.getBoundingClientRect();
+        const lx = Math.min(140, Math.max(-40, ((px - kr.left) / kr.width) * 100));
+        const ly = Math.min(120, Math.max(-60, ((py - kr.top) / kr.height) * 100));
+        k.style.setProperty('--lx', lx.toFixed(1) + '%');
+        k.style.setProperty('--ly', ly.toFixed(1) + '%');
+      });
+    };
+    const zone = kb.closest('.footer') || kb.parentElement || kb;
+    zone.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return;
+      px = e.clientX; py = e.clientY;
+      kb.classList.add('is-hot');
+      if (!raf) raf = requestAnimationFrame(paint);
+    }, { passive: true });
+    zone.addEventListener('pointerleave', () => {
+      kb.classList.remove('is-hot');
+      plate.style.setProperty('--tx', '0deg');
+      plate.style.setProperty('--ty', '0deg');
+      keys.forEach((k) => { k.style.removeProperty('--lx'); k.style.removeProperty('--ly'); });
+    });
+  }
+
+  kb._kb = { keys, press, release, stopDemo };
+});
+
+/* a real keyboard works too: F E N X T K press the matching caps while a board is on screen */
+if (keyboards.length){
+  const inField = (t) => t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+  const held = new Map();
+  addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || inField(e.target) || !kbVisible.size) return;
+    const ch = (e.key || '').toLowerCase();
+    if (!/^[fenxtk]$/.test(ch) || held.has(ch)) return;
+    const hit = [];
+    kbVisible.forEach((kb) => {
+      const api = kb._kb; if (!api) return;
+      api.stopDemo();
+      /* "e" appears twice: press the one that comes next in F-E-N-X-T-E-K */
+      const txt = ($('.kb-txt', kb) || {}).textContent || '';
+      let cand = api.keys.filter((k) => k.dataset.k === ch);
+      if (cand.length > 1) cand = [/t$/.test(txt) ? cand[1] : cand[0]];
+      cand.forEach((k) => { api.press(k); hit.push([api, k]); });
+    });
+    held.set(ch, hit);
+  });
+  addEventListener('keyup', (e) => {
+    const ch = (e.key || '').toLowerCase();
+    const hit = held.get(ch);
+    if (!hit) return;
+    hit.forEach(([api, k]) => api.release(k));
+    held.delete(ch);
+  });
+  addEventListener('blur', () => { held.forEach((hit) => hit.forEach(([api, k]) => api.release(k))); held.clear(); });
 }
 
 /* ---------- image fallback ---------- */

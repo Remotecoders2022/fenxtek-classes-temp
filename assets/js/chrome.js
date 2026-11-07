@@ -58,6 +58,7 @@
     '<symbol id="i-zoom" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6M10.5 7.8v5.4M7.8 10.5h5.4"/></symbol>' +
     '<symbol id="i-zoom-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6M7.8 10.5h5.4"/></symbol>' +
     '<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.6-4.6"/></symbol>' +
+    '<symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>' +
     '<symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>' +
     '<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></symbol>' +
     '<symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 8l-4 4 4 4M6 12h10"/></symbol>' +
@@ -162,10 +163,25 @@
       '<svg class="fx-arr"><use href="#i-arr-ur"/></svg></a>';
   }
 
+  /* 3D keyboard: one keycap per letter of F-E-N-X-T-E-K (cream caps + lime accent caps) */
+  function keyboard(id) {
+    var KEYS = [["F", 0], ["E", 0], ["N", 0], ["X", 0], ["T", 1], ["E", 1], ["K", 1]];
+    var caps = KEYS.map(function (k, i) {
+      return '<span class="kk' + (k[1] ? " kk--lime" : "") + '" data-k="' + k[0].toLowerCase() + '" style="--i:' + i + '">' +
+        '<span class="kk-cap"><span class="kk-top"><b>' + k[0] + "</b><small>0" + (i + 1) + "</small></span></span></span>";
+    }).join("");
+    return '<div class="kb"' + (id ? ' id="' + id + '"' : "") + ' role="img" aria-label="FenxTek">' +
+      '<div class="kb-plate"><div class="kb-bar" aria-hidden="true">' +
+      '<span class="kb-brand"><i class="kb-led"></i>FenxTek<em>MK—07</em></span>' +
+      '<span class="kb-out"><span class="kb-txt"></span><i class="kb-caret"></i></span>' +
+      '<span class="kb-hint">Hover to type</span></div>' +
+      '<div class="kb-keys" aria-hidden="true">' + caps + "</div></div></div>";
+  }
+
   var footer =
     '<footer class="footer fx on-dark"><div class="wrap">' +
-    /* 1 — reach us */
-    '<div class="fx-top">' +
+    /* 1 — reach us (the contact page has its own, richer version) */
+    (page === "contact" ? "" : '<div class="fx-top">' +
     '<div class="fx-intro">' +
     '<span class="fx-status"><i></i>Admissions open · ' + yearNow + "</span>" +
     '<h2 class="fx-title">Let’s get you to <em>exam speed.</em></h2>' +
@@ -177,7 +193,7 @@
     tile("email", "mailto:fenxtekshorthandclasses20@gmail.com", "i-mail", "Email", '<span data-cms="email">fenxtekshorthandclasses20@gmail.com</span>') +
     tile("telegram", "https://t.me/fenxtekshorthand_classes", "i-send", "Telegram", '<span data-cms="telegramHandle">@fenxtekshorthand_classes</span>', true) +
     tile("instagram", "https://www.instagram.com/fenxtek_shorthand_classes/", "i-ig", "Instagram", '<span data-cms="instagramHandle">@fenxtek_shorthand_classes</span>', true) +
-    "</div></div>" +
+    "</div></div>") +
     /* 2 — brand + links */
     '<div class="fx-mid">' +
     '<div class="fx-brand"><a class="brand" href="index.html"><img src="fenxtek-logo.png" alt="FenxTek logo" width="52" height="52">' +
@@ -195,11 +211,10 @@
     flink("auth.html", "Student portal") + flink("dashboard.html", "My dashboard") + flink("membership.html", "Membership plans") +
     flink("contact.html", "Book a free demo") + flink("index.html#practice", "Practice dictation") + "</nav>" +
     "</div>" +
-    /* 3 — wordmark */
-    '<div class="f-tagline"><span>Better Skills</span><i></i><span>Higher Confidence</span><i></i><span>Brighter Future</span></div>' +
-    '<div class="f-word" id="fWord" aria-hidden="true" data-reveal="fade"><div class="fw-scale"><div class="fw-in">' +
-    '<span class="fw-base">FenxTek</span><span class="fw-fill">FenxTek</span><span class="fw-sheen">FenxTek</span>' +
-    "</div></div></div>" +
+    /* 3 — wordmark: FenxTek typed out on 3D keycaps */
+    '<div class="f-index" aria-hidden="true"><span><i>(01)</i>Better skills</span><span><i>(02)</i>Higher confidence</span>' +
+    '<span><i>(03)</i>Brighter future</span><span class="f-index-geo">26.45° N — 80.33° E</span></div>' +
+    keyboard("fKb") +
     /* 4 — legal */
     '<div class="fx-bottom"><span>© <span id="year">' + yearNow + "</span> FenxTek Shorthand Classes · Kanpur, Uttar Pradesh</span>" +
     "<span>Designed by Tanmay and Aditya</span>" +
@@ -217,9 +232,11 @@
       header + menu
   );
   document.body.insertAdjacentHTML("beforeend", footer);
+  /* extra live keyboards (used by the design-system page) */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-kb-mount]"), function (m) { m.innerHTML = keyboard(""); });
 
   /* footer: live Kanpur time + back-to-top button */
-  var fxTime = document.getElementById("fxTime");
+  var fxTime = document.getElementById("fxTime") || document.getElementById("ctTime");
   function tick() {
     try {
       fxTime.textContent = new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" });

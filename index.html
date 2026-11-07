@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/site.css?v=8">
+<link rel="stylesheet" href="assets/css/site.css?v=11">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.hero-head .l>span{transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="home">
@@ -44,9 +44,10 @@
     <div>
       <p class="hero-lead" data-cms="heroLead">Exam-accurate dictations from 50–160 WPM, typing in Mangal, KrutiDev and Remington Gail, and structured preparation for SSC, UPSSSC, AHC and 50+ central &amp; state patterns.</p>
       <div class="hero-actions">
-        <a class="btn" href="courses.html"><span>Explore courses</span> <svg><use href="#i-arr"/></svg></a>
-        <a class="btn btn--ghost" href="contact.html"><span>Book a free demo</span></a>
+        <a class="btn" href="auth.html?next=dashboard.html%23store" data-auth-href="dashboard.html#store"><span>Explore courses</span> <svg><use href="#i-arr"/></svg></a>
+        <a class="btn btn--ghost hero-login" href="auth.html" data-auth-href="dashboard.html" data-auth-label="Go to dashboard" data-admin-href="admin.html" data-admin-label="Open admin CRM"><svg class="hero-login-ic"><use href="#i-user"/></svg><span>Login to portal</span></a>
       </div>
+      <p class="hero-sub-links"><span class="hero-hello" data-hero-hello hidden><span class="hero-hello-av" data-hero-initials>FT</span><span>Welcome back, <b data-hero-name>student</b></span></span><span data-hero-guest>New to FenxTek? <a href="auth.html?mode=signup&amp;next=dashboard.html%23store">Create a free account</a> · </span><span class="hero-sub-sep" data-hero-hello-sep hidden>·</span><a href="contact.html">Book a free demo</a></p>
     </div>
     <div class="hero-side">
       <div class="hero-stats">
@@ -244,9 +245,9 @@
   </div>
 </section>
 </main>
-<script src="assets/js/chrome.js?v=8"></script>
-<script src="assets/js/site.js?v=3"></script>
-<script type="module" src="assets/js/content.js?v=13"></script>
-<script type="module" src="assets/js/auth-ui.js?v=4"></script>
+<script src="assets/js/chrome.js?v=11"></script>
+<script src="assets/js/site.js?v=5"></script>
+<script type="module" src="assets/js/content.js?v=14"></script>
+<script type="module" src="assets/js/auth-ui.js?v=5"></script>
 </body>
 </html>

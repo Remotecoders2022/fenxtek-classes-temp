@@ -38,7 +38,7 @@ export const PAGE_MAP = {
   about: ["content", "testimonials"],
   membership: ["content", "memberships", "faqs", "myMembership"],
   achievements: ["content", "achievements"],
-  contact: ["content", "planEnquiry"],
+  contact: ["content", "enquiry"],
   auth: ["content"],
   forgot: ["content"],
   dashboard: ["content"],
@@ -86,6 +86,7 @@ export function applyContent(data) {
     const tel = "tel:+" + String(data.phone).replace(/[^\d]/g, "");
     setLink('[data-cms-link="phone"]', tel);
     document.querySelectorAll('a[href^="tel:"]').forEach((a) => a.setAttribute("href", tel));
+    setWhatsApp(data.phone);
   }
 
   if (data.email) {
@@ -134,7 +135,7 @@ export function renderBatches(value) {
         ? `<span class="bcard-img"><img src="${esc(banner)}" alt="${esc(name)} banner" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></span>`
         : "";
       return (
-        `<a class="bcard cms-fade${banner ? " has-banner" : ""}" href="contact.html" data-tag="${esc(tag)}" style="--d:${((i % 8) * 0.04).toFixed(2)}s">` +
+        `<a class="bcard cms-fade${banner ? " has-banner" : ""}" href="contact.html${b.id ? `?course=${encodeURIComponent(b.id)}` : ""}#join" data-tag="${esc(tag)}" style="--d:${((i % 8) * 0.04).toFixed(2)}s">` +
         thumb +
         `<span class="bcard-top"><span class="bcard-n">${pad(i + 1)}</span>${tag ? `<span class="bcard-tag">${esc(tag)}</span>` : ""}</span>` +
         `<b class="bcard-name">${esc(name)}</b>` +
@@ -470,27 +471,6 @@ function bindMyMembership() {
       stop = off || (() => {});
     });
   });
-}
-
-/* Contact page: ?plan=<id> pre-selects a membership enquiry. */
-let enquiryPlan = "";
-async function bindPlanEnquiry() {
-  const id = new URLSearchParams(location.search).get("plan");
-  const chip = document.querySelector("[data-plan-enquiry]");
-  if (!id || !chip || !/^[\w-]{1,64}$/.test(id)) return;
-  let name = "";
-  try {
-    const snap = await dbGet(`site/memberships/${id}`);
-    const p = snap && snap.val ? snap.val() : null;
-    if (p) name = p.name || p.title || "";
-    if (p && p.price) name += ` · ₹${rupees(p.price)}`;
-  } catch (err) {
-    console.warn("[content] plan lookup", err);
-  }
-  if (!name) return;
-  enquiryPlan = name;
-  chip.hidden = false;
-  chip.innerHTML = `<svg><use href="#i-award"/></svg><span>Enquiring about <b>${esc(name)}</b></span><a href="membership.html#plans">Change</a>`;
 }
 
 /* ---------------- achievements ---------------- */
@@ -899,27 +879,199 @@ document.addEventListener("click", (e) => {
   btn.setAttribute("aria-expanded", String(open));
 });
 
-/* ---------------- lead capture ---------------- */
+/* ---------------- contact page: enquiry form → site/leads ---------------- */
 
-document.addEventListener(
-  "submit",
-  (e) => {
-    const form = e.target;
-    if (!form || form.id !== "joinForm") return;
-    const input = form.querySelector("#joinEmail");
-    const email = (input && input.value ? input.value : "").trim();
-    if (!EMAIL_RE.test(email) || !configured) return;
+const WA_DEFAULT = "917309082749";
+let waNumber = WA_DEFAULT;
 
-    const lead = {
-      email,
-      source: location.pathname.replace(/^\//, "") || "index.html",
-      at: Date.now()
+/* WhatsApp needs the full international number without "+" or spaces. */
+function waDigits(phone) {
+  let d = String(phone || "").replace(/\D/g, "");
+  if (d.length === 10) d = "91" + d;
+  if (d.length === 11 && d[0] === "0") d = "91" + d.slice(1);
+  return d.length >= 11 && d.length <= 15 ? d : "";
+}
+
+function setWhatsApp(phone) {
+  const d = waDigits(phone);
+  if (!d) return;
+  waNumber = d;
+  document.querySelectorAll('a[href*="wa.me/"]').forEach((a) => {
+    a.setAttribute("href", a.getAttribute("href").replace(/wa\.me\/\d+/, "wa.me/" + d));
+  });
+}
+
+const waLink = (text) => `https://wa.me/${waNumber}${text ? "?text=" + encodeURIComponent(text) : ""}`;
+
+/* 98765 43210 · 098765… · +91 98765… · 91-98765… → "9876543210" (or "" if invalid) */
+export function cleanIndianMobile(value) {
+  let d = String(value || "").replace(/\D/g, "");
+  if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
+  else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+  return /^[6-9]\d{9}$/.test(d) ? d : "";
+}
+
+const prettyMobile = (d) => `+91 ${d.slice(0, 5)} ${d.slice(5)}`;
+
+/* Fill "Interested in" with live courses, classroom batches and membership plans. */
+async function bindEnquiry() {
+  const select = document.getElementById("enquiryCourse");
+  if (!select) return;
+  const params = new URLSearchParams(location.search);
+  const wantPlan = params.get("plan") || "";
+  const wantCourse = params.get("course") || "";
+
+  const read = (path) => dbGet(path).then((s) => (s && s.val ? s.val() : null)).catch(() => null);
+  const [courses, batches, plans] = await Promise.all([read("site/courses"), read("site/batches"), read("site/memberships")]);
+  const byOrder = (a, b) => Number(a.order || 0) - Number(b.order || 0);
+
+  const groups = [];
+  const courseList = toList(courses).filter((c) => c && c.title && c.published !== false).sort(byOrder);
+  if (courseList.length) groups.push({ label: "Online courses", items: courseList.map((c) => ({ value: String(c.title).slice(0, 120), id: c.id, kind: "course" })) });
+  const batchList = toList(batches).filter((b) => b && (b.title || b.name));
+  if (batchList.length) groups.push({ label: "Classroom batches", items: batchList.map((b) => ({ value: String(b.title || b.name).slice(0, 120), id: b.id, kind: "batch" })) });
+  const planList = toList(plans).filter((p) => p && (p.name || p.title) && p.active !== false).sort(byOrder);
+  if (planList.length) groups.push({ label: "Membership plans", items: planList.map((p) => ({ value: `${p.name || p.title} membership`.slice(0, 120), id: p.id, kind: "plan", plan: `${p.name || p.title}${p.price ? ` · ₹${rupees(p.price)}` : ""}` })) });
+  if (!groups.length) return; /* keep the static options */
+
+  const keep = select.value;
+  select.querySelectorAll("optgroup[data-static], optgroup[data-live]").forEach((g) => g.remove());
+  const other = select.querySelector("optgroup:not([data-live])");
+  groups.forEach((g) => {
+    const og = document.createElement("optgroup");
+    og.label = g.label;
+    og.setAttribute("data-live", "");
+    g.items.forEach((it) => {
+      const o = document.createElement("option");
+      o.value = it.value;
+      o.textContent = it.value;
+      if (it.id) o.dataset.id = String(it.id).slice(0, 64);
+      o.dataset.kind = it.kind;
+      if (it.plan) o.dataset.plan = it.plan;
+      if ((it.kind === "plan" && wantPlan && it.id === wantPlan) || (it.kind !== "plan" && wantCourse && it.id === wantCourse)) o.selected = true;
+      og.appendChild(o);
+    });
+    select.insertBefore(og, other || null);
+  });
+  if (keep && !wantPlan && !wantCourse) select.value = keep;
+  select.classList.toggle("is-empty", !select.value);
+}
+
+function enquiryUi() {
+  const form = document.getElementById("enquiryForm");
+  if (!form) return;
+  const done = document.getElementById("enquiryDone");
+  const errBox = document.getElementById("enquiryError");
+  const submit = document.getElementById("enquirySubmit");
+  const select = form.elements.course;
+
+  const fieldOf = (name) => form.elements[name] && form.elements[name].closest(".ct-field");
+  const setErr = (name, msg) => {
+    const f = fieldOf(name);
+    if (!f) return;
+    f.classList.toggle("is-bad", !!msg);
+    const e = f.querySelector(".ct-err");
+    if (e) e.textContent = msg || "";
+  };
+
+  function check(name) {
+    const v = String(form.elements[name].value || "").trim();
+    let msg = "";
+    if (name === "name") msg = v.length < 2 ? "Please enter your full name." : "";
+    if (name === "phone") msg = !v ? "Please enter your mobile number." : cleanIndianMobile(v) ? "" : "Enter a valid 10-digit Indian mobile number.";
+    if (name === "email") msg = !v ? "Please enter your email." : EMAIL_RE.test(v) ? "" : "Enter a valid email address.";
+    if (name === "course") msg = v ? "" : "Choose the course you are interested in.";
+    setErr(name, msg);
+    return !msg;
+  }
+
+  ["name", "phone", "email", "course"].forEach((n) => {
+    const el = form.elements[n];
+    el.addEventListener("blur", () => { if (String(el.value || "").trim()) check(n); });
+    el.addEventListener("input", () => { if (fieldOf(n).classList.contains("is-bad")) check(n); });
+  });
+  select.addEventListener("change", () => { select.classList.toggle("is-empty", !select.value); check("course"); });
+  select.classList.toggle("is-empty", !select.value);
+
+  const showError = (html) => {
+    errBox.innerHTML = html;
+    errBox.hidden = !html;
+  };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    showError("");
+    const ok = ["name", "phone", "email", "course"].map(check).every(Boolean);
+    if (!ok) {
+      const bad = form.querySelector(".ct-field.is-bad .ct-input");
+      if (bad) bad.focus();
+      return;
+    }
+    const name = form.elements.name.value.trim().replace(/\s+/g, " ").slice(0, 80);
+    const phone = cleanIndianMobile(form.elements.phone.value);
+    const email = form.elements.email.value.trim().toLowerCase().slice(0, 120);
+    const course = select.value.slice(0, 120);
+    const opt = select.selectedOptions && select.selectedOptions[0];
+    const message = form.elements.message.value.trim().slice(0, 1000);
+
+    const finish = () => {
+      done.querySelector("[data-done-name]").textContent = name.split(" ")[0];
+      done.querySelector("[data-done-course]").textContent = course;
+      done.querySelector("[data-done-phone]").textContent = prettyMobile(phone);
+      done.querySelector("[data-done-wa]").href = waLink(`Hi FenxTek, I'm ${name}. I just sent an enquiry about "${course}".`);
+      form.hidden = true;
+      done.hidden = false;
+      const card = form.closest(".ct-card");
+      if (card) card.classList.add("is-done");
+      if (card && card.getBoundingClientRect().top < 0) card.scrollIntoView({ behavior: "smooth", block: "start" });
     };
-    if (enquiryPlan) lead.plan = enquiryPlan;
-    dbPush("site/leads", lead).catch((err) => console.warn("[content] lead not saved", err));
-  },
-  true
-);
+
+    /* bots fill the hidden "website" field — pretend it worked */
+    if (form.elements.website && form.elements.website.value) return finish();
+
+    const lead = { name, phone: "+91" + phone, email, course, source: "contact.html", status: "new", at: Date.now() };
+    if (message) lead.message = message;
+    if (opt && opt.dataset.id) lead.courseId = opt.dataset.id;
+    if (opt && opt.dataset.plan) lead.plan = opt.dataset.plan.slice(0, 200);
+
+    submit.disabled = true;
+    submit.classList.add("is-busy");
+    const label = submit.querySelector("span");
+    const was = label.textContent;
+    label.textContent = "Sending…";
+    try {
+      if (!configured) throw new Error("not configured");
+      await dbPush("site/leads", lead);
+      finish();
+    } catch (err) {
+      console.warn("[content] enquiry not saved", err);
+      const text = `Hi FenxTek, I'm ${name} (${prettyMobile(phone)}, ${email}). I'm interested in "${course}".${message ? " " + message : ""}`;
+      showError(`We couldn’t send your enquiry right now. Please try again, or <a href="${esc(waLink(text))}" target="_blank" rel="noopener">send it on WhatsApp</a>.`);
+    } finally {
+      submit.disabled = false;
+      submit.classList.remove("is-busy");
+      label.textContent = was;
+    }
+  });
+
+  document.getElementById("enquiryAgain").addEventListener("click", () => {
+    const keepName = form.elements.name.value;
+    const keepPhone = form.elements.phone.value;
+    const keepEmail = form.elements.email.value;
+    form.reset();
+    form.elements.name.value = keepName;
+    form.elements.phone.value = keepPhone;
+    form.elements.email.value = keepEmail;
+    select.classList.add("is-empty");
+    done.hidden = true;
+    form.hidden = false;
+    const card = form.closest(".ct-card");
+    if (card) card.classList.remove("is-done");
+    select.focus();
+  });
+}
+
+enquiryUi();
 
 /* ---------------- boot ---------------- */
 
@@ -931,7 +1083,7 @@ const BINDINGS = {
   testimonials: () => watchExisting("site/testimonials", renderTestimonials),
   memberships: () => watchExisting("site/memberships", renderMemberships),
   myMembership: bindMyMembership,
-  planEnquiry: bindPlanEnquiry,
+  enquiry: bindEnquiry,
   achievements: () => {
     bindLightbox();
     let painted = false;
