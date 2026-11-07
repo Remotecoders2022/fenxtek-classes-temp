@@ -816,6 +816,42 @@ async function saveCourse(form, btn) {
   });
 }
 
+/* Checkout security rules compare each order line with the stored course
+   exactly. A course whose price / validity was saved as text ("1499"), as a
+   decimal, or without a validity (Firebase console edits, imports, old
+   versions) makes every purchase of it fail with PERMISSION_DENIED. Rewrite
+   those fields as the clean integers the student app already uses. */
+const repairedCourses = new Set();
+async function repairCourseNumbers(raw) {
+  const updates = {};
+  const fixed = [];
+  Object.keys(raw || {}).forEach((id) => {
+    const r = raw[id];
+    if (!r || typeof r !== "object" || repairedCourses.has(id)) return;
+    const clean = normalizeCourse({ ...r, id });
+    let bad = false;
+    ["price", "mrp", "validityDays", "memberPrice"].forEach((k) => {
+      const missing = r[k] === undefined || r[k] === null;
+      if (missing && k !== "validityDays" && k !== "price") return;
+      if (!missing && typeof r[k] === "number" && r[k] === clean[k]) return;
+      if (k === "memberPrice" && !missing && clean[k] === 0 && num(r[k]) === 0) return;
+      updates[`${PATH.courses}/${id}/${k}`] = clean[k];
+      bad = true;
+    });
+    if (bad) fixed.push(clean.title || id);
+    repairedCourses.add(id);
+  });
+  if (!fixed.length) return;
+  try {
+    await dbUpdateRoot(updates);
+    console.info("[admin-store] repaired course prices", updates);
+    alert("ok", `Fixed the price/validity data on ${fixed.length === 1 ? `“${fixed[0]}”` : `${fixed.length} courses`} so students can buy ${fixed.length === 1 ? "it" : "them"}.`);
+  } catch (err) {
+    fixed.length = 0;
+    console.warn("[admin-store] course repair", err);
+  }
+}
+
 async function moveCourse(id, dir) {
   const list = A.courses.slice();
   const i = list.findIndex((c) => c.id === id);
@@ -1379,6 +1415,7 @@ export function initStore(ctx) {
   dbWatch(PATH.courses, (v) => {
     A.coursesRaw = v || {};
     A.courses = coursesFrom(v, { all: true });
+    repairCourseNumbers(A.coursesRaw);
     paintCourses();
     paintScope();
     paintCoupons();

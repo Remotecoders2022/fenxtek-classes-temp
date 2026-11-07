@@ -1073,7 +1073,11 @@ async function placeOrder({ status, method, extra = {}, expect = null }) {
   }
 
   updates[`${PATH.orders}/${uid}/${oid}`] = order;
-  await dbUpdateRoot(updates);
+  try {
+    await dbUpdateRoot(updates);
+  } catch (err) {
+    throw await orderRefusal(err, items);
+  }
 
   /* optimistic local state so the success screen renders instantly */
   S.orders = [{ ...order, id: oid }, ...S.orders.filter((o) => o.id !== oid)];
@@ -1096,6 +1100,28 @@ async function placeOrder({ status, method, extra = {}, expect = null }) {
   changed("orders");
   changed("enroll");
   return { id: oid, ...order };
+}
+
+/* turn a refused order write into something a student can act on */
+async function orderRefusal(err, items) {
+  if (!/permission/i.test(String((err && (err.code || err.message)) || ""))) return err;
+  console.warn("[checkout] order refused by the database rules", err);
+  try {
+    const courses = items.filter((c) => !isPlanItem(c));
+    const fresh = await Promise.all(courses.map((c) => dbGet(`${PATH.courses}/${c.id}`).then(snapVal, () => null)));
+    const changedItem = courses.find((c, i) => {
+      const r = fresh[i];
+      return !r || r.published === false || Math.round(num(r.price)) !== c.price || Math.round(num(r.validityDays)) !== c.validityDays;
+    });
+    if (changedItem) {
+      changed("cart");
+      return userErr(`“${changedItem.title}” was just updated by the academy. Please review your cart and try again.`);
+    }
+  } catch (e) {
+    /* fall through */
+  }
+  const phone = String((S.content && S.content.phone) || "+91 73090 82749");
+  return userErr(`We couldn’t place this order right now. Please refresh the page and try again — if it keeps happening, call the academy on ${phone} and we’ll enrol you.`);
 }
 
 function payHeader(pricing) {
