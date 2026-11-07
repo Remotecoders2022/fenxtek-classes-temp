@@ -11,8 +11,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=11">
-<link rel="stylesheet" href="assets/css/portal.css?v=6">
-<link rel="stylesheet" href="assets/css/store.css?v=8">
+<link rel="stylesheet" href="assets/css/portal.css?v=7">
+<link rel="stylesheet" href="assets/css/store.css?v=9">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin">
@@ -495,6 +495,22 @@
                 </tbody>
               </table>
             </div>
+            <div class="crm-panel-head crm-subhead">
+              <div>
+                <h3>Deleted accounts</h3>
+                <p>Students who deleted their own account from the portal. Their profile, cart and progress are already gone; orders and receipts are kept. <b>Clear leftovers</b> removes their wallet, referral code, enrollments and membership.</p>
+              </div>
+            </div>
+            <div class="crm-table-wrap">
+              <table class="crm-table">
+                <thead>
+                  <tr><th>Student</th><th>Reason</th><th>E-coins lost</th><th>Orders</th><th>Deleted</th><th class="actions">Action</th></tr>
+                </thead>
+                <tbody id="deletedBody">
+                  <tr><td colspan="6" class="crm-table-empty">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </section>
 
           <!-- ORDERS -->
@@ -746,6 +762,6 @@
 <script src="assets/js/chrome.js?v=11"></script>
 <script src="assets/js/site.js?v=5"></script>
 <script type="module" src="assets/js/content.js?v=14"></script>
-<script type="module" src="assets/js/admin.js?v=14"></script>
+<script type="module" src="assets/js/admin.js?v=15"></script>
 </body>
 </html>

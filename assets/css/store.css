@@ -1667,11 +1667,6 @@ html.sp-locked, html.sp-locked body { overflow: hidden; }
 .rw-wstats small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7; }
 .rw-wstats b { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
 .rw-wallet .p-btn { justify-self: start; background: #1B1300; color: #FFE07A; border-color: #1B1300; }
-.rw-art { position: absolute; right: -18px; bottom: -22px; z-index: -1; width: 170px; height: 150px; pointer-events: none; }
-.rw-art i { position: absolute; width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), rgba(255, 224, 122, 0.25) 45%, rgba(201, 138, 0, 0.2)); border: 2px solid rgba(255, 255, 255, 0.35); }
-.rw-art i:nth-child(1) { right: 20px; bottom: 30px; }
-.rw-art i:nth-child(2) { right: 80px; bottom: 6px; width: 64px; height: 64px; opacity: 0.8; }
-.rw-art i:nth-child(3) { right: 6px; bottom: 96px; width: 44px; height: 44px; opacity: 0.7; }
 
 .rw-refer { display: grid; align-content: start; gap: 8px; padding: clamp(20px, 2.4vw, 28px); border-radius: 22px; background: var(--ink); color: #fff; box-shadow: var(--sp-shadow); }
 .rw-refer .sp-k { color: var(--lime); margin: 0; }
@@ -1850,3 +1845,152 @@ html.sp-locked, html.sp-locked body { overflow: hidden; }
   #leadsStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ld-detail-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   E-coin — polished 3D coin
+   Front/back SVG faces + 12 stacked edge discs (preserve-3d).
+   It floats, sways, and every few seconds flips to show its back.
+   ============================================================ */
+.ec { --s: 120px; --t: calc(var(--s) * 0.085); position: relative; display: inline-block; width: var(--s); height: var(--s); flex: none; perspective: calc(var(--s) * 6); }
+.ec--lg { --s: clamp(118px, 13vw, 156px); }
+.ec--md { --s: 112px; }
+.ec--sm { --s: 52px; }
+.ec-float { position: absolute; inset: 0; animation: ecFloat 4.2s ease-in-out infinite; transform-style: preserve-3d; }
+.ec-body { position: absolute; inset: 0; transform-style: preserve-3d; animation: ecTurn 9s cubic-bezier(0.45, 0, 0.2, 1) infinite; }
+.ec-face, .ec-edge i { position: absolute; inset: 0; border-radius: 50%; }
+.ec-face { -webkit-backface-visibility: hidden; backface-visibility: hidden; overflow: hidden; }
+.ec-face svg { display: block; width: 100%; height: 100%; }
+.ec-front { transform: translateZ(calc(var(--t) / 2)); }
+.ec-back { transform: rotateY(180deg) translateZ(calc(var(--t) / 2)); }
+.ec-edge { position: absolute; inset: 0; transform-style: preserve-3d; }
+.ec-edge i {
+  inset: 0.6%;
+  background: linear-gradient(90deg, #6E4500 0%, #C98A00 18%, #FFE07A 34%, #D99A00 52%, #8A5A00 74%, #5E3B00 100%);
+  transform: translateZ(calc(var(--t) * (var(--k) / 11 - 0.5)));
+}
+.ec-edge i:nth-child(even) { filter: brightness(0.86); }
+/* a light sweep across the front face */
+.ec-gloss { position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.7) 50%, transparent 62%); background-size: 300% 100%; background-position: 120% 0; mix-blend-mode: soft-light; animation: ecGloss 4.5s ease-in-out infinite; pointer-events: none; }
+.ec-shadow { position: absolute; left: 14%; right: 14%; bottom: -14%; height: 12%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.45), transparent); filter: blur(3px); animation: ecShadow 4.2s ease-in-out infinite; }
+.ec-spark { position: absolute; inset: -12%; pointer-events: none; }
+.ec-spark i { position: absolute; width: 14%; aspect-ratio: 1; background: #FFF4C2; clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); filter: drop-shadow(0 0 4px rgba(255, 224, 122, 0.9)); opacity: 0; animation: ecSpark 3.4s ease-in-out infinite; }
+.ec-spark i:nth-child(1) { top: 6%; right: 8%; }
+.ec-spark i:nth-child(2) { bottom: 18%; left: 2%; width: 10%; animation-delay: 1.2s; }
+.ec-spark i:nth-child(3) { top: 34%; right: -2%; width: 8%; animation-delay: 2.3s; }
+.ec--sm .ec-spark, .ec--sm .ec-shadow { display: none; }
+@keyframes ecFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
+@keyframes ecShadow { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.82); opacity: 0.6; } }
+@keyframes ecTurn {
+  0% { transform: rotateX(10deg) rotateY(-26deg); }
+  28% { transform: rotateX(6deg) rotateY(24deg); }
+  56% { transform: rotateX(10deg) rotateY(-26deg); }
+  74% { transform: rotateX(8deg) rotateY(-26deg); }
+  100% { transform: rotateX(10deg) rotateY(334deg); }
+}
+@keyframes ecGloss { 0%, 40% { background-position: 120% 0; } 70%, 100% { background-position: -20% 0; } }
+@keyframes ecSpark { 0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); } 45% { opacity: 1; transform: scale(1) rotate(45deg); } 60% { opacity: 0; transform: scale(0.6) rotate(90deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ec-float, .ec-body, .ec-gloss, .ec-shadow, .ec-spark i { animation: none; }
+  .ec-body { transform: rotateX(8deg) rotateY(-20deg); }
+}
+
+/* flat coin face (topbar chip, delete dialog) */
+.sp-coin-chip .sp-coin-face { width: 24px; height: 24px; padding: 0; background: none; border-radius: 50%; filter: drop-shadow(0 1px 1px rgba(107, 74, 0, 0.35)); }
+
+/* Refer & earn wallet: the 3D coin replaces the flat bubbles */
+.rw-art { position: absolute; right: 14px; top: 16px; z-index: 0; pointer-events: none; }
+.rw-wallet > *:not(.rw-art) { position: relative; z-index: 1; }
+@media (max-width: 560px) { .rw-art .ec { --s: 84px; } }
+
+/* ---------- Home: E-coin wallet card ---------- */
+.sp-ecoin {
+  position: relative; overflow: hidden; isolation: isolate; margin-top: 16px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: clamp(18px, 3vw, 36px); align-items: center;
+  padding: clamp(20px, 2.8vw, 30px) clamp(20px, 3vw, 34px); border-radius: 26px; color: #FFF8E1;
+  background:
+    radial-gradient(60% 120% at 8% 50%, rgba(255, 196, 40, 0.34), transparent 65%),
+    radial-gradient(50% 90% at 100% 0%, rgba(255, 224, 122, 0.12), transparent 70%),
+    linear-gradient(135deg, #1A1305, #0E0B05 60%, #15100A);
+  border: 1px solid rgba(255, 216, 102, 0.22);
+  box-shadow: 0 30px 60px -36px rgba(201, 138, 0, 0.7), inset 0 1px 0 rgba(255, 236, 170, 0.12);
+}
+.sp-ecoin::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0.5; background-image: radial-gradient(rgba(255, 224, 122, 0.16) 1px, transparent 1.2px); background-size: 18px 18px; -webkit-mask: radial-gradient(70% 90% at 10% 50%, #000, transparent 75%); mask: radial-gradient(70% 90% at 10% 50%, #000, transparent 75%); }
+.sp-ecoin-art { display: grid; place-items: center; padding: 6px 8px 14px; }
+.sp-ecoin-k { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #FFD866; }
+.sp-ecoin-k svg { width: 15px; height: 15px; }
+.sp-ecoin-bal { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+.sp-ecoin-bal b {
+  font-size: clamp(44px, 6vw, 68px); font-weight: 800; letter-spacing: -0.05em; line-height: 0.95; font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #FFF6C9 0%, #FFD95A 45%, #E0A100 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(120, 78, 0, 0.55));
+}
+.sp-ecoin-bal span { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255, 236, 170, 0.6); }
+.sp-ecoin-body > p { margin: 8px 0 0; font-size: 14px; color: rgba(255, 248, 225, 0.7); }
+.sp-ecoin-body > p b { color: #FFE07A; }
+.sp-ecoin-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.sp-ecoin-stats div { min-width: 92px; padding: 9px 13px; border-radius: 12px; background: rgba(255, 224, 122, 0.07); border: 1px solid rgba(255, 224, 122, 0.14); }
+.sp-ecoin-stats small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 236, 170, 0.5); }
+.sp-ecoin-stats b { font-size: 17px; font-weight: 750; letter-spacing: -0.02em; color: #FFF3C4; font-variant-numeric: tabular-nums; }
+.sp-ecoin-body > p.sp-ecoin-last { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; padding: 5px 11px 5px 8px; border-radius: 999px; background: rgba(217, 255, 87, 0.1); color: #D9FF57; font-size: 12px; font-weight: 600; }
+.sp-ecoin-last svg { width: 13px; height: 13px; }
+.sp-ecoin-cta { display: flex; flex-direction: column; gap: 10px; align-self: center; }
+.sp-ecoin-btn { background: linear-gradient(180deg, #FFE07A, #F2B705); color: #2A1C00; border-color: #E8AE00; box-shadow: 0 10px 24px -12px rgba(242, 183, 5, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+.sp-ecoin-btn:hover { background: linear-gradient(180deg, #FFE88F, #FFC21A); color: #2A1C00; border-color: #FFC21A; }
+.sp-ecoin.is-empty .sp-ecoin-bal b { opacity: 0.85; }
+@media (max-width: 900px) {
+  .sp-ecoin { grid-template-columns: auto minmax(0, 1fr); }
+  .sp-ecoin-cta { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
+}
+@media (max-width: 560px) {
+  .sp-ecoin { grid-template-columns: minmax(0, 1fr); text-align: left; padding-top: 18px; }
+  .sp-ecoin-art { position: absolute; top: 12px; right: 8px; padding: 0; }
+  .sp-ecoin-art .ec { --s: 92px; }
+  .sp-ecoin-body { padding-right: 96px; }
+  .sp-ecoin-stats { margin-right: -96px; }
+  .sp-ecoin-stats div { flex: 1; min-width: 0; }
+  .sp-ecoin-body > p { margin-right: -96px; }
+}
+
+/* ---------- Profile: wallet + danger zone ---------- */
+.sp-profile-side { display: grid; gap: 16px; align-content: start; }
+.sp-pwallet { display: flex; align-items: center; gap: 14px; background: linear-gradient(135deg, #FFFBEA, #FFF1C2); border-color: rgba(242, 183, 5, 0.4); transition: transform 0.25s var(--ease), box-shadow 0.25s; }
+.sp-pwallet:hover { transform: translateY(-2px); }
+.sp-pwallet-coin { flex: none; display: grid; place-items: center; width: 60px; height: 60px; }
+.sp-pwallet-txt { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.sp-pwallet-txt .sp-k { color: var(--coin-ink); margin: 0; }
+.sp-pwallet-txt b { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; color: #3A2800; }
+.sp-pwallet-txt b small { font-size: 12px; font-weight: 600; color: var(--coin-ink); letter-spacing: 0; }
+.sp-pwallet-txt > small { font-size: 12.5px; color: var(--coin-ink); opacity: 0.85; }
+.sp-pwallet > svg { width: 15px; height: 15px; color: var(--coin-ink); flex: none; }
+.sp-danger { border-color: rgba(190, 44, 44, 0.22); background: linear-gradient(180deg, #FFF8F7, var(--sp-card) 70%); }
+.sp-danger .sp-k { color: #B42318; }
+.sp-danger h3 { margin-top: 2px; }
+.sp-danger .sp-muted { margin: 6px 0 14px; font-size: 13.5px; }
+.sp-danger-btn { background: transparent; color: #B42318; border-color: rgba(180, 35, 24, 0.35); }
+.sp-danger-btn:hover:not(:disabled), .sp-danger-btn.is-solid:not(:disabled) { background: #B42318; border-color: #B42318; color: #fff; }
+.sp-danger-btn.is-solid:hover:not(:disabled) { background: #912018; border-color: #912018; }
+.sp-danger-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- delete-account dialog ---------- */
+.sp-del { display: grid; gap: 16px; }
+.sp-del-ic { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; background: #FEE4E2; color: #B42318; box-shadow: 0 0 0 6px #FEF3F2; }
+.sp-del-ic svg { width: 22px; height: 22px; }
+.sp-del-k { color: #B42318; }
+.sp-del-title { margin: 2px 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.03em; }
+.sp-del-box { padding: 14px 16px; border-radius: 16px; background: #FEF3F2; border: 1px solid #FECDCA; }
+.sp-del-h { font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #B42318; }
+.sp-del-list { display: grid; gap: 9px; margin: 10px 0 0; padding: 0; list-style: none; }
+.sp-del-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; line-height: 1.45; color: #55160C; }
+.sp-del-list li > svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: #D92D20; }
+.sp-del-list li > svg.sp-del-coin { width: 20px; height: 20px; margin-top: -1px; color: initial; }
+.sp-del-keep { display: flex; gap: 10px; align-items: flex-start; margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.sp-del-keep svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--violet); }
+.sp-del-keep a { color: var(--violet); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.sp-del-form { display: grid; gap: 12px; }
+.sp-del-form .p-label em { font-style: normal; color: var(--muted); font-weight: 400; }
+.sp-del-note { display: flex; gap: 9px; align-items: center; margin: 0; font-size: 13px; color: var(--muted); }
+.sp-del-note svg { width: 16px; height: 16px; color: var(--violet); flex: none; }
+.sp-del-err { margin: 0; padding: 10px 12px; border-radius: 12px; background: #FEF3F2; color: #B42318; font-size: 13px; font-weight: 500; }
+.sp-del-err[hidden] { display: none; }
+.sp-del-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+@media (max-width: 560px) { .sp-del-actions .p-btn { flex: 1; } }

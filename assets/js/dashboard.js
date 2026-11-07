@@ -20,7 +20,9 @@ import {
   dbWatch,
   dbUpdateRoot,
   dbKey,
-  friendlyError
+  friendlyError,
+  fb,
+  initFirebase
 } from "./firebase.js?v=5";
 import { membershipStatus, daysLeft, safeImageUrl, safeDataImage } from "./media.js?v=2";
 import { loadQR } from "./qr.js?v=1";
@@ -216,7 +218,7 @@ const owns = (id) => {
    routes — the single source of truth for navigation
    ============================================================ */
 const ROUTES = [
-  { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content"] },
+  { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content", "wallet", "rewards", "refs"] },
   { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart", "cc", "progress"] },
   { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member"] },
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
@@ -226,7 +228,7 @@ const ROUTES = [
   { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders"] },
   { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
   { id: "rewards", label: "Refer & earn", icon: "i-coin", group: "Purchases", pill: "coins", view: vRewards, deps: ["rewards", "wallet", "refs", "orders", "profile"] },
-  { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: [] },
+  { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: ["wallet", "rewards"] },
   /* detail screens (not in the menu) */
   { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member"] },
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll", "cart", "cc", "progress", "content"] },
@@ -318,6 +320,11 @@ function paintBadges() {
   });
   const chip = $("#spCoinChip");
   if (chip) {
+    if (!chip.dataset.coin) {
+      const old = chip.querySelector("svg");
+      if (old) old.outerHTML = coinFace("sp-coin-face");
+      chip.dataset.coin = "1";
+    }
     chip.hidden = !coinsOn();
     $("b", chip).textContent = bal.toLocaleString("en-IN");
   }
@@ -1261,6 +1268,7 @@ function vHome() {
     stat("i-receipt", S.orders.length, pendingOrders ? `Orders · ${pendingOrders} pending` : "Orders", "#orders") +
     stat("i-tag", money(saved), "Total saved", "#orders") +
     `</div>` +
+    walletCard() +
     memberPromo("home") +
     inviteBanner() +
     (ann ? `<section class="sp-announce">${icon("i-bolt")}<div><span class="sp-k">From the academy</span><p>${esc(ann)}</p></div></section>` : "") +
@@ -1293,6 +1301,7 @@ function vHome() {
     mount(root) {
       bindAdd(root);
       bindGift(root);
+      countUpCoins(root);
     }
   };
 }
@@ -2865,7 +2874,7 @@ function vProfile() {
     `<section class="sp-panel">` +
     `<div class="sp-profile-id"><span class="sp-avatar sp-avatar--lg">${esc(initials(p.name, S.user.email))}</span><div><h2>${esc(p.name || "Student")}</h2><p>${esc(S.user.email || "")}</p>` +
     `<span class="sp-muted sp-small">${p.createdAt ? `Member since ${esc(new Date(num(p.createdAt)).toLocaleDateString("en-IN", { month: "long", year: "numeric" }))}` : "FenxTek student"}</span></div></div>` +
-    `<form class="dash-form" id="profileForm" novalidate>` +
+    `<form class="dash-form" id="profileForm" data-sp-keep novalidate>` +
     `<div class="p-row"><label class="p-field"><span class="p-label">Full name</span><input class="p-input" name="name" autocomplete="name" value="${esc(p.name || "")}" required></label>` +
     `<label class="p-field"><span class="p-label">Mobile</span><input class="p-input" type="tel" name="phone" autocomplete="tel" placeholder="+91 …" value="${esc(p.phone || "")}"></label></div>` +
     `<div class="p-row"><label class="p-field"><span class="p-label">Target exam</span><select class="p-select" name="exam"><option value="">Choose an exam</option>${exams
@@ -2881,6 +2890,10 @@ function vProfile() {
     `<a class="sp-row-link" href="#membership">${icon("i-crown")}<span>Membership</span>${icon("i-chev-r")}</a>` +
     (S.admin ? `<a class="sp-row-link" href="admin.html">${icon("i-grid")}<span>Admin CRM</span>${icon("i-chev-r")}</a>` : "") +
     `<button class="p-btn p-btn--danger p-btn--block p-btn--sm" type="button" id="signOutBtn2">${icon("i-logout")}<span>Sign out</span></button></section>` +
+    profileWallet() +
+    `<section class="sp-panel sp-danger"><span class="sp-k">Danger zone</span><h3>Delete account</h3>` +
+    `<p class="sp-muted">Permanently delete your FenxTek account, profile and learning progress. This can’t be undone.</p>` +
+    `<button class="p-btn p-btn--block p-btn--sm sp-danger-btn" type="button" id="spDeleteAcc">${icon("i-trash")}<span>Delete my account</span></button></section>` +
     `</aside></div>`;
   return {
     title: "Profile",
@@ -2888,6 +2901,7 @@ function vProfile() {
     html,
     mount(root) {
       $("#signOutBtn2", root).addEventListener("click", signOut);
+      $("#spDeleteAcc", root).addEventListener("click", openDeleteAccount);
       const form = $("#profileForm", root);
       form.addEventListener("submit", (e) => {
         e.preventDefault();
@@ -2915,6 +2929,160 @@ function vProfile() {
   };
 }
 
+/* Profile: compact E-coin wallet */
+function profileWallet() {
+  if (!coinsOn()) return "";
+  const bal = coinBalance();
+  const w = S.wallet || {};
+  const fmt = (n) => Math.round(num(n)).toLocaleString("en-IN");
+  return (
+    `<a class="sp-panel sp-pwallet" href="#rewards">` +
+    `<span class="sp-pwallet-coin">${coin3d("sm")}</span>` +
+    `<span class="sp-pwallet-txt"><span class="sp-k">E-coin wallet</span><b>${fmt(bal)} <small>${bal === 1 ? "coin" : "coins"}</small></b>` +
+    `<small>Worth ${money(bal)} · earned ${fmt(Math.max(num(w.earned), bal))} in total</small></span>` +
+    `${icon("i-chev-r")}</a>`
+  );
+}
+
+/* ============================================================
+   Delete account
+   The student removes what they own (profile, cart, progress),
+   leaves a short record for the academy (accountDeletions/<uid>)
+   and then their Firebase sign-in is deleted. Orders and receipts
+   stay with the academy for its accounts.
+   ============================================================ */
+const DELETE_REASONS = [
+  ["done", "I’ve finished my exam preparation"],
+  ["other-academy", "I’m studying somewhere else"],
+  ["price", "Courses are too expensive for me"],
+  ["not-useful", "The portal wasn’t useful for me"],
+  ["privacy", "Privacy — I don’t want an account"],
+  ["other", "Something else"]
+];
+
+function signInProvider() {
+  const ids = ((S.user && S.user.providerData) || []).map((p) => p.providerId);
+  return ids.includes("password") ? "password" : ids.includes("google.com") ? "google.com" : ids[0] || "password";
+}
+
+function openDeleteAccount() {
+  const email = String(S.user.email || "").trim();
+  const provider = signInProvider();
+  const bal = coinBalance();
+  const activeCourses = S.courses.filter((c) => owns(c.id)).length || Object.keys(S.enroll || {}).filter((id) => owns(id)).length;
+  const member = memberActive();
+  const paidOrders = S.orders.filter((o) => o.status === "paid").length;
+
+  const loses = [
+    activeCourses ? `<li>${icon("i-book")}<span>Access to <b>${activeCourses} active course${activeCourses === 1 ? "" : "s"}</b></span></li>` : "",
+    member ? `<li>${icon("i-crown")}<span>Your <b>${esc((myPlan() && myPlan().title) || "membership")}</b> membership</span></li>` : "",
+    bal ? `<li class="is-coin">${coinFace("sp-del-coin")}<span><b>${bal.toLocaleString("en-IN")} E-coins</b> (worth ${money(bal)}) — they can’t be refunded or moved</span></li>` : "",
+    `<li>${icon("i-user")}<span>Your profile, cart and learning progress</span></li>`,
+    S.profile.refCode ? `<li>${icon("i-gift")}<span>Your referral code <b>${esc(S.profile.refCode)}</b> stops earning</span></li>` : ""
+  ].join("");
+
+  openModal(
+    `<div class="sp-del">` +
+    `<span class="sp-del-ic">${icon("i-trash")}</span>` +
+    `<div><span class="sp-k sp-del-k">Danger zone</span><h3 class="sp-del-title">Delete your account?</h3>` +
+    `<p class="sp-muted">This permanently deletes the FenxTek account for <b>${esc(email)}</b>. You can’t undo it.</p></div>` +
+    `<div class="sp-del-box"><span class="sp-del-h">You will lose</span><ul class="sp-del-list">${loses}</ul></div>` +
+    `<p class="sp-del-keep">${icon("i-receipt")}<span>${paidOrders ? `Your ${paidOrders} order${paidOrders === 1 ? "" : "s"} and payment records are kept by the academy for its accounts. <a href="#orders" data-close>Download your receipts</a> first if you need them.` : "Any order and payment records are kept by the academy for its accounts."}</span></p>` +
+    `<form class="sp-del-form" id="spDelForm" novalidate>` +
+    `<label class="p-field"><span class="p-label">Why are you leaving? <em>(optional)</em></span><select class="p-select" name="reason"><option value="">Choose a reason</option>${DELETE_REASONS.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join("")}</select></label>` +
+    `<label class="p-field"><span class="p-label">Type your email to confirm</span><input class="p-input" name="confirm" type="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(email)}"></label>` +
+    (provider === "password"
+      ? `<label class="p-field"><span class="p-label">Password</span><input class="p-input" name="password" type="password" autocomplete="current-password" placeholder="Your current password"></label>`
+      : `<p class="sp-del-note">${icon("i-shield")}<span>For your security, Google will ask you to confirm it’s you.</span></p>`) +
+    `<p class="sp-del-err" id="spDelErr" role="alert" hidden></p>` +
+    `<div class="sp-del-actions"><button class="p-btn p-btn--ghost p-btn--sm" type="button" data-close>Keep my account</button>` +
+    `<button class="p-btn p-btn--sm sp-danger-btn is-solid" type="submit" id="spDelGo" disabled>${icon("i-trash")}<span>Delete permanently</span></button></div>` +
+    `</form></div>`,
+    {
+      onMount(m) {
+        const f = $("#spDelForm", m);
+        const go = $("#spDelGo", m);
+        const err = $("#spDelErr", m);
+        const ok = () => {
+          const typed = String(f.confirm.value || "").trim().toLowerCase() === email.toLowerCase();
+          const pw = provider !== "password" || String(f.password.value || "").length >= 6;
+          go.disabled = !(typed && pw);
+        };
+        f.addEventListener("input", ok);
+        setTimeout(() => f.confirm.focus(), 60);
+        f.addEventListener("submit", (e) => {
+          e.preventDefault();
+          if (go.disabled) return;
+          err.hidden = true;
+          busy(go, "Deleting", async () => {
+            lockModal(true);
+            try {
+              await deleteAccount({ reason: f.reason.value, password: f.password ? f.password.value : "", provider });
+            } catch (ex) {
+              lockModal(false);
+              err.textContent = ex && ex.userFacing ? ex.message : deleteErrorText(ex);
+              err.hidden = false;
+            }
+          });
+        });
+      }
+    }
+  );
+}
+
+function deleteErrorText(err) {
+  const code = String((err && err.code) || "");
+  if (code === "auth/wrong-password" || code === "auth/invalid-credential" || code === "auth/invalid-login-credentials") return "That password isn’t right. Please try again.";
+  if (code === "auth/user-mismatch") return "That Google account doesn’t match this student account. Choose " + (S.user.email || "the same account") + ".";
+  if (code === "auth/requires-recent-login") return "For your security, please sign out, sign in again and then delete your account.";
+  if (code === "PERMISSION_DENIED" || /permission/i.test(String((err && err.message) || ""))) return "We couldn’t remove your data right now. Please try again, or contact the academy.";
+  return friendlyError(err);
+}
+
+async function deleteAccount({ reason, password, provider }) {
+  await initFirebase();
+  const f = fb;
+  const user = f.auth && f.auth.currentUser;
+  if (!user || user.uid !== S.user.uid) throw userErr("Your session has ended. Please sign in again.");
+
+  /* 1 — prove it's really them (Firebase only deletes recently signed-in accounts) */
+  if (provider === "password") {
+    const cred = f.a.EmailAuthProvider.credential(user.email, password);
+    await f.a.reauthenticateWithCredential(user, cred);
+  } else if (provider === "google.com") {
+    const gp = new f.a.GoogleAuthProvider();
+    gp.setCustomParameters({ prompt: "select_account", login_hint: user.email || "" });
+    await f.a.reauthenticateWithPopup(user, gp);
+  }
+
+  /* 2 — remove what the student owns and leave a note for the academy, in one atomic write */
+  const uid = user.uid;
+  const now = Date.now();
+  const note = {
+    email: String(user.email || S.profile.email || "").toLowerCase().slice(0, 120),
+    name: String(S.profile.name || user.displayName || "").slice(0, 80),
+    phone: String(S.profile.phone || "").slice(0, 20),
+    provider: String(provider || "").slice(0, 40),
+    coins: coinBalance(),
+    orders: S.orders.length,
+    at: now
+  };
+  if (reason) note.reason = reason;
+  const code = cleanRefCode(S.profile.refCode);
+  if (code) note.refCode = code;
+  await dbUpdateRoot({
+    [`users/${uid}`]: null,
+    [`${PATH.carts}/${uid}`]: null,
+    [`${CC_PATH.progress}/${uid}`]: null,
+    [`accountDeletions/${uid}`]: note
+  });
+
+  /* 3 — delete the sign-in itself */
+  await f.a.deleteUser(user);
+  try { sessionStorage.clear(); } catch (e) { /* ignore */ }
+  location.replace("auth.html?deleted=1");
+}
+
 function vSoon(route) {
   return {
     title: route.label,
@@ -2928,6 +3096,116 @@ function vSoon(route) {
 /* ============================================================
    chrome: user card, sign out
    ============================================================ */
+/* ============================================================
+   E-coin — polished 3D coin (SVG face + stacked CSS edge)
+   ============================================================ */
+let coinSeq = 0;
+/* the coin face: reeded gold rim, embossed F monogram and FENXTEK · E-COIN lettering.
+   Every instance gets its own gradient ids (gradients inside hidden SVGs don't paint). */
+function coinFace(cls = "", back = false) {
+  const n = ++coinSeq;
+  const id = (k) => `ec${n}${k}`;
+  return (
+    `<svg class="${cls}" viewBox="0 0 120 120" aria-hidden="true" focusable="false">` +
+    `<defs>` +
+    `<linearGradient id="${id("r")}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF0A8"/><stop offset=".28" stop-color="#F7C531"/><stop offset=".55" stop-color="#B97F00"/><stop offset=".78" stop-color="#F4C02A"/><stop offset="1" stop-color="#7A4E00"/></linearGradient>` +
+    `<radialGradient id="${id("f")}" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#FFF6C9"/><stop offset=".3" stop-color="#FFD95A"/><stop offset=".68" stop-color="#F0B000"/><stop offset="1" stop-color="#B07800"/></radialGradient>` +
+    `<linearGradient id="${id("m")}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE27A"/><stop offset="1" stop-color="#D79A00"/></linearGradient>` +
+    `<linearGradient id="${id("g")}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".45" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` +
+    `<path id="${id("t")}" d="M60 60 m-37 0 a37 37 0 1 1 74 0 a37 37 0 1 1 -74 0"/>` +
+    `<clipPath id="${id("c")}"><circle cx="60" cy="60" r="50"/></clipPath>` +
+    `</defs>` +
+    `<circle cx="60" cy="60" r="59" fill="url(#${id("r")})"/>` +
+    `<circle cx="60" cy="60" r="56.6" fill="none" stroke="#6B4400" stroke-opacity=".38" stroke-width="3.2" stroke-dasharray="1.1 2.05"/>` +
+    `<circle cx="60" cy="60" r="51.6" fill="#8A5A00" fill-opacity=".55"/>` +
+    `<circle cx="60" cy="60" r="50" fill="url(#${id("f")})"/>` +
+    `<circle cx="60" cy="60" r="49.3" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/>` +
+    `<circle cx="60" cy="60" r="44" fill="none" stroke="#8A5A00" stroke-opacity=".42" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.01 3.46"/>` +
+    `<text font-family="JetBrains Mono, ui-monospace, monospace" font-size="7.2" font-weight="700" letter-spacing="2.6" fill="#7A4E00" fill-opacity=".72"><textPath href="#${id("t")}" startOffset="${back ? "4%" : "13.5%"}">${back ? "1 E-COIN · ₹1 · FENXTEK REWARDS ·" : "FENXTEK · E-COIN"}</textPath></text>` +
+    (back
+      ? `<text x="60" y="73" text-anchor="middle" font-family="Instrument Serif, Georgia, serif" font-style="italic" font-size="40" fill="#7A4E00" fill-opacity=".5" dx="1.2" dy="1.6">₹1</text>` +
+        `<text x="60" y="73" text-anchor="middle" font-family="Instrument Serif, Georgia, serif" font-style="italic" font-size="40" fill="#FFF3B8" dx="-.8" dy="-.8">₹1</text>` +
+        `<text x="60" y="73" text-anchor="middle" font-family="Instrument Serif, Georgia, serif" font-style="italic" font-size="40" fill="url(#${id("m")})">₹1</text>`
+      : `<text x="60" y="77" text-anchor="middle" font-family="Inter Tight, system-ui, sans-serif" font-weight="800" font-size="46" letter-spacing="-2" fill="#7A4E00" fill-opacity=".55" dx="1.4" dy="1.8">F</text>` +
+        `<text x="60" y="77" text-anchor="middle" font-family="Inter Tight, system-ui, sans-serif" font-weight="800" font-size="46" letter-spacing="-2" fill="#FFF5C4" dx="-1" dy="-1">F</text>` +
+        `<text x="60" y="77" text-anchor="middle" font-family="Inter Tight, system-ui, sans-serif" font-weight="800" font-size="46" letter-spacing="-2" fill="url(#${id("m")})">F</text>`) +
+    `<g clip-path="url(#${id("c")})"><path d="M0 0H120L0 92Z" fill="url(#${id("g")})" opacity=".55"/></g>` +
+    `</svg>`
+  );
+}
+
+/* 3D coin: front + back faces with a stacked edge so it has real thickness when it turns */
+function coin3d(size = "md") {
+  const edge = Array.from({ length: 12 }, (_, k) => `<i style="--k:${k}"></i>`).join("");
+  return (
+    `<span class="ec ec--${size}" aria-hidden="true">` +
+    `<span class="ec-spark"><i></i><i></i><i></i></span>` +
+    `<span class="ec-float"><span class="ec-body">` +
+    `<span class="ec-edge">${edge}</span>` +
+    `<span class="ec-face ec-back">${coinFace("", true)}</span>` +
+    `<span class="ec-face ec-front">${coinFace()}<span class="ec-gloss"></span></span>` +
+    `</span></span>` +
+    `<span class="ec-shadow"></span>` +
+    `</span>`
+  );
+}
+
+/* Home: the student's E-coin wallet, front and centre */
+function walletCard() {
+  if (!coinsOn()) return "";
+  const rw = S.rewards;
+  const bal = coinBalance();
+  const w = S.wallet || {};
+  const fmt = (n) => Math.round(num(n)).toLocaleString("en-IN");
+  const friends = S.myRefs.filter((r) => r.status === "rewarded").length;
+  const lastIn = S.walletTx.find((t) => num(t.coins) > 0);
+  const earned = Math.max(num(w.earned), bal);
+  return (
+    `<section class="sp-ecoin${bal ? "" : " is-empty"}">` +
+    `<div class="sp-ecoin-art">${coin3d("lg")}</div>` +
+    `<div class="sp-ecoin-body">` +
+    `<span class="sp-ecoin-k">${icon("i-coin")}FenxTek E-coins</span>` +
+    `<div class="sp-ecoin-bal"><b data-coin-count="${bal}">${fmt(bal)}</b><span>${bal === 1 ? "coin" : "coins"}</span></div>` +
+    `<p>${bal ? `Worth <b>${money(bal)}</b> off your next course · 1 E-coin = ₹1` : rw.enabled ? `Invite a friend and earn <b>${esc(coinsLabel(rw.referrerCoins))}</b> when they join · 1 E-coin = ₹1` : "1 E-coin = ₹1 off courses and memberships"}</p>` +
+    `<div class="sp-ecoin-stats">` +
+    `<div><small>Earned</small><b>${fmt(earned)}</b></div>` +
+    `<div><small>Used</small><b>${fmt(w.spent)}</b></div>` +
+    `<div><small>Friends</small><b>${friends}</b></div>` +
+    `</div>` +
+    (lastIn ? `<p class="sp-ecoin-last">${icon("i-arr-u")}<span>+${fmt(lastIn.coins)} · ${esc(TX_LABEL[lastIn.type] || "E-coins")} · ${esc(formatDate(lastIn.at))}</span></p>` : "") +
+    `</div>` +
+    `<div class="sp-ecoin-cta">` +
+    (bal ? `<a class="p-btn p-btn--sm sp-ecoin-btn" href="#store">${icon("i-cart")}<span>Spend at checkout</span></a>` : "") +
+    (rw.enabled ? `<a class="p-btn p-btn--sm p-btn--ghost sp-btn-onDark" href="#rewards">${icon("i-gift")}<span>Earn more</span></a>` : `<a class="p-btn p-btn--sm p-btn--ghost sp-btn-onDark" href="#rewards">${icon("i-coin")}<span>Coin history</span></a>`) +
+    `</div>` +
+    `</section>`
+  );
+}
+
+/* count the balance up from 0 the first time it is shown */
+let coinsCounted = -1;
+function countUpCoins(root) {
+  const el = $("[data-coin-count]", root);
+  if (!el) return;
+  const to = Math.round(num(el.dataset.coinCount));
+  if (to === coinsCounted || !to || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    coinsCounted = to;
+    return;
+  }
+  const from = coinsCounted > 0 && coinsCounted < to ? coinsCounted : 0;
+  coinsCounted = to;
+  const t0 = performance.now();
+  const dur = 1100;
+  const step = (t) => {
+    if (!el.isConnected) return;
+    const k = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - k, 4);
+    el.textContent = Math.round(from + (to - from) * e).toLocaleString("en-IN");
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 /* ============================================================
    Refer & earn — E-coins wallet (1 E-coin = ₹1 off courses)
    ============================================================ */
@@ -3038,7 +3316,7 @@ function vRewards() {
     `<p>Worth ${money(bal)} on courses · 1 E-coin = ₹1</p>` +
     `<div class="rw-wstats"><div><small>Earned</small><b>${fmt(w.earned)}</b></div><div><small>Used</small><b>${fmt(w.spent)}</b></div><div><small>Friends</small><b>${won.length}</b></div></div>` +
     `<a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-cart")}<span>Shop with E-coins</span></a>` +
-    `<span class="rw-art" aria-hidden="true"><i></i><i></i><i></i></span>` +
+    `<span class="rw-art">${coin3d("md")}</span>` +
     `</div>` +
     (rw.enabled
       ? `<div class="rw-refer"><span class="sp-k">Refer &amp; earn</span>` +

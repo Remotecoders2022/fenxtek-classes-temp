@@ -1686,3 +1686,8 @@
 .auth-context-txt b { font-size: 14.5px; color: var(--ink); letter-spacing: -0.01em; }
 .auth-context-txt button { align-self: flex-start; margin-top: 6px; padding: 0; background: none; border: 0; font: inherit; font-weight: 600; color: var(--violet, #5A4BFF); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .auth-context-txt button[hidden] { display: none; }
+.auth-context--done { background: #ECFDF3; border-color: rgba(18, 140, 72, 0.25); }
+.auth-context--done .auth-context-ic { background: #12B76A; }
+.crm-subhead { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line, rgba(11, 11, 16, 0.14)); }
+.crm-subhead h3 { font-size: 18px; font-weight: 650; letter-spacing: -0.02em; }
+.crm-subhead p { max-width: 70ch; }

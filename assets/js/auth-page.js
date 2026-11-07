@@ -84,6 +84,17 @@ if (signupForm && (new URLSearchParams(location.search).get("mode") === "signup"
 (() => {
   const box = document.getElementById("authContext");
   const next = safeNext();
+  /* just deleted their account from the student portal */
+  if (box && new URLSearchParams(location.search).get("deleted") === "1") {
+    box.innerHTML =
+      '<span class="auth-context-ic"><svg><use href="#i-check"/></svg></span>' +
+      '<span class="auth-context-txt"><b>Your account has been deleted</b>' +
+      "Your FenxTek profile and sign-in were removed. You’re always welcome back — create a new account any time.</span>";
+    box.classList.add("auth-context--done");
+    box.hidden = false;
+    try { history.replaceState(null, "", "auth.html"); } catch (e) { /* ignore */ }
+    return;
+  }
   if (!box || !/^dashboard\.html#(store|course\/|cart)/i.test(next)) return;
   box.innerHTML =
     '<span class="auth-context-ic"><svg><use href="#i-book"/></svg></span>' +
