@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=8">
 <link rel="stylesheet" href="assets/css/portal.css?v=5">
-<link rel="stylesheet" href="assets/css/store.css?v=6">
+<link rel="stylesheet" href="assets/css/store.css?v=7">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin">
@@ -68,6 +68,7 @@
           <button class="crm-nav" data-crm-tab="courses">Courses <span>12</span></button>
           <button class="crm-nav" data-crm-tab="coupons">Coupons <span>13</span></button>
           <button class="crm-nav" data-crm-tab="payments">Payment settings <span>14</span></button>
+          <button class="crm-nav" data-crm-tab="rewards">Refer &amp; earn <span>15</span></button>
           <div class="crm-side-foot">
             <button class="crm-add" id="seedBtn" type="button">Load starter content</button>
             <button class="crm-add" id="crmSignOut2" type="button">Sign out</button>
@@ -639,6 +640,63 @@
             </form>
           </section>
 
+          <!-- REFER & EARN -->
+          <section class="crm-panel" data-crm-panel="rewards" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Refer &amp; earn <span class="as-pill as-pill--muted" id="arLive">Off</span></h2>
+                <p>Every student gets a personal referral code. When a friend signs up with it and their first paid order is confirmed (you approve the UPI payment, verify the Razorpay payment or record an offline sale), both get <b>E-coins</b>. 1 E-coin = ₹1 off courses and memberships at checkout, like Flipkart SuperCoins.</p>
+              </div>
+            </div>
+            <div class="crm-stats" id="arStats"></div>
+            <form class="crm-card" id="arForm" novalidate style="margin-top:16px">
+              <div class="crm-form">
+                <label class="as-check p-field--wide" style="margin-bottom:8px"><input type="checkbox" name="enabled">Program is live — students see <b>Refer &amp; earn</b> in their portal and can pay with E-coins</label>
+                <label class="p-field"><span class="p-label">Referrer earns (E-coins)</span><input class="p-input" name="referrerCoins" inputmode="numeric" placeholder="100"></label>
+                <label class="p-field"><span class="p-label">New student gets (E-coins)</span><input class="p-input" name="refereeCoins" inputmode="numeric" placeholder="50"></label>
+                <label class="p-field"><span class="p-label">Max % of an order payable with E-coins</span><input class="p-input" name="maxRedeemPct" inputmode="numeric" placeholder="20"><span class="p-hint">0–90. The rest is paid by UPI / Razorpay.</span></label>
+                <label class="p-field"><span class="p-label">Qualifying first order (minimum ₹)</span><input class="p-input" name="minOrder" inputmode="numeric" placeholder="0"><span class="p-hint">Free (100% coupon) orders never qualify.</span></label>
+                <label class="p-field p-field--wide"><span class="p-label">Extra terms shown to students (optional)</span><input class="p-input" name="note" maxlength="300" placeholder="Rewards are credited within 24 hours of payment confirmation."></label>
+              </div>
+              <div class="crm-actions">
+                <span class="crm-save-state">Stored in <code>site/rewards</code>. Rejected / refunded orders return the E-coins that were spent.</span>
+                <button class="p-btn p-btn--lime" type="submit"><span>Save settings</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </form>
+            <div class="crm-card" style="margin-top:16px">
+              <div class="as-toolbar">
+                <h3 class="as-grow" style="margin:0">Referrals</h3>
+                <input class="p-input" id="arRefQ" type="search" placeholder="Search name, email, code, order…">
+                <select class="p-select" id="arRefStatus" aria-label="Status">
+                  <option value="all">All</option>
+                  <option value="pending">Pending</option>
+                  <option value="rewarded">Rewarded</option>
+                  <option value="void">Void</option>
+                </select>
+                <span class="crm-save-state" id="arRefCount"></span>
+              </div>
+              <div class="crm-table-wrap">
+                <table class="crm-table">
+                  <thead><tr><th>New student</th><th>Referred by</th><th>Code</th><th>Joined</th><th>Status</th><th></th></tr></thead>
+                  <tbody id="arRefBody"><tr><td colspan="6" class="crm-table-empty">Loading…</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="crm-card" style="margin-top:16px">
+              <div class="as-toolbar">
+                <h3 class="as-grow" style="margin:0">E-coin wallets</h3>
+                <input class="p-input" id="arWalletQ" type="search" placeholder="Find a student to add or remove coins…">
+              </div>
+              <div class="crm-table-wrap">
+                <table class="crm-table">
+                  <thead><tr><th>Student</th><th>Balance</th><th>Earned</th><th>Used</th><th></th></tr></thead>
+                  <tbody id="arWalletBody"><tr><td colspan="5" class="crm-table-empty">Loading…</td></tr></tbody>
+                </table>
+              </div>
+              <div class="ar-hist" id="arHist" hidden></div>
+            </div>
+          </section>
+
           <!-- LEADS -->
           <section class="crm-panel" data-crm-panel="leads" hidden>
             <div class="crm-panel-head">
@@ -669,9 +727,9 @@
   </div>
 </main>
 
-<script src="assets/js/chrome.js?v=7"></script>
+<script src="assets/js/chrome.js?v=8"></script>
 <script src="assets/js/site.js?v=3"></script>
 <script type="module" src="assets/js/content.js?v=13"></script>
-<script type="module" src="assets/js/admin.js?v=12"></script>
+<script type="module" src="assets/js/admin.js?v=13"></script>
 </body>
 </html>

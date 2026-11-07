@@ -19,7 +19,8 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=5";
-import { initStore, storeTabOpened } from "./admin-store.js?v=4";
+import { initStore, storeTabOpened } from "./admin-store.js?v=5";
+import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=1";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
 import {
@@ -176,6 +177,7 @@ function openTab(name) {
   if (name === "memberships") loadMembers();
   if (name === "overview") paintOverview();
   storeTabOpened(name);
+  rewardsTabOpened(name);
   if (history.replaceState) history.replaceState(null, "", "#" + name);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -335,6 +337,7 @@ const EDITORS = {
       { key: "was", label: "Original price (optional)", placeholder: "799" },
       { key: "duration", label: "Validity label", placeholder: "3 months" },
       { key: "durationDays", label: "Validity in days (for student memberships)", type: "number", placeholder: "90" },
+      { key: "courseOff", label: "Member discount on courses (% off, 0–90)", type: "number", placeholder: "10" },
       { key: "features", label: "Features — one per line", type: "lines", wide: true, rows: 5 },
       { key: "cta", label: "Button text", placeholder: "Choose plan" },
       { key: "order", label: "Order", type: "number" },
@@ -350,6 +353,7 @@ const EDITORS = {
       was: "",
       duration: "1 month",
       durationDays: 30,
+      courseOff: 10,
       features: [],
       cta: "Choose plan",
       highlight: false,
@@ -376,6 +380,8 @@ const EDITORS = {
       };
       const days = Number(item.durationDays);
       if (item.durationDays !== "" && item.durationDays != null && isFinite(days) && days >= 0) out.durationDays = Math.round(days);
+      /* extra % off every course for members of this plan (0 = none) */
+      out.courseOff = Math.min(90, Math.max(0, Math.round(Number(item.courseOff) || 0)));
       return out;
     },
     after: () => populateMemberSelects()
@@ -1942,6 +1948,11 @@ async function init() {
     initStore({ user, showAlert, withBusy, setState });
   } catch (err) {
     console.warn("[admin] store init", err);
+  }
+  try {
+    initRewards({ user, showAlert, withBusy });
+  } catch (err) {
+    console.warn("[admin] rewards init", err);
   }
 
   /* Deep links: admin.html#achievements opens that tab. */
