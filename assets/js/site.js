@@ -273,28 +273,61 @@ if (form){
   });
 }
 
-/* ---------- footer wordmark: cursor spotlight + tilt ---------- */
+/* ---------- footer wordmark: fit edge to edge, rise in, cursor proximity ---------- */
 const fWord = $('#fWord');
-if (fWord && fine && !reduce){
-  fWord.addEventListener('pointermove', (e) => {
-    const r = fWord.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-    const nx = x / r.width - 0.5, ny = y / r.height - 0.5;
-    fWord.style.setProperty('--mx', x + 'px');
-    fWord.style.setProperty('--my', y + 'px');
-    fWord.style.setProperty('--ry', (nx * 3).toFixed(2) + 'deg');
-    fWord.style.setProperty('--rx', (ny * -2).toFixed(2) + 'deg');
-    fWord.style.setProperty('--tx', (nx * -12).toFixed(2) + 'px');
-    fWord.style.setProperty('--ty', (ny * -6).toFixed(2) + 'px');
-  }, { passive: true });
-  fWord.addEventListener('pointerleave', () => {
-    fWord.style.setProperty('--mx', '50%');
-    fWord.style.setProperty('--my', '55%');
-    fWord.style.setProperty('--rx', '0deg');
-    fWord.style.setProperty('--ry', '0deg');
-    fWord.style.setProperty('--tx', '0px');
-    fWord.style.setProperty('--ty', '0px');
-  });
+if (fWord){
+  const word = $('.fw-word', fWord);
+  const chars = Array.from(fWord.querySelectorAll('.fw-c'));
+
+  /* size the lockup so it spans the full container width exactly */
+  const fit = () => {
+    if (!word) return;
+    fWord.style.setProperty('--fw-size', '100px');
+    const w = word.getBoundingClientRect().width;
+    const avail = fWord.clientWidth;
+    if (w > 0 && avail > 0) fWord.style.setProperty('--fw-size', ((avail / w) * 100 * 0.995).toFixed(2) + 'px');
+  };
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  window.addEventListener('load', fit);
+  let fitRaf = 0;
+  window.addEventListener('resize', () => { cancelAnimationFrame(fitRaf); fitRaf = requestAnimationFrame(fit); }, { passive: true });
+
+  /* letters rise in when the footer scrolls into view */
+  if (reduce || !('IntersectionObserver' in window)) fWord.classList.add('is-in');
+  else {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting){ fWord.classList.add('is-in'); io.disconnect(); } });
+    }, { threshold: 0.25 });
+    io.observe(fWord);
+  }
+
+  /* letters near the cursor lift and warm towards lime; spotlight follows */
+  if (fine && !reduce){
+    let raf = 0, px = 0, py = 0;
+    const paint = () => {
+      raf = 0;
+      const r = fWord.getBoundingClientRect();
+      fWord.style.setProperty('--mx', (px - r.left) + 'px');
+      fWord.style.setProperty('--my', (py - r.top) + 'px');
+      const reach = Math.max(120, r.width * 0.16);
+      chars.forEach((c) => {
+        const cr = c.getBoundingClientRect();
+        const d = Math.abs(px - (cr.left + cr.width / 2));
+        const p = Math.max(0, 1 - d / reach);
+        c.style.setProperty('--p', (p * p * (3 - 2 * p)).toFixed(3));
+      });
+    };
+    fWord.addEventListener('pointermove', (e) => {
+      px = e.clientX; py = e.clientY;
+      fWord.classList.add('is-hot');
+      if (!raf) raf = requestAnimationFrame(paint);
+    }, { passive: true });
+    fWord.addEventListener('pointerleave', () => {
+      fWord.classList.remove('is-hot');
+      chars.forEach((c) => c.style.setProperty('--p', '0'));
+    });
+  }
 }
 
 /* ---------- image fallback ---------- */
