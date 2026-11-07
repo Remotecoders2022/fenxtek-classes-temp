@@ -12,8 +12,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=11">
 <link rel="stylesheet" href="assets/css/portal.css?v=8">
-<link rel="stylesheet" href="assets/css/store.css?v=11">
-<link rel="stylesheet" href="assets/css/admin.css?v=3">
+<link rel="stylesheet" href="assets/css/store.css?v=12">
+<link rel="stylesheet" href="assets/css/admin.css?v=4">
 <noscript><style>.preloader{display:none}</style></noscript>
 </head>
 <body data-page="admin" class="crm-body aa-body">
@@ -48,9 +48,39 @@
     <div class="p-alert" id="aaAlert" role="status" aria-live="polite" hidden></div>
 
     <div class="aa-grid">
+      <div class="aa-col">
       <section class="aa-card aa-card--add">
-        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-plus"/></svg></span><div><h2>Add an admin</h2><p>Use the email they sign in with.</p></div></div>
-        <form id="aaForm" class="aa-form" novalidate>
+        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-plus"/></svg></span><div><h2>Add an admin</h2><p id="aaAddNote">Create a login for them, or give access to an existing account.</p></div></div>
+        <div class="aa-mode" role="tablist" aria-label="How to add">
+          <button type="button" role="tab" class="is-on" aria-selected="true" data-aa-mode="create"><svg><use href="#i-key"/></svg><span>Create new login</span></button>
+          <button type="button" role="tab" aria-selected="false" data-aa-mode="grant"><svg><use href="#i-users"/></svg><span>Existing account</span></button>
+        </div>
+
+        <form id="aaCreate" class="aa-form" novalidate autocomplete="off">
+          <label class="p-field"><span class="p-label">Full name</span><input class="p-input" name="name" type="text" maxlength="80" placeholder="e.g. Priya Verma" autocomplete="off" required></label>
+          <label class="p-field"><span class="p-label">Login email</span><input class="p-input" name="email" type="email" maxlength="120" placeholder="priya.fenxtek@gmail.com" autocomplete="off" required></label>
+          <div class="p-field"><span class="p-label">Password</span>
+            <div class="aa-pw">
+              <input class="p-input" name="password" type="password" minlength="8" maxlength="64" placeholder="At least 8 characters" autocomplete="new-password" required>
+              <button type="button" class="aa-pw-btn" data-aa-eye title="Show password" aria-label="Show password"><svg><use href="#i-eye"/></svg></button>
+              <button type="button" class="aa-pw-gen" data-aa-gen><svg><use href="#i-refresh"/></svg><span>Generate</span></button>
+            </div>
+            <div class="aa-meter" id="aaMeter" data-lvl="0"><i></i><i></i><i></i><i></i><small>Use 8+ characters with letters and numbers</small></div>
+          </div>
+          <div class="p-field"><span class="p-label">Role</span>
+            <div class="aa-roles">
+              <label class="aa-role"><input type="radio" name="crole" value="admin" checked><span><b>Admin</b><small>Full CRM — courses, orders, students, content</small></span></label>
+              <label class="aa-role"><input type="radio" name="crole" value="super"><span><b>Super admin</b><small>Everything above + manage admins</small></span></label>
+            </div>
+          </div>
+          <label class="aa-check"><input type="checkbox" name="mailLink"><span>Also email them a link to set their own password</span></label>
+          <button class="p-btn p-btn--lime p-btn--block" type="submit"><svg><use href="#i-key"/></svg><span>Create admin login</span></button>
+          <p class="aa-hint">The account is created right away with admin access — you stay signed in. Share the login details with them privately.</p>
+        </form>
+
+        <div class="aa-creds" id="aaCreds" hidden></div>
+
+        <form id="aaForm" class="aa-form" novalidate hidden>
           <label class="p-field"><span class="p-label">Email address</span><input class="p-input" name="email" type="email" list="aaUsers" placeholder="teammate@gmail.com" autocomplete="off" required><datalist id="aaUsers"></datalist></label>
           <div class="p-field"><span class="p-label">Role</span>
             <div class="aa-roles">
@@ -59,10 +89,16 @@
             </div>
           </div>
           <button class="p-btn p-btn--lime p-btn--block" type="submit"><svg><use href="#i-shield"/></svg><span>Grant access</span></button>
-          <p class="aa-hint" id="aaHint">If they haven’t signed up yet, we save an invite — access switches on the first time they sign in with this email.</p>
+          <p class="aa-hint" id="aaHint">For someone who already has a FenxTek account. If they haven’t signed up yet, we save an invite — access switches on the first time they sign in with this email.</p>
         </form>
       </section>
 
+      <section class="aa-card">
+        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-clock"/></svg></span><div><h2>Activity</h2><p>Who changed access, and when.</p></div></div>
+        <div class="aa-log" id="aaLog"><p class="crm-table-empty">Loading…</p></div>
+      </section>
+      </div>
+      <div class="aa-col">
       <section class="aa-card aa-card--team">
         <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-users"/></svg></span><div><h2>Team</h2><p id="aaTeamNote">People who can open the admin CRM.</p></div></div>
         <div class="aa-list" id="aaTeam"><p class="crm-table-empty">Loading…</p></div>
@@ -72,16 +108,13 @@
         <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-mail"/></svg></span><div><h2>Pending invites</h2><p>Waiting for these people to sign in.</p></div></div>
         <div class="aa-list" id="aaInvites"><p class="crm-table-empty">Loading…</p></div>
       </section>
+      </div>
 
-      <section class="aa-card">
-        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-clock"/></svg></span><div><h2>Activity</h2><p>Who changed access, and when.</p></div></div>
-        <div class="aa-log" id="aaLog"><p class="crm-table-empty">Loading…</p></div>
-      </section>
     </div>
   </div>
 </main>
 
 <script src="assets/js/chrome.js?v=13"></script>
-<script type="module" src="assets/js/admin-access.js?v=2"></script>
+<script type="module" src="assets/js/admin-access.js?v=3"></script>
 </body>
 </html>

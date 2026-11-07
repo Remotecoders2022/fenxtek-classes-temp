@@ -237,7 +237,7 @@ const ROUTES = [
   { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders", "courses", "pay"] },
   { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
   { id: "rewards", label: "Refer & earn", icon: "i-coin", group: "Purchases", pill: "coins", view: vRewards, deps: ["rewards", "wallet", "refs", "orders", "profile", "courses"] },
-  { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: ["wallet", "rewards"] },
+  { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: ["wallet", "rewards", "profile", "courses", "enroll", "orders", "member", "refs", "content"] },
   /* detail screens (not in the menu) */
   { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member", "rewards", "theme", "orders"] },
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll", "cart", "cc", "progress", "content"] },
@@ -3250,36 +3250,179 @@ async function redeemCode(code, btn) {
   });
 }
 
+/* ============================================================
+   Profile — identity hero, completeness, details & goals,
+   account security, wallet / referral and quick links
+   ============================================================ */
+const PF_EXAMS = ["SSC Stenographer", "UPSSSC Stenographer", "AHC Stenographer", "AHC APS", "UPPCL APS", "UPPSC APS", "Parliamentary Reporter", "Other"];
+const PF_SPEEDS = [60, 80, 100, 120, 140, 160];
+const PF_LANGS = ["Hindi", "English", "Both"];
+const PF_GOALS = [30, 60, 90, 120];
+
+/* a short, stable student ID derived from the account id */
+function studentId(uid) {
+  let h = 2166136261;
+  for (const ch of String(uid || "")) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  return "FX-" + h.toString(36).toUpperCase().padStart(7, "0").slice(-7);
+}
+
+function pfProvider() {
+  const ids = (S.user.providerData || []).map((p) => p && p.providerId).filter(Boolean);
+  return ids.includes("google.com") ? "google" : "password";
+}
+
+function pfChecks() {
+  const p = S.profile;
+  const google = pfProvider() === "google";
+  return [
+    { key: "name", label: "Add your full name", done: String(p.name || "").trim().length >= 2 },
+    { key: "phone", label: "Add your mobile number", done: /\d{10}/.test(String(p.phone || "").replace(/\D/g, "")) },
+    { key: "exam", label: "Choose your target exam", done: Boolean(p.exam) },
+    { key: "speed", label: "Set a speed goal", done: num(p.speed) > 0 },
+    { key: "city", label: "Add your city", done: String(p.city || "").trim().length >= 2 },
+    { key: "verify", label: "Verify your email", done: google || Boolean(S.user.emailVerified) }
+  ];
+}
+
+function pfChips(name, list, current, fmt = (v) => v) {
+  const all = list.map(String);
+  if (current && !all.includes(String(current))) all.push(String(current));
+  return (
+    `<div class="pf-chips" role="radiogroup">` +
+    all.map((v) => `<label class="pf-chip"><input type="radio" name="${name}" value="${esc(v)}"${String(current) === v ? " checked" : ""}><span>${esc(fmt(v))}</span></label>`).join("") +
+    `</div>`
+  );
+}
+
 function vProfile() {
   const p = S.profile;
-  const provider = (S.user.providerData && S.user.providerData[0] && S.user.providerData[0].providerId) || "";
-  const exams = ["SSC Stenographer", "UPSSSC Stenographer", "AHC Stenographer", "AHC APS", "UPPCL APS", "UPPSC APS", "Parliamentary Reporter", "Other"];
-  const html =
-    `<div class="sp-profile">` +
-    `<section class="sp-panel">` +
-    `<div class="sp-profile-id"><span class="sp-avatar sp-avatar--lg">${esc(initials(p.name, S.user.email))}</span><div><h2>${esc(p.name || "Student")}</h2><p>${esc(S.user.email || "")}</p>` +
-    `<span class="sp-muted sp-small">${p.createdAt ? `Member since ${esc(new Date(num(p.createdAt)).toLocaleDateString("en-IN", { month: "long", year: "numeric" }))}` : "FenxTek student"}</span></div></div>` +
-    `<form class="dash-form" id="profileForm" data-sp-keep novalidate>` +
-    `<div class="p-row"><label class="p-field"><span class="p-label">Full name</span><input class="p-input" name="name" autocomplete="name" value="${esc(p.name || "")}" required></label>` +
-    `<label class="p-field"><span class="p-label">Mobile</span><input class="p-input" type="tel" name="phone" autocomplete="tel" placeholder="+91 …" value="${esc(p.phone || "")}"></label></div>` +
-    `<div class="p-row"><label class="p-field"><span class="p-label">Target exam</span><select class="p-select" name="exam"><option value="">Choose an exam</option>${exams
-      .map((x) => `<option${p.exam === x ? " selected" : ""}>${esc(x)}</option>`)
-      .join("")}</select></label>` +
-    `<label class="p-field"><span class="p-label">Target speed (WPM)</span><input class="p-input" type="number" name="speed" min="30" max="200" step="5" placeholder="100" value="${esc(p.speed || "")}"></label></div>` +
-    `<button class="p-btn" type="submit">${icon("i-check")}<span>Save profile</span></button>` +
-    `</form></section>` +
-    `<aside class="sp-profile-side">` +
-    `<section class="sp-panel"><span class="sp-k">Account</span><h3>Security</h3><p class="sp-muted">${provider === "google.com" ? "Signed in with your Google account via Firebase Authentication." : "Signed in with email and password via Firebase Authentication."}</p>` +
-    `<a class="sp-row-link" href="forgot.html">${icon("i-lock")}<span>Reset password</span>${icon("i-chev-r")}</a>` +
+  const name = p.name || S.user.displayName || "Student";
+  const email = S.user.email || p.email || "";
+  const google = pfProvider() === "google";
+  const verified = google || Boolean(S.user.emailVerified);
+  const checks = pfChecks();
+  const doneN = checks.filter((c) => c.done).length;
+  const pct = Math.round((doneN / checks.length) * 100);
+  const since = num(p.createdAt) ? new Date(num(p.createdAt)).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "";
+  const st = membershipStatus(S.member);
+  const sid = studentId(S.user.uid);
+  const active = S.courses.filter((c) => owns(c.id)).length;
+  const paid = S.orders.filter((o) => o.status === "paid");
+  const saved = paid.reduce((s, o) => s + Math.max(0, num(o.mrpTotal) - num(o.total)), 0);
+  const lastIn = S.user.metadata && S.user.metadata.lastSignInTime ? new Date(S.user.metadata.lastSignInTime) : null;
+  const code = cleanRefCode(p.refCode);
+  const phoneDigits = String(p.phone || "").replace(/\D/g, "").slice(-10);
+  const support = String(S.content.phone || "+91 73090 82749").replace(/\D/g, "");
+
+  const hero =
+    `<section class="pf-hero">` +
+    `<div class="pf-hero-main">` +
+    `<div class="pf-ava" style="--pct:${pct}" title="Profile ${pct}% complete"><span class="pf-ava-in">${esc(initials(name, email))}</span>${verified ? `<i class="pf-ava-ok" title="Verified">${icon("i-check")}</i>` : ""}</div>` +
+    `<div class="pf-who"><span class="sp-k sp-k--light">Student profile</span>` +
+    `<h2>${esc(name)}</h2>` +
+    `<p class="pf-mail">${icon("i-mail")}<span>${esc(email)}</span>${verified ? `<em class="pf-ok">Verified</em>` : `<em class="pf-warn">Not verified</em>`}</p>` +
+    `<div class="sp-hero-chips">` +
+    `<span class="sp-chip sp-chip--lime">${icon("i-award")}${esc(p.exam || "Set your target exam")}</span>` +
+    (num(p.speed) ? `<span class="sp-chip">${icon("i-zap")}${esc(num(p.speed))} WPM goal</span>` : "") +
+    (st.key === "active" ? `<span class="sp-chip">${icon("i-crown")}${esc((S.member && S.member.planName) || "Member")}</span>` : "") +
+    (p.city ? `<span class="sp-chip">${icon("i-pin")}${esc(p.city)}</span>` : "") +
+    `</div></div></div>` +
+    `<div class="pf-idcard">` +
+    `<div class="pf-idcard-top"><img src="fenxtek-logo.png" alt="" width="22" height="22"><span>FenxTek · Student ID</span></div>` +
+    `<b class="pf-idcard-no">${esc(sid)}</b>` +
+    `<div class="pf-idcard-meta"><span><small>Since</small>${esc(since || "—")}</span><span><small>Profile</small>${pct}%</span></div>` +
+    `<button class="pf-idcard-copy" type="button" data-pf-copy="${esc(sid)}">${icon("i-copy")}<span>Copy ID</span></button>` +
+    `</div>` +
+    `</section>`;
+
+  const stats =
+    `<div class="sp-stats pf-stats">` +
+    stat("i-book", active, active === 1 ? "Active course" : "Active courses", "#my-courses") +
+    stat("i-receipt", paid.length, paid.length === 1 ? "Paid order" : "Paid orders", "#orders") +
+    (coinsOn() ? stat("i-coin", coinBalance().toLocaleString("en-IN"), "E-coins", "#rewards") : stat("i-tag", money(saved), "Total saved", "#orders")) +
+    (rwOn() ? stat("i-users", S.myRefs.length, S.myRefs.length === 1 ? "Friend invited" : "Friends invited", "#rewards") : stat("i-crown", st.key === "active" ? "Active" : "—", "Membership", "#membership")) +
+    `</div>`;
+
+  const checklist =
+    pct < 100
+      ? `<section class="sp-panel pf-progress">` +
+        `<div class="pf-progress-head"><div><span class="sp-k">Get the most out of FenxTek</span><h3>Complete your profile</h3></div><b>${doneN}/${checks.length}</b></div>` +
+        `<div class="pf-bar"><i style="width:${pct}%"></i></div>` +
+        `<ul class="pf-todo">` +
+        checks
+          .map(
+            (c) =>
+              `<li class="${c.done ? "is-done" : ""}"><span class="pf-todo-ic">${icon(c.done ? "i-check" : "i-plus")}</span><span>${esc(c.label)}</span>` +
+              (c.done ? "" : c.key === "verify" ? `<button class="pf-todo-go" type="button" data-pf-verify>Send link</button>` : `<button class="pf-todo-go" type="button" data-pf-focus="${c.key}">Add</button>`) +
+              `</li>`
+          )
+          .join("") +
+        `</ul></section>`
+      : "";
+
+  const form =
+    `<form class="pf-form" id="profileForm" data-sp-keep novalidate>` +
+    `<section class="sp-panel pf-sec">` +
+    `<div class="pf-sec-head"><span class="pf-sec-ic">${icon("i-user")}</span><div><h3>Personal details</h3><p>Used on receipts and when the academy contacts you.</p></div></div>` +
+    `<div class="pf-grid">` +
+    `<label class="p-field"><span class="p-label">Full name</span><input class="p-input" name="name" autocomplete="name" maxlength="80" value="${esc(p.name || "")}" required></label>` +
+    `<label class="p-field"><span class="p-label">Mobile number</span><span class="pf-tel"><b>+91</b><input class="p-input" type="tel" name="phone" inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="10-digit mobile" value="${esc(phoneDigits)}"></span></label>` +
+    `<label class="p-field"><span class="p-label">Email</span><span class="pf-ro">${icon("i-lock")}<span>${esc(email)}</span>${verified ? `<em class="pf-ok">Verified</em>` : ""}</span></label>` +
+    `<label class="p-field"><span class="p-label">City / district</span><input class="p-input" name="city" autocomplete="address-level2" maxlength="60" placeholder="e.g. Kanpur" value="${esc(p.city || "")}"></label>` +
+    `</div></section>` +
+    `<section class="sp-panel pf-sec">` +
+    `<div class="pf-sec-head"><span class="pf-sec-ic">${icon("i-award")}</span><div><h3>Learning goals</h3><p>We use these to suggest courses, dictation speeds and reminders.</p></div></div>` +
+    `<div class="pf-field"><span class="p-label">Target exam</span>${pfChips("exam", PF_EXAMS, p.exam || "")}</div>` +
+    `<div class="pf-field"><span class="p-label">Speed goal</span>${pfChips("speed", PF_SPEEDS, num(p.speed) || "", (v) => `${v} WPM`)}</div>` +
+    `<div class="pf-grid pf-grid--2">` +
+    `<div class="pf-field"><span class="p-label">Preferred language</span>${pfChips("lang", PF_LANGS, p.lang || "")}</div>` +
+    `<div class="pf-field"><span class="p-label">Daily practice goal</span>${pfChips("dailyGoal", PF_GOALS, num(p.dailyGoal) || "", (v) => (num(v) >= 60 ? `${num(v) / 60} hr${num(v) > 60 ? "s" : ""}` : `${v} min`))}</div>` +
+    `</div></section>` +
+    `<div class="pf-save" id="pfSave"><span class="pf-save-txt" id="pfSaveTxt">${icon("i-check")}All changes saved</span><button class="p-btn" type="submit" disabled>${icon("i-check")}<span>Save changes</span></button></div>` +
+    `</form>`;
+
+  const security =
+    `<section class="sp-panel pf-acc">` +
+    `<span class="sp-k">Account</span><h3>Sign-in &amp; security</h3>` +
+    `<ul class="pf-acc-list">` +
+    `<li><span class="pf-acc-ic">${icon(google ? "i-user" : "i-mail")}</span><span><small>Signed in with</small><b>${google ? "Google account" : "Email &amp; password"}</b></span></li>` +
+    `<li><span class="pf-acc-ic ${verified ? "is-ok" : "is-warn"}">${icon(verified ? "i-shield" : "i-info")}</span><span><small>Email</small><b>${verified ? "Verified" : "Not verified yet"}</b></span>${verified ? "" : `<button class="pf-mini" type="button" data-pf-verify>Verify</button>`}</li>` +
+    (google ? "" : `<li><span class="pf-acc-ic">${icon("i-lock")}</span><span><small>Password</small><b>••••••••</b></span><a class="pf-mini" href="forgot.html?email=${encodeURIComponent(email)}">Change</a></li>`) +
+    (lastIn && !isNaN(lastIn) ? `<li><span class="pf-acc-ic">${icon("i-clock")}</span><span><small>Last sign-in</small><b>${esc(lastIn.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</b></span></li>` : "") +
+    `</ul>` +
+    `<button class="p-btn p-btn--danger p-btn--block p-btn--sm" type="button" id="signOutBtn2">${icon("i-logout")}<span>Sign out</span></button>` +
+    `</section>`;
+
+  const referral =
+    rwOn() && code
+      ? `<section class="sp-panel pf-ref"><span class="sp-k">Refer &amp; earn</span><h3>Your invite code</h3>` +
+        `<div class="pf-ref-code"><b>${esc(code)}</b><button class="pf-mini" type="button" data-pf-copy="${esc(code)}">${icon("i-copy")}Copy</button></div>` +
+        `<p class="sp-muted sp-small">Friends get ${esc(num(S.rewards.refereeCoins) || 0)} E-coins, you earn ${esc(num(S.rewards.referrerCoins) || 0)} when they buy.</p>` +
+        `<a class="sp-row-link" href="#rewards">${icon("i-gift")}<span>Invite friends</span>${icon("i-chev-r")}</a></section>`
+      : "";
+
+  const links =
+    `<section class="sp-panel pf-links"><span class="sp-k">Shortcuts</span>` +
+    `<a class="sp-row-link" href="#my-courses">${icon("i-book")}<span>My courses</span>${icon("i-chev-r")}</a>` +
     `<a class="sp-row-link" href="#orders">${icon("i-receipt")}<span>Orders &amp; receipts</span>${icon("i-chev-r")}</a>` +
     `<a class="sp-row-link" href="#membership">${icon("i-crown")}<span>Membership</span>${icon("i-chev-r")}</a>` +
     (S.admin ? `<a class="sp-row-link" href="admin.html">${icon("i-grid")}<span>Admin CRM</span>${icon("i-chev-r")}</a>` : "") +
-    `<button class="p-btn p-btn--danger p-btn--block p-btn--sm" type="button" id="signOutBtn2">${icon("i-logout")}<span>Sign out</span></button></section>` +
-    profileWallet() +
-    `<section class="sp-panel sp-danger"><span class="sp-k">Danger zone</span><h3>Delete account</h3>` +
-    `<p class="sp-muted">Permanently delete your FenxTek account, profile and learning progress. This can’t be undone.</p>` +
-    `<button class="p-btn p-btn--block p-btn--sm sp-danger-btn" type="button" id="spDeleteAcc">${icon("i-trash")}<span>Delete my account</span></button></section>` +
-    `</aside></div>`;
+    `<a class="sp-row-link" href="https://wa.me/${support}?text=${encodeURIComponent(`Hi FenxTek, I need help with my account (${sid}).`)}" target="_blank" rel="noopener">${icon("i-wa")}<span>Help on WhatsApp</span>${icon("i-chev-r")}</a>` +
+    `</section>`;
+
+  const danger =
+    `<details class="sp-panel pf-danger"><summary><span>${icon("i-trash")}Delete account</span>${icon("i-chev-r")}</summary>` +
+    `<p class="sp-muted">Permanently delete your FenxTek account, profile and learning progress. Receipts the academy needs for its records are kept. This can’t be undone.</p>` +
+    `<button class="p-btn p-btn--block p-btn--sm sp-danger-btn" type="button" id="spDeleteAcc">${icon("i-trash")}<span>Delete my account</span></button></details>`;
+
+  const html =
+    `<div class="pf">` +
+    hero +
+    stats +
+    `<div class="pf-cols"><div class="pf-main">${checklist}${form}</div>` +
+    `<aside class="pf-side">${security}${profileWallet()}${referral}${links}${danger}</aside></div>` +
+    `</div>`;
+
   return {
     title: "Profile",
     crumb: "Account",
@@ -3288,27 +3431,80 @@ function vProfile() {
       $("#signOutBtn2", root).addEventListener("click", signOut);
       $("#spDeleteAcc", root).addEventListener("click", openDeleteAccount);
       const form = $("#profileForm", root);
+      const saveBtn = form.querySelector('button[type="submit"]');
+      const saveBar = $("#pfSave", root);
+      const saveTxt = $("#pfSaveTxt", root);
+      const read = () => {
+        const d = new FormData(form);
+        const s = (k) => String(d.get(k) || "").trim();
+        return { name: s("name"), phone: s("phone").replace(/\D/g, "").slice(0, 10), city: s("city"), exam: s("exam"), speed: num(s("speed")) || null, lang: s("lang"), dailyGoal: num(s("dailyGoal")) || null };
+      };
+      const initial = JSON.stringify(read());
+      const dirty = () => {
+        const on = JSON.stringify(read()) !== initial;
+        saveBtn.disabled = !on;
+        saveBar.classList.toggle("is-dirty", on);
+        saveTxt.innerHTML = on ? `${icon("i-edit")}Unsaved changes` : `${icon("i-check")}All changes saved`;
+      };
+      form.addEventListener("input", dirty);
+      form.addEventListener("change", dirty);
+      form.phone.addEventListener("input", () => {
+        const v = form.phone.value.replace(/\D/g, "").slice(0, 10);
+        if (v !== form.phone.value) form.phone.value = v;
+      });
       form.addEventListener("submit", (e) => {
         e.preventDefault();
-        const d = new FormData(form);
-        const name = String(d.get("name") || "").trim();
-        const phone = String(d.get("phone") || "").trim();
-        const exam = String(d.get("exam") || "").trim();
-        const speedRaw = String(d.get("speed") || "").trim();
-        if (name.length < 2) {
+        const v = read();
+        if (v.name.length < 2) {
           toast("Please enter your full name.", "err");
+          form.name.focus();
           return;
         }
-        busy(form.querySelector('button[type="submit"]'), "Saving", async () => {
+        if (v.phone && !/^[6-9]\d{9}$/.test(v.phone)) {
+          toast("Enter a valid 10-digit Indian mobile number.", "err");
+          form.phone.focus();
+          return;
+        }
+        busy(saveBtn, "Saving", async () => {
           try {
-            await dbUpdate(`users/${S.user.uid}`, { name, phone, exam, speed: speedRaw ? Number(speedRaw) : null, updatedAt: Date.now() });
-            Object.assign(S.profile, { name, phone, exam, speed: speedRaw ? Number(speedRaw) : null });
+            const rec = { name: v.name.slice(0, 80), phone: v.phone ? "+91" + v.phone : "", city: v.city.slice(0, 60), exam: v.exam, speed: v.speed, lang: v.lang || null, dailyGoal: v.dailyGoal, updatedAt: Date.now() };
+            await dbUpdate(`users/${S.user.uid}`, rec);
+            Object.assign(S.profile, rec);
             paintUser();
             toast("Profile saved");
+            render({ quiet: true });
           } catch (err) {
             toast(friendlyError(err), "err");
           }
         });
+      });
+      root.addEventListener("click", async (e) => {
+        const cp = e.target.closest("[data-pf-copy]");
+        if (cp) {
+          await copyText(cp.dataset.pfCopy);
+          toast("Copied");
+          return;
+        }
+        const fo = e.target.closest("[data-pf-focus]");
+        if (fo) {
+          const el = form.querySelector(`[name="${fo.dataset.pfFocus}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            setTimeout(() => el.focus({ preventScroll: true }), 350);
+          }
+          return;
+        }
+        const vf = e.target.closest("[data-pf-verify]");
+        if (vf) {
+          await busy(vf, "Sending", async () => {
+            try {
+              await sendVerification();
+              toast(`Verification link sent to ${email}. Open it, then reload this page.`);
+            } catch (err) {
+              toast(friendlyError(err), "err");
+            }
+          });
+        }
       });
     }
   };

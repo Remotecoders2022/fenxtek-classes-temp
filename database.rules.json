@@ -479,6 +479,15 @@
         },
         "notifSeen": {
           ".validate": "newData.isNumber()"
+        },
+        "city": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "lang": {
+          ".validate": "newData.isString() && newData.val().matches(/^(Hindi|English|Both)$/)"
+        },
+        "dailyGoal": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 600"
         }
       }
     },
@@ -1097,7 +1106,7 @@
           ".validate": "newData.isString() && newData.val().length <= 200"
         },
         "action": {
-          ".validate": "newData.isString() && newData.val().matches(/^(added|invited|removed|revoked|promoted|demoted|joined)$/)"
+          ".validate": "newData.isString() && newData.val().matches(/^(added|created|invited|removed|revoked|promoted|demoted|joined)$/)"
         },
         "target": {
           ".validate": "newData.isString() && newData.val().length <= 200"

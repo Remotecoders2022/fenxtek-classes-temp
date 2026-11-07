@@ -1,10 +1,12 @@
 /* ============================================================
    FENXTEK — admin-access.html
    Super admins add / remove admins, promote super admins, invite
-   people who haven't signed up yet and see the audit log.
+   people who haven't signed up yet, create a brand-new login
+   (email + password) for a new admin, and see the audit log.
    Not linked publicly; the CRM sidebar links here for super admins.
    ============================================================ */
-import { configured, waitForUser, signOutUser, dbGet, dbWatch, dbKey, dbUpdateRoot, isAdminEmail, sendVerification, friendlyError, ADMIN_EMAILS } from "./firebase.js?v=5";
+import { configured, waitForUser, signOutUser, dbGet, dbWatch, dbKey, dbUpdateRoot, isAdminEmail, sendVerification, friendlyError, ADMIN_EMAILS, initFirebase } from "./firebase.js?v=5";
+import { firebaseConfig } from "./firebase-config.js?v=3";
 import { ROLE_LABEL, emailKey, claimAdminInvite, ensureOwnerSeat, isSuperAdmin, isBuiltinSuper, BUILTIN_SUPERS } from "./admin-claim.js?v=2";
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -27,6 +29,7 @@ function alert(kind, msg) {
   const el = $("#aaAlert");
   el.hidden = false;
   el.className = `p-alert p-alert--${kind === "err" ? "err" : "ok"}`;
+  el.dataset.kind = kind === "err" ? "err" : "ok";
   el.textContent = msg;
   clearTimeout(alert.t);
   alert.t = setTimeout(() => (el.hidden = true), 7000);
@@ -113,6 +116,8 @@ async function init() {
   loadUsers();
 
   $("#aaForm").addEventListener("submit", onAdd);
+  $("#aaCreate").addEventListener("submit", onCreate);
+  bindCreateForm();
   $("#aaTeam").addEventListener("click", onTeam);
   $("#aaInvites").addEventListener("click", onInvite);
 }
@@ -193,6 +198,7 @@ function paint() {
 }
 
 const LOG_TEXT = {
+  created: (l) => `created a login for <b>${esc(l.target)}</b> with ${esc(ROLE_LABEL[l.role] || "Admin")} access`,
   added: (l) => `gave <b>${esc(l.target)}</b> ${esc(ROLE_LABEL[l.role] || "Admin")} access`,
   invited: (l) => `invited <b>${esc(l.target)}</b> as ${esc(ROLE_LABEL[l.role] || "Admin")}`,
   removed: (l) => `removed <b>${esc(l.target)}</b>`,
@@ -307,6 +313,236 @@ async function onInvite(e) {
     alert("ok", "Invite cancelled.");
   } catch (err) {
     alert("err", friendlyError(err));
+  }
+}
+
+/* ============================================================
+   Create a new login for an admin
+   The account is created on a short-lived second Firebase app
+   (in-memory auth), so the super admin's own session is untouched.
+   The new account writes its own users/<uid> profile; the super
+   admin then grants admins/<uid> (+ superadmins) in one update.
+   ============================================================ */
+const SDK = "https://www.gstatic.com/firebasejs/10.12.5";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function setMode(mode) {
+  document.querySelectorAll("[data-aa-mode]").forEach((b) => {
+    const on = b.dataset.aaMode === mode;
+    b.classList.toggle("is-on", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  $("#aaCreate").hidden = mode !== "create";
+  $("#aaForm").hidden = mode !== "grant";
+  $("#aaCreds").hidden = true;
+}
+
+function pwScore(pw) {
+  let n = 0;
+  if (pw.length >= 8) n++;
+  if (/[a-z]/i.test(pw) && /\d/.test(pw)) n++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) n++;
+  if (pw.length >= 12 || /[^A-Za-z0-9]/.test(pw)) n++;
+  return pw.length < 8 ? Math.min(n, 1) : n;
+}
+const PW_TEXT = ["Use 8+ characters with letters and numbers", "Too weak", "Okay", "Strong", "Very strong"];
+
+function makePassword() {
+  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "@#$%&*!?"];
+  const all = sets.join("");
+  const rnd = (n) => {
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0] % n;
+  };
+  const out = sets.map((set) => set[rnd(set.length)]);
+  while (out.length < 12) out.push(all[rnd(all.length)]);
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = rnd(i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
+}
+
+function paintMeter() {
+  const pw = $("#aaCreate").password.value;
+  const lvl = pw ? Math.max(1, pwScore(pw)) : 0;
+  const m = $("#aaMeter");
+  m.dataset.lvl = String(lvl);
+  m.querySelector("small").textContent = PW_TEXT[lvl];
+}
+
+function bindCreateForm() {
+  document.querySelectorAll("[data-aa-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.aaMode)));
+  const form = $("#aaCreate");
+  form.password.addEventListener("input", paintMeter);
+  form.querySelector("[data-aa-eye]").addEventListener("click", (e) => {
+    const show = form.password.type === "password";
+    form.password.type = show ? "text" : "password";
+    e.currentTarget.innerHTML = icon(show ? "i-x" : "i-eye");
+    e.currentTarget.title = show ? "Hide password" : "Show password";
+  });
+  form.querySelector("[data-aa-gen]").addEventListener("click", () => {
+    form.password.value = makePassword();
+    form.password.type = "text";
+    form.querySelector("[data-aa-eye]").innerHTML = icon("i-x");
+    paintMeter();
+  });
+  $("#aaCreds").addEventListener("click", onCreds);
+}
+
+const CREATE_ERR = {
+  "auth/email-already-in-use": "This email already has a FenxTek account. Use “Existing account” to give it admin access.",
+  "auth/invalid-email": "That email address doesn’t look right.",
+  "auth/weak-password": "Choose a stronger password (at least 8 characters with letters and numbers).",
+  "auth/operation-not-allowed": "Email/password sign-in is turned off. Enable it in Firebase Console → Authentication → Sign-in method.",
+  "auth/too-many-requests": "Too many attempts from this device. Wait a few minutes and try again.",
+  "auth/network-request-failed": "Network error — check your connection and try again."
+};
+
+async function createAccount(email, password, name) {
+  const f = await initFirebase();
+  const appMod = await import(`${SDK}/firebase-app.js`);
+  const app2 = appMod.initializeApp(firebaseConfig, `fx-create-${Date.now().toString(36)}`);
+  try {
+    const auth2 = f.a.getAuth(app2);
+    await f.a.setPersistence(auth2, f.a.inMemoryPersistence).catch(() => {});
+    const cred = await f.a.createUserWithEmailAndPassword(auth2, email, password);
+    const nu = cred.user;
+    if (name) await f.a.updateProfile(nu, { displayName: name }).catch(() => {});
+    /* the new account writes its own profile (users/<uid> is owner-only) */
+    let profiled = true;
+    try {
+      await f.d.set(f.d.ref(f.d.getDatabase(app2), `users/${nu.uid}`), { email, name, createdAt: Date.now() });
+    } catch (err) {
+      profiled = false;
+      console.warn("[access] new admin profile", err);
+    }
+    await f.a.signOut(auth2).catch(() => {});
+    return { uid: nu.uid, profiled };
+  } finally {
+    if (appMod.deleteApp) appMod.deleteApp(app2).catch(() => {});
+  }
+}
+
+async function onCreate(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const name = String(form.name.value || "").trim().replace(/\s+/g, " ").slice(0, 80);
+  const email = String(form.email.value || "").trim().toLowerCase();
+  const password = String(form.password.value || "");
+  const role = (form.querySelector('input[name="crole"]:checked') || {}).value === "super" ? "super" : "admin";
+  if (name.length < 2) return alert("err", "Enter the admin’s full name."), form.name.focus();
+  if (!EMAIL_RE.test(email)) return alert("err", "Enter a valid login email."), form.email.focus();
+  if (password.length < 8 || pwScore(password) < 2) return alert("err", "Use at least 8 characters with letters and numbers — or tap Generate."), form.password.focus();
+  if (role === "super" && !window.confirm(`Create ${email} as a SUPER admin? They’ll be able to add and remove admins.`)) return;
+
+  await busy(form.querySelector("button[type=submit]"), "Creating login…", async () => {
+    let acc;
+    try {
+      acc = await createAccount(email, password, name);
+    } catch (err) {
+      const code = String((err && err.code) || "");
+      alert("err", CREATE_ERR[code] || friendlyError(err));
+      if (code === "auth/email-already-in-use") {
+        setMode("grant");
+        $("#aaForm").email.value = email;
+      }
+      return;
+    }
+    const now = Date.now();
+    const me = String(X.user.email || "").toLowerCase();
+    const updates = {
+      [`admins/${acc.uid}`]: true,
+      [`adminMeta/${acc.uid}`]: { email, name, role, addedBy: me, at: now }
+    };
+    if (role === "super") updates[`superadmins/${acc.uid}`] = true;
+    Object.assign(updates, await logEntry("created", email, role));
+    try {
+      await dbUpdateRoot(updates);
+    } catch (err) {
+      alert("err", `The login for ${email} was created, but admin access couldn’t be saved (${friendlyError(err)}). Switch to “Existing account” and grant access to this email.`);
+      setMode("grant");
+      $("#aaForm").email.value = email;
+      loadUsers(true);
+      return;
+    }
+    let mailed = false;
+    if (form.mailLink.checked) {
+      try {
+        const f = await initFirebase();
+        await f.a.sendPasswordResetEmail(f.auth, email);
+        mailed = true;
+      } catch (err) {
+        console.warn("[access] set-password mail", err);
+      }
+    }
+    form.reset();
+    paintMeter();
+    form.password.type = "password";
+    form.querySelector("[data-aa-eye]").innerHTML = icon("i-eye");
+    showCreds({ name, email, password, role, mailed });
+    loadUsers(true);
+  });
+}
+
+function credsText(c) {
+  return (
+    `Hi ${c.name.split(" ")[0]}, your FenxTek ${c.role === "super" ? "super admin" : "admin"} login is ready.\n\n` +
+    `Sign in: ${location.origin}/auth.html?next=admin.html\n` +
+    `Email: ${c.email}\n` +
+    `Password: ${c.password}\n\n` +
+    `Please change your password after your first sign-in (Forgot password on the sign-in page).`
+  );
+}
+
+function showCreds(c) {
+  X.creds = c;
+  const box = $("#aaCreds");
+  $("#aaCreate").hidden = true;
+  box.hidden = false;
+  box.innerHTML =
+    `<div class="aa-creds-head"><span class="aa-creds-ok">${icon("i-check")}</span><div><b>Login created</b><small>${esc(c.name)} is now ${c.role === "super" ? "a super admin" : "an admin"}${c.mailed ? " · set-password email sent" : ""}</small></div></div>` +
+    `<dl class="aa-creds-list">` +
+    `<div><dt>Sign-in page</dt><dd>${esc(location.host)}/auth.html</dd></div>` +
+    `<div><dt>Email</dt><dd>${esc(c.email)}</dd></div>` +
+    `<div><dt>Password</dt><dd><code id="aaCredPw" data-shown="0">••••••••••••</code><button type="button" class="aa-mini" data-aa-cred="show">${icon("i-eye")}<span>Show</span></button></dd></div>` +
+    `</dl>` +
+    `<p class="aa-creds-warn">${icon("i-lock")}This password is shown only now. Share it privately — they can change it after signing in.</p>` +
+    `<div class="aa-creds-acts">` +
+    `<button type="button" class="p-btn p-btn--lime" data-aa-cred="copy">${icon("i-copy")}<span>Copy login details</span></button>` +
+    `<button type="button" class="p-btn p-btn--ghost" data-aa-cred="wa">${icon("i-wa")}<span>Share on WhatsApp</span></button>` +
+    `<button type="button" class="p-btn p-btn--ghost" data-aa-cred="done">${icon("i-plus")}<span>Create another</span></button>` +
+    `</div>`;
+  alert("ok", `Login created for ${c.email} with ${c.role === "super" ? "super admin" : "admin"} access.`);
+}
+
+async function onCreds(e) {
+  const b = e.target.closest("[data-aa-cred]");
+  if (!b || !X.creds) return;
+  const c = X.creds;
+  const act = b.dataset.aaCred;
+  if (act === "show") {
+    const code = $("#aaCredPw");
+    const shown = code.dataset.shown === "1";
+    code.textContent = shown ? "••••••••••••" : c.password;
+    code.dataset.shown = shown ? "0" : "1";
+    b.innerHTML = `${icon(shown ? "i-eye" : "i-x")}<span>${shown ? "Show" : "Hide"}</span>`;
+  } else if (act === "copy") {
+    try {
+      await navigator.clipboard.writeText(credsText(c));
+      alert("ok", "Login details copied — paste them in a private chat.");
+    } catch (err) {
+      window.prompt("Copy these login details:", credsText(c));
+    }
+  } else if (act === "wa") {
+    window.open(`https://wa.me/?text=${encodeURIComponent(credsText(c))}`, "_blank", "noopener");
+  } else if (act === "done") {
+    X.creds = null;
+    $("#aaCreds").hidden = true;
+    $("#aaCreds").innerHTML = "";
+    $("#aaCreate").hidden = false;
+    $("#aaCreate").name.focus();
   }
 }
 
