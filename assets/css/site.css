@@ -1807,6 +1807,10 @@ html.is-loading{overflow:hidden}
 .fx-go{flex:none;width:12px;height:12px;opacity:0;transform:translate(-4px,4px);transition:opacity .3s,transform .3s}
 .fx-col a:hover .fx-go{opacity:1;transform:none}
 .fx-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 28px;margin-top:clamp(20px,3vw,30px);padding:20px 0 28px;border-top:1px solid var(--line-d);font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.42)}
+.fx-legal{display:inline-flex;align-items:center;gap:10px}
+.fx-legal a{color:rgba(255,255,255,.6);transition:color .3s}
+.fx-legal a:hover{color:var(--lime)}
+.fx-legal i{font-style:normal;opacity:.32}
 .fx-up{display:inline-flex;align-items:center;gap:10px;padding:0;border:0;background:none;font:inherit;letter-spacing:inherit;text-transform:inherit;color:rgba(255,255,255,.7);cursor:pointer}
 .fx-up i{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--line-d);border-radius:50%;transition:background .3s,color .3s,border-color .3s,transform .4s var(--ease)}
 .fx-up svg{width:13px;height:13px}
