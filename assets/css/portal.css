@@ -1676,3 +1676,13 @@
 .ach-warn b{display:block;margin-bottom:2px}
 .ach-warn code{font-family:var(--mono,monospace);font-size:12px;padding:1px 5px;border-radius:5px;background:rgba(11,11,16,.06)}
 .ach-thumb img,.ach-drop-img{background:#fff}
+
+/* auth page: why we're asking for a login (arrived from "Explore courses") */
+.auth-context { display: flex; gap: 12px; align-items: flex-start; margin: 18px 0 4px; padding: 14px 16px; border-radius: 14px; background: var(--violet-soft, #DDD8FF); border: 1px solid rgba(90, 75, 255, 0.22); }
+.auth-context[hidden] { display: none; }
+.auth-context-ic { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--violet, #5A4BFF); color: #fff; }
+.auth-context-ic svg { width: 17px; height: 17px; }
+.auth-context-txt { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; color: #3b3a4a; }
+.auth-context-txt b { font-size: 14.5px; color: var(--ink); letter-spacing: -0.01em; }
+.auth-context-txt button { align-self: flex-start; margin-top: 6px; padding: 0; background: none; border: 0; font: inherit; font-weight: 600; color: var(--violet, #5A4BFF); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.auth-context-txt button[hidden] { display: none; }

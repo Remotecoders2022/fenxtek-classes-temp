@@ -1793,3 +1793,15 @@ html.fx-in-view .to-top{opacity:0;pointer-events:none;transform:translateY(16px)
 .buy-strip-go{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:12px 18px;border-radius:999px;background:var(--ink);color:var(--paper);flex:none}
 .buy-strip-go svg{width:14px;height:14px}
 @media (max-width:640px){.buy-strip{flex-wrap:wrap}.buy-strip-go{width:100%;justify-content:center}}
+
+/* ---------- home hero: portal login ---------- */
+.btn svg{flex:none}
+.hero-login .hero-login-ic{width:15px;height:15px;transform:none!important}
+.hero-sub-links{display:flex;flex-wrap:wrap;align-items:center;gap:6px 6px;margin-top:16px;font-size:13.5px;color:var(--muted)}
+.hero-sub-links a{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-color:rgba(11,11,16,.25);text-underline-offset:4px;transition:color .25s,text-decoration-color .25s}
+.hero-sub-links a:hover{color:var(--violet);text-decoration-color:currentColor}
+.hero-sub-links [hidden]{display:none!important}
+.hero-hello{display:inline-flex;align-items:center;gap:7px;padding:1px 10px 1px 1px;line-height:1.4;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.6)}
+.hero-hello b{color:var(--ink);font-weight:600}
+.hero-hello-av{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--violet);color:#fff;font-size:10px;font-weight:700;letter-spacing:.02em}
+.hero-sub-sep{opacity:.6}

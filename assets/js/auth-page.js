@@ -79,6 +79,27 @@ if (altBtn) {
 /* invite links (?mode=signup, or a referral next=dashboard.html#ref/CODE) open on "Create account" */
 if (signupForm && (new URLSearchParams(location.search).get("mode") === "signup" || /#ref\//i.test(safeNext()))) setTab("signup");
 
+/* Arriving from "Explore courses" (next=dashboard.html#store / #course/… / #cart):
+   explain why we ask for a login and offer a one-tap switch to sign-up. */
+(() => {
+  const box = document.getElementById("authContext");
+  const next = safeNext();
+  if (!box || !/^dashboard\.html#(store|course\/|cart)/i.test(next)) return;
+  box.innerHTML =
+    '<span class="auth-context-ic"><svg><use href="#i-book"/></svg></span>' +
+    '<span class="auth-context-txt"><b>Sign in to explore courses</b>' +
+    "Browse every course with prices and offers, and enroll right from your student portal." +
+    '<button type="button" data-ctx-signup>New here? Create a free account</button></span>';
+  box.hidden = false;
+  const btn = box.querySelector("[data-ctx-signup]");
+  btn.addEventListener("click", () => setTab("signup"));
+  const sync = () => { btn.hidden = currentTab === "signup"; };
+  tabs.forEach((t) => t.addEventListener("click", sync));
+  if (altBtn) altBtn.addEventListener("click", sync);
+  btn.addEventListener("click", sync);
+  sync();
+})();
+
 /* ---------------- profile ---------------- */
 
 async function ensureProfile(user, extra) {
