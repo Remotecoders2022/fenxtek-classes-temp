@@ -399,6 +399,88 @@
         ".read": "auth != null && root.child('enrollments').child(auth.uid).child($course).exists() && (root.child('enrollments').child(auth.uid).child($course).child('until').val() === 0 || root.child('enrollments').child(auth.uid).child($course).child('until').val() > now)"
       }
     },
+    "courseContent": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$course": {
+        ".read": "auth != null && root.child('enrollments').child(auth.uid).child($course).exists() && (root.child('enrollments').child(auth.uid).child($course).child('until').val() === 0 || root.child('enrollments').child(auth.uid).child($course).child('until').val() > now)",
+        "$item": {
+          ".validate": "newData.hasChildren(['type', 'title'])",
+          "type": {
+            ".validate": "newData.isString() && newData.val().matches(/^(folder|video|pdf|doc|web|audio|image|live|file)$/)"
+          },
+          "title": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
+          },
+          "parent": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "url": {
+            ".validate": "newData.isString() && newData.val().matches(/^https?:\\/\\//) && newData.val().length <= 2000"
+          },
+          "desc": {
+            ".validate": "newData.isString() && newData.val().length <= 2000"
+          },
+          "order": {
+            ".validate": "newData.isNumber()"
+          },
+          "mins": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "liveAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "free": {
+            ".validate": "newData.isBoolean()"
+          },
+          "hidden": {
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      }
+    },
+    "courseOutline": {
+      ".read": "true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+    },
+    "coursePreview": {
+      ".read": "true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$course": {
+        "$item": {
+          ".validate": "newData.isString() && newData.val().matches(/^https?:\\/\\//) && newData.val().length <= 2000"
+        }
+      }
+    },
+    "progress": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$course": {
+          "done": {
+            "$item": {
+              ".validate": "newData.isNumber()"
+            }
+          },
+          "last": {
+            ".validate": "newData.hasChildren(['id', 'at'])",
+            "id": {
+              ".validate": "newData.isString() && newData.val().length <= 40"
+            },
+            "at": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": "false"
+            }
+          },
+          "$other": {
+            ".validate": "false"
+          }
+        }
+      }
+    },
     "admins": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

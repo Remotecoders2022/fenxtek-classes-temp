@@ -25,6 +25,28 @@ import {
 import { membershipStatus, daysLeft, safeImageUrl, safeDataImage } from "./media.js?v=2";
 import { loadQR } from "./qr.js?v=1";
 import {
+  CC_PATH,
+  CC_ICONS,
+  ccIcon,
+  ccType,
+  safeLink,
+  detectType,
+  embedFor,
+  sourceLabel,
+  itemsList,
+  visibleList,
+  childrenOf,
+  pathTo,
+  descendantsOf,
+  leavesUnder,
+  countsLabel,
+  typeWord,
+  countByType,
+  minsLabel,
+  liveLabel,
+  isNew
+} from "./course-content.js?v=1";
+import {
   PATH,
   DAY,
   esc,
@@ -78,6 +100,9 @@ const S = {
   enroll: {}, // courseId -> { orderId, since, until, ... }
   member: null,
   invite: null, // pending memberInvites/<emailKey> (gift by email)
+  cc: {}, // courseId -> { ready, items, error } full course content (enrolled)
+  ccOut: {}, // courseId -> { ready, items, previews } public outline
+  progress: {}, // courseId -> { done: { itemId: ts }, last: { id, at } }
   plans: [],
   plansReady: false,
   batches: [],
@@ -118,7 +143,7 @@ const owns = (id) => {
    ============================================================ */
 const ROUTES = [
   { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content"] },
-  { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart"] },
+  { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart", "cc", "progress"] },
   { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member"] },
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
@@ -128,8 +153,8 @@ const ROUTES = [
   { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
   { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: [] },
   /* detail screens (not in the menu) */
-  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers"] },
-  { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll"] },
+  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress"] },
+  { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll", "cart", "cc", "progress", "content"] },
   { id: "success", parent: "orders", view: vSuccess, deps: ["orders"] },
   { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] },
   { id: "join", parent: "membership", view: vJoin, deps: ["plans", "member", "cart"] },
@@ -237,6 +262,7 @@ function render(opts = {}) {
   if (!out) return;
   setTitle(out.title, out.crumb || (route.parent ? routeById(route.parent).label : route.group));
   view.innerHTML = `<div class="sp-page sp-page--${route.id}${changedRoute && !opts.quiet ? " is-entering" : ""}">${out.html}</div>`;
+  current.out = out;
   if (out.mount) out.mount(view);
   hydrateCovers(view);
   if (changedRoute && !opts.quiet) {
@@ -263,6 +289,7 @@ function changed(key) {
     const r = current.route;
     if (!r || r.soon) return;
     if ((r.deps || []).some((d) => keys.has(d))) {
+      if (current.out && typeof current.out.update === "function" && current.out.update(keys) !== false) return;
       if (document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-sp-keep]")) return;
       render({ quiet: true });
     }
@@ -1129,6 +1156,19 @@ function stat(ic, value, label, href) {
 
 /* Learn tile (My courses + Home): cover with status pill and play button,
    a ring showing how much access is left, and Continue / Renew / Receipt. */
+function lcProgress(c, a) {
+  if (!a.active) return "";
+  const cc = S.cc[c.id];
+  if (!cc || !cc.ready || cc.error) return "";
+  const list = visibleList(itemsList(cc.items));
+  const leaves = list.filter((i) => i.type !== "folder");
+  if (!leaves.length) return "";
+  const done = (S.progress[c.id] && S.progress[c.id].done) || {};
+  const n = leaves.filter((i) => done[i.id]).length;
+  const pct = Math.round((n / leaves.length) * 100);
+  return `<div class="lc-prog"><span class="cc-bar"><i style="width:${pct}%"></i></span><small><b>${pct}%</b> complete · ${n}/${leaves.length} lessons</small></div>`;
+}
+
 function ownedCard(c) {
   const a = access(c.id) || { active: false, until: 0, daysLeft: 0, progress: 1 };
   const acc = accentOf(c.accent);
@@ -1157,6 +1197,7 @@ function ownedCard(c) {
     `<div class="lc-meter-txt"><b>${life ? "Lifetime access" : a.active ? `${a.daysLeft} of ${total} days left` : "Access ended"}</b>` +
     `<small>${life ? "Never expires" : a.active ? `Valid till ${esc(formatDate(a.until))}` : `Expired on ${esc(formatDate(a.until))}`}</small></div>` +
     `</div>` +
+    lcProgress(c, a) +
     `<div class="lc-acts">` +
     (a.active
       ? `<a class="sc-btn sc-btn--go" href="${learn}">${icon("i-play")}<span>Continue learning</span></a>`
@@ -1191,7 +1232,14 @@ function vMyCourses() {
           ? `<section class="sp-sec">${sectionHead("History", `Expired <span class="sp-pill-n">${expired.length}</span>`)}<div class="sp-lc-grid">${expired.map(ownedCard).join("")}</div></section>`
           : "")
       : empty("i-book", "You haven’t enrolled in a course yet", "Browse the store, add a course to your cart and apply a coupon if you have one.", `<a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-bolt")}<span>Explore courses</span></a>`));
-  return { title: "My courses", html, mount: bindAdd };
+  return {
+    title: "My courses",
+    html,
+    mount(root) {
+      bindAdd(root);
+      active.forEach((c) => ensureContent(c.id));
+    }
+  };
 }
 
 function vStore() {
@@ -1340,11 +1388,12 @@ function vCourse(id) {
     (c.features.length
       ? `<section class="sp-panel"><span class="sp-k">What you get</span><h3>Inside this course</h3><ul class="sp-checks">${c.features.map((x) => `<li>${icon("i-check")}<span>${esc(x)}</span></li>`).join("")}</ul></section>`
       : "") +
+    ccCurriculum(c) +
     (desc ? `<section class="sp-panel sp-prose"><span class="sp-k">About</span><h3>Course overview</h3>${desc}</section>` : "") +
     `<section class="sp-panel sp-howto"><span class="sp-k">How it works</span><h3>Enrol in three steps</h3><ol>` +
     `<li><b>Add to cart</b><span>Apply a coupon code if you have one.</span></li>` +
     `<li><b>Pay securely</b><span>Card, UPI or netbanking — receipt is instant.</span></li>` +
-    `<li><b>Start learning</b><span>Class links unlock under My courses.</span></li></ol></section>` +
+    `<li><b>Start learning</b><span>Lectures, notes and class links unlock under My courses.</span></li></ol></section>` +
     `</div>` +
     buyBox +
     `</div>`;
@@ -1355,6 +1404,7 @@ function vCourse(id) {
     mount(root) {
       bindAdd(root);
       $$("[data-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.buy, b, true)));
+      $$("[data-cc-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.ccBuy, b, true)));
       $$("[data-renew]", root).forEach((b) =>
         b.addEventListener("click", () => {
           const next = { ...S.cart, [c.id]: Date.now() };
@@ -1648,55 +1698,519 @@ function vReceipt(id) {
   };
 }
 
-function vLearn(id) {
-  const c = courseById(id) || (S.enroll[id] ? coursesFrom({ [id]: { title: S.enroll[id].title || "Course", price: 0, validityDays: 0 } }, { all: true })[0] : null);
-  const a = access(id);
-  if (!c || !a) {
-    return { title: "Course", html: empty("i-lock", "You’re not enrolled in this course", "Buy it from the store to unlock the classes.", `<a class="p-btn p-btn--sm" href="#course/${esc(id)}">${icon("i-bolt")}<span>View course</span></a>`) };
+/* ============================================================
+   classroom — course content (folders + link items)
+   #learn/<courseId>            folder browser (course root)
+   #learn/<courseId>/f/<folder> a folder
+   #learn/<courseId>/i/<item>   in-app viewer
+   Enrolled students (and admins) read courseContent/<id>; everyone
+   else sees the public outline with locks + free previews.
+   ============================================================ */
+const CCUI = { cid: "", q: "", type: "all" };
+
+function ensureContent(cid) {
+  const cur = S.cc[cid];
+  if (cur && (cur.ready || cur.loading)) return;
+  S.cc[cid] = { loading: true, ready: false, items: {} };
+  dbGet(`${CC_PATH.content}/${cid}`)
+    .then((snap) => {
+      S.cc[cid] = { ready: true, items: snapVal(snap) || {} };
+      changed("cc");
+      dbWatch(`${CC_PATH.content}/${cid}`, (v) => {
+        S.cc[cid] = { ready: true, items: v || {} };
+        changed("cc");
+      });
+    })
+    .catch((err) => {
+      S.cc[cid] = { ready: true, items: {}, error: friendlyError(err) };
+      changed("cc");
+    });
+}
+
+function ensureOutline(cid) {
+  const cur = S.ccOut[cid];
+  if (cur && (cur.ready || cur.loading)) return;
+  S.ccOut[cid] = { loading: true, ready: false, items: {}, previews: {} };
+  Promise.all([dbGet(`${CC_PATH.outline}/${cid}`), dbGet(`${CC_PATH.preview}/${cid}`).catch(() => null)])
+    .then(([o, p]) => {
+      S.ccOut[cid] = { ready: true, items: snapVal(o) || {}, previews: snapVal(p) || {} };
+      changed("cc");
+    })
+    .catch(() => {
+      S.ccOut[cid] = { ready: true, items: {}, previews: {} };
+      changed("cc");
+    });
+}
+
+/* everything a classroom view needs for one course */
+function classroom(cid) {
+  const a = access(cid);
+  const enrolled = Boolean(a && a.active);
+  const full = enrolled || S.admin;
+  if (full) ensureContent(cid);
+  else ensureOutline(cid);
+  const src = full ? S.cc[cid] : S.ccOut[cid];
+  const ready = Boolean(src && src.ready);
+  const list = ready ? visibleList(itemsList(src.items)) : [];
+  const p = S.progress[cid] || {};
+  return { a, enrolled, full, ready, list, previews: full ? {} : (src && src.previews) || {}, error: src && src.error, done: p.done || {}, last: p.last || null };
+}
+const ccUrl = (m, it) => (m.full ? safeLink(it.url) : safeLink(m.previews[it.id]));
+
+/* leaves in reading order: depth-first, folders before loose items */
+function ccFlat(list, parent = "") {
+  const out = [];
+  childrenOf(list, parent).forEach((i) => {
+    if (i.type === "folder") out.push(...ccFlat(list, i.id));
+    else out.push(i);
+  });
+  return out;
+}
+function ccStats(m, scope) {
+  const leaves = scope ? leavesUnder(m.list, scope) : m.list.filter((i) => i.type !== "folder");
+  const done = leaves.filter((i) => m.done[i.id]).length;
+  return { total: leaves.length, done, pct: leaves.length ? Math.round((done / leaves.length) * 100) : 0 };
+}
+function ccMeta(m, it) {
+  const bits = [ccType(it.type).label];
+  if (it.type === "live" && it.liveAt) bits.push(liveLabel(it.liveAt));
+  if (it.mins) bits.push(minsLabel(it.mins));
+  if (m.full && it.url) bits.push(sourceLabel(it.url));
+  return bits.filter(Boolean).join(" · ");
+}
+const ccHref = (cid, kind, id) => `#learn/${encodeURIComponent(cid)}${kind ? `/${kind}/${encodeURIComponent(id)}` : ""}`;
+
+function ccRing(pct, size = 64) {
+  const R = 26;
+  const L = +(2 * Math.PI * R).toFixed(2);
+  return `<span class="cc-ring" style="width:${size}px;height:${size}px"><svg viewBox="0 0 60 60" aria-hidden="true"><circle class="cc-ring-bg" cx="30" cy="30" r="${R}"/><circle class="cc-ring-fg" cx="30" cy="30" r="${R}" stroke-dasharray="${L}" stroke-dashoffset="${(L * (1 - pct / 100)).toFixed(2)}"/></svg><b>${pct}%</b></span>`;
+}
+
+function ccItemRow(c, m, it, { path, compact, current } = {}) {
+  const url = ccUrl(m, it);
+  const locked = !url;
+  const done = Boolean(m.done[it.id]);
+  const t = ccType(it.type);
+  const meta = (path ? path + " · " : "") + ccMeta(m, it);
+  const end = locked
+    ? `<span class="cc-end cc-end--lock" title="Enrol to unlock">${CC_ICONS.lock}</span>`
+    : !m.full && it.free
+    ? `<em class="cc-free">Free</em>`
+    : `<span class="cc-end${done ? " is-done" : ""}" title="${done ? "Completed" : "Not done yet"}">${done ? CC_ICONS.done : CC_ICONS.todo}</span>`;
+  return (
+    `<a class="cc-item${compact ? " cc-item--compact" : ""}${done ? " is-done" : ""}${locked ? " is-locked" : ""}${current ? " is-current" : ""}" href="${ccHref(c.id, "i", it.id)}" data-cc-item="${esc(it.id)}"${current ? ' aria-current="true"' : ""}>` +
+    `<span class="cc-tile cc-tone--${t.tone}">${ccIcon(it.type)}</span>` +
+    `<span class="cc-item-body"><b>${esc(it.title)}</b><small>${esc(meta)}${isNew(it) ? ` <i class="cc-new">New</i>` : ""}</small></span>` +
+    end +
+    `</a>`
+  );
+}
+
+function ccFolderCard(c, m, f) {
+  const leaves = leavesUnder(m.list, f.id);
+  const subs = descendantsOf(m.list, f.id).filter((d) => d.type === "folder").length;
+  const st = ccStats(m, f.id);
+  const free = !m.full ? leaves.filter((i) => i.free && m.previews[i.id]).length : 0;
+  return (
+    `<a class="cc-folder" href="${ccHref(c.id, "f", f.id)}">` +
+    `<span class="cc-tile cc-tone--folder">${CC_ICONS.folder}</span>` +
+    `<span class="cc-folder-body"><b>${esc(f.title)}</b><small>${esc([subs ? `${subs} folder${subs === 1 ? "" : "s"}` : "", leaves.length ? countsLabel(leaves) : "Empty"].filter(Boolean).join(" · "))}</small></span>` +
+    (m.full && st.total
+      ? `<span class="cc-folder-prog"><span class="cc-bar"><i style="width:${st.pct}%"></i></span><em>${st.done}/${st.total}</em></span>`
+      : !m.full
+      ? free
+        ? `<em class="cc-free">${free} free</em>`
+        : `<span class="cc-end cc-end--lock">${CC_ICONS.lock}</span>`
+      : "") +
+    `<span class="cc-chev">${icon("i-chev-r")}</span>` +
+    `</a>`
+  );
+}
+
+function ccListHTML(c, m, folderId) {
+  const q = CCUI.q.trim().toLowerCase();
+  const scope = folderId ? descendantsOf(m.list, folderId) : m.list;
+  if (q || CCUI.type !== "all") {
+    const order = ccFlat(m.list);
+    const hits = order.filter((i) => scope.includes(i) && (CCUI.type === "all" || i.type === CCUI.type) && (!q || String(i.title).toLowerCase().includes(q)));
+    if (!hits.length) return `<div class="cc-empty">${CC_ICONS.web}<b>Nothing found</b><span>${q ? `No ${CCUI.type === "all" ? "content" : typeWord(CCUI.type, 2)} matches “${esc(CCUI.q.trim())}”.` : `No ${typeWord(CCUI.type, 2)} here yet.`}</span></div>`;
+    return (
+      `<p class="cc-list-k">${hits.length} ${hits.length === 1 ? "result" : "results"}</p><div class="cc-items">` +
+      hits
+        .map((i) => {
+          const p = pathTo(m.list, i.id).slice(0, -1).map((x) => x.title);
+          return ccItemRow(c, m, i, { path: p.length ? p.join(" › ") : "" });
+        })
+        .join("") +
+      `</div>`
+    );
   }
+  const kids = childrenOf(m.list, folderId);
+  const folders = kids.filter((i) => i.type === "folder");
+  const items = kids.filter((i) => i.type !== "folder");
+  if (!kids.length) return `<div class="cc-empty">${CC_ICONS.folder}<b>This folder is empty</b><span>The academy hasn’t added anything here yet.</span></div>`;
+  return (
+    (folders.length ? `<div class="cc-folders">${folders.map((f) => ccFolderCard(c, m, f)).join("")}</div>` : "") +
+    (items.length ? `${folders.length ? `<p class="cc-list-k">Lessons &amp; files</p>` : ""}<div class="cc-items">${items.map((i) => ccItemRow(c, m, i)).join("")}</div>` : "")
+  );
+}
+
+function ccChipsHTML(m, folderId) {
+  const scope = (folderId ? descendantsOf(m.list, folderId) : m.list).filter((i) => i.type !== "folder");
+  const counts = countByType(scope);
+  const types = ["video", "pdf", "audio", "doc", "live", "web", "image", "file"].filter((t) => counts[t]);
+  if (types.length < 2) return "";
+  return (
+    `<div class="cc-chips" role="tablist">` +
+    [`<button type="button" class="cc-chip${CCUI.type === "all" ? " is-on" : ""}" data-cc-type="all">All <i>${scope.length}</i></button>`]
+      .concat(types.map((t) => `<button type="button" class="cc-chip cc-tone--${ccType(t).tone}${CCUI.type === t ? " is-on" : ""}" data-cc-type="${t}">${ccIcon(t)}${esc(ccType(t).plural)} <i>${counts[t]}</i></button>`))
+      .join("") +
+    `</div>`
+  );
+}
+
+function learnCourse(cid) {
+  return courseById(cid) || (S.enroll[cid] ? coursesFrom({ [cid]: { title: S.enroll[cid].title || "Course", price: 0, validityDays: 0 } }, { all: true })[0] : null);
+}
+
+function vLearn(arg) {
+  const [rawId, mode, sub] = String(arg || "").split("/");
+  const cid = rawId || "";
+  const c = learnCourse(cid);
+  if (!c) {
+    if (!S.coursesReady) return { title: "Course", crumb: "My courses", html: skeletonGrid(1) };
+    return { title: "Course", html: empty("i-search", "This course isn’t available", "It may have been removed. Browse the store for current courses.", `<a class="p-btn p-btn--sm" href="#store">${icon("i-arr")}<span>Back to store</span></a>`) };
+  }
+  if (CCUI.cid !== cid) Object.assign(CCUI, { cid, q: "", type: "all" });
+  const m = classroom(cid);
+  if (mode === "i" && sub) return vViewer(c, m, sub);
+  return vClassroom(c, m, mode === "f" ? sub || "" : "");
+}
+
+function vClassroom(c, m, folderId) {
+  const a = m.a;
+  const folder = folderId ? m.list.find((i) => i.id === folderId && i.type === "folder") : null;
+  if (folderId && m.ready && !folder) {
+    setTimeout(() => location.replace(ccHref(c.id)), 0);
+    return { title: c.title, crumb: "My courses", html: "" };
+  }
+  const leaves = m.list.filter((i) => i.type !== "folder");
+  const st = ccStats(m, folderId || "");
+  const order = folderId ? ccFlat(m.list, folderId) : ccFlat(m.list);
+  const last = m.last && order.find((i) => i.id === m.last.id);
+  const next = m.full ? last || order.find((i) => !m.done[i.id]) || order[0] : order.find((i) => i.free && m.previews[i.id]);
+  const counts = countByType(m.list);
+  const statBits = [];
+  if (counts.folder) statBits.push([CC_ICONS.folder, `${counts.folder} folder${counts.folder === 1 ? "" : "s"}`]);
+  ["video", "pdf", "audio", "doc", "live", "web", "image", "file"].forEach((t) => counts[t] && statBits.push([ccIcon(t), `${counts[t]} ${typeWord(t, counts[t])}`]));
+  const freeN = !m.full ? leaves.filter((i) => i.free && m.previews[i.id]).length : 0;
+
+  const accessLine = m.enrolled
+    ? a.until
+      ? `Access till ${formatDate(a.until)} · ${a.daysLeft} day${a.daysLeft === 1 ? "" : "s"} left`
+      : "Lifetime access"
+    : a && !a.active
+    ? `Your access ended on ${formatDate(a.until)}`
+    : S.admin
+    ? "Admin preview — students see this once enrolled"
+    : `${validityLabel(c.validityDays)} · ${money(c.price)}`;
+
+  const side = m.full
+    ? `<div class="cc-hero-prog">${ccRing(st.pct)}<div><b>${st.done} of ${st.total} done</b><small>${st.total ? (st.done === st.total ? (folder ? "Folder completed — great work!" : "Course completed — great work!") : folder ? "in this folder" : "Keep the streak going") : "Content coming soon"}</small></div></div>` +
+      (next ? `<a class="p-btn p-btn--lime p-btn--sm" href="${ccHref(c.id, "i", next.id)}">${icon("i-play")}<span>${last ? "Continue" : "Start learning"}</span></a>` : "")
+    : (a && !a.active
+        ? `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-add="${esc(c.id)}">${icon("i-refresh")}<span>Renew course</span></button>`
+        : S.cart[c.id]
+        ? `<a class="p-btn p-btn--lime p-btn--sm" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
+        : courseById(c.id)
+        ? `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-cc-buy="${esc(c.id)}">${icon("i-bolt")}<span>Enrol · ${money(c.price)}</span></button>`
+        : "") + (next ? `<a class="p-btn p-btn--ghost sp-btn-onDark p-btn--sm" href="${ccHref(c.id, "i", next.id)}">${icon("i-play")}<span>Watch free preview</span></a>` : "");
+
+  const crumbs = pathTo(m.list, folderId);
   const html =
-    `<a class="sp-back" href="#my-courses">${icon("i-chev-l")}My courses</a>` +
-    `<section class="sp-learn-head">${cover(c, "sm")}<div><span class="sp-k">${a.active ? "Enrolled" : "Expired"}</span><h2>${esc(c.title)}</h2>` +
-    `<p>${a.until ? (a.active ? `Access till ${formatDate(a.until)} · ${a.daysLeft} days left` : `Expired on ${formatDate(a.until)}`) : "Lifetime access"}</p>` +
-    `<span class="sp-bar sp-bar--wide"><i style="width:${a.until ? Math.round((1 - a.progress) * 100) : 100}%"></i></span></div></section>` +
-    (a.active
-      ? `<section class="sp-panel" id="spAccess"><div class="sp-skel"></div><div class="sp-skel sp-skel--short"></div></section>`
-      : `<section class="sp-panel">${empty("i-refresh", "Your access has ended", "Renew to unlock the classes again — any coupon offers apply.", `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-add="${esc(c.id)}">${icon("i-cart")}<span>Renew course</span></button>`)}</section>`);
+    `<a class="sp-back" href="${folder ? ccHref(c.id, folder.parent ? "f" : "", folder.parent || "") : m.enrolled ? "#my-courses" : `#course/${esc(c.id)}`}">${icon("i-chev-l")}${folder ? esc(folder.parent ? (m.list.find((i) => i.id === folder.parent) || {}).title || "Back" : "All content") : m.enrolled ? "My courses" : "Course details"}</a>` +
+    `<section class="cc-hero${folder ? " cc-hero--folder" : ""}">` +
+    `<div class="cc-hero-cover">${cover(c, "sm")}</div>` +
+    `<div class="cc-hero-body"><span class="sp-k sp-k--light">${m.enrolled ? "Enrolled" : a && !a.active ? "Expired" : S.admin ? "Admin preview" : "Course preview"}</span>` +
+    `<h2>${esc(folder ? folder.title : c.title)}</h2>` +
+    `<p>${folder ? esc(folder.desc || `In ${c.title}`) : esc(accessLine)}</p>` +
+    (statBits.length && !folder ? `<div class="cc-hero-stats">${statBits.slice(0, 5).map(([ic, t]) => `<span>${ic}${esc(t)}</span>`).join("")}${freeN ? `<span class="is-free">${CC_ICONS.eye}${freeN} free preview${freeN === 1 ? "" : "s"}</span>` : ""}</div>` : "") +
+    `</div>` +
+    `<div class="cc-hero-side">${side}</div>` +
+    `</section>` +
+    (m.full && !folderId ? `<section class="cc-notice" id="ccNotice" hidden></section>` : "") +
+    (!m.ready
+      ? `<div class="cc-skel">${[0, 1, 2, 3].map(() => `<div class="sp-skel"></div>`).join("")}</div>`
+      : m.error
+      ? empty("i-info", "Couldn’t load the course content", m.error, `<button class="p-btn p-btn--sm" type="button" data-cc-retry>${icon("i-refresh")}<span>Try again</span></button>`)
+      : !m.list.length
+      ? empty("i-book", m.full ? "Your classroom is being set up" : "Course content is on its way", m.full ? "The academy is adding lectures, notes and files. Check back soon — new content appears here automatically." : "The syllabus will appear here once the academy publishes it.", "")
+      : `<div class="cc-toolbar" data-sp-keep>` +
+        `<nav class="cc-crumbs" aria-label="Folder path"><a href="${ccHref(c.id)}"${crumbs.length ? "" : ' aria-current="page"'}>${CC_ICONS.folder}<span>All content</span></a>${crumbs
+          .map((f, i) => `<span class="cc-sep">›</span><a href="${ccHref(c.id, "f", f.id)}"${i === crumbs.length - 1 ? ' aria-current="page"' : ""}>${esc(f.title)}</a>`)
+          .join("")}</nav>` +
+        `<label class="cc-search">${icon("i-search")}<input type="search" id="ccQ" placeholder="Search ${folder ? "this folder" : "lectures, notes, files"}" value="${esc(CCUI.q)}" autocomplete="off"></label>` +
+        `</div>` +
+        `<div id="ccChips">${ccChipsHTML(m, folderId)}</div>` +
+        `<div class="cc-list" id="ccList">${ccListHTML(c, m, folderId)}</div>`);
+
   return {
-    title: c.title,
-    crumb: "My courses",
+    title: folder ? folder.title : c.title,
+    crumb: folder ? c.title : m.enrolled ? "My courses" : "Course store",
     html,
     mount(root) {
       bindAdd(root);
-      if (!a.active) return;
-      dbGet(`${PATH.courseAccess}/${id}`)
-        .then((snap) => {
-          const v = (snap && snap.val && snap.val()) || {};
-          const links = Array.isArray(v.links) ? v.links.filter(Boolean) : Object.values(v.links || {});
-          const box = $("#spAccess", root);
-          if (!box) return;
-          box.innerHTML =
-            `<span class="sp-k">Classroom</span><h3>Your class links</h3>` +
-            (v.message ? `<p class="sp-learn-msg">${esc(v.message)}</p>` : "") +
-            (links.length
-              ? `<div class="sp-res">${links
-                  .map((l) => {
-                    const url = safeImageUrl(l.url);
-                    if (!url) return "";
-                    const kind = /t\.me|telegram/i.test(url) ? "i-send" : /youtu/i.test(url) ? "i-play" : /zoom|meet\.google/i.test(url) ? "i-live" : /drive|docs\.google|\.pdf/i.test(url) ? "i-file" : "i-link";
-                    return `<a class="sp-res-a" href="${esc(url)}" target="_blank" rel="noopener">${icon(kind)}<span><b>${esc(l.label || "Open link")}</b><small>${esc(url.replace(/^https?:\/\//, "").slice(0, 48))}</small></span>${icon("i-arr-ur")}</a>`;
-                  })
-                  .join("")}</div>`
-              : !v.message
-              ? `<p class="sp-muted">Your classroom is being set up. The academy will add class links, recordings and PDFs here — check back soon or message us on Telegram.</p>`
-              : "");
-        })
-        .catch(() => {
-          const box = $("#spAccess", root);
-          if (box) box.innerHTML = `<p class="sp-muted">Class links will appear here once the academy publishes them.</p>`;
+      $$("[data-cc-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.ccBuy, b, true)));
+      const retry = $("[data-cc-retry]", root);
+      if (retry)
+        retry.addEventListener("click", () => {
+          delete S.cc[c.id];
+          render({ quiet: true });
+        });
+      const q = $("#ccQ", root);
+      const repaint = () => {
+        const list = $("#ccList", root);
+        if (list) list.innerHTML = ccListHTML(c, classroom(c.id), folderId);
+        const chips = $("#ccChips", root);
+        if (chips) chips.innerHTML = ccChipsHTML(classroom(c.id), folderId);
+      };
+      if (q) q.addEventListener("input", () => {
+        CCUI.q = q.value;
+        repaint();
+      });
+      root.addEventListener("click", (e) => {
+        const chip = e.target.closest("[data-cc-type]");
+        if (!chip) return;
+        CCUI.type = chip.dataset.ccType;
+        repaint();
+      });
+      const notice = $("#ccNotice", root);
+      if (notice && (m.enrolled || S.admin))
+        dbGet(`${PATH.courseAccess}/${c.id}`)
+          .then((snap) => {
+            const v = snapVal(snap) || {};
+            const links = (Array.isArray(v.links) ? v.links : Object.values(v.links || {})).filter((l) => l && safeImageUrl(l.url));
+            if (!v.message && !links.length) return;
+            notice.hidden = false;
+            notice.innerHTML =
+              `<span class="cc-notice-ic">${icon("i-bolt")}</span><div class="cc-notice-body"><span class="sp-k">Notice board</span>` +
+              (v.message ? `<p>${esc(v.message)}</p>` : "") +
+              (links.length
+                ? `<div class="cc-notice-links">${links
+                    .map((l) => {
+                      const url = safeImageUrl(l.url);
+                      const t = detectType(url);
+                      return `<a href="${esc(url)}" target="_blank" rel="noopener"><span class="cc-tile cc-tile--sm cc-tone--${ccType(t).tone}">${ccIcon(t)}</span><span>${esc(l.label || "Open link")}</span>${icon("i-arr-ur")}</a>`;
+                    })
+                    .join("")}</div>`
+                : "") +
+              `</div>`;
+          })
+          .catch(() => {});
+    }
+  };
+}
+
+function ccPlayer(c, m, it, url) {
+  if (!url) {
+    return (
+      `<div class="cc-player cc-player--locked"><span class="cc-lock-ic">${CC_ICONS.lock}</span><b>Enrol to unlock this ${esc(typeWord(it.type, 1))}</b>` +
+      `<p>Get every lecture, note and file in ${esc(c.title)}${c.validityDays ? ` for ${esc(validityLabel(c.validityDays).replace(" access", ""))}` : ""}.</p>` +
+      (courseById(c.id) ? (S.cart[c.id] ? `<a class="p-btn p-btn--lime p-btn--sm" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>` : `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-cc-buy="${esc(c.id)}">${icon("i-bolt")}<span>Enrol · ${money(c.price)}</span></button>`) : "") +
+      `</div>`
+    );
+  }
+  const e = embedFor(url, it.type);
+  const t = ccType(it.type);
+  if (it.type === "live") {
+    const start = num(it.liveAt);
+    const endAt = start + Math.max(30, num(it.mins) || 90) * 60000;
+    const now = Date.now();
+    const state = !start ? "" : now < start - 15 * 60000 ? "soon" : now <= endAt ? "live" : "ended";
+    if (e.mode !== "iframe" || state !== "ended")
+      return (
+        `<div class="cc-player cc-player--card cc-player--live"><span class="cc-tile cc-tile--lg cc-tone--live">${CC_ICONS.live}</span>` +
+        `<span class="cc-live-state cc-live-state--${state || "open"}">${state === "live" ? "● Live now" : state === "soon" ? "Upcoming" : state === "ended" ? "Ended" : "Live class"}</span>` +
+        `<b>${start ? esc(liveLabel(start)) : esc(it.title)}</b><p>${esc(sourceLabel(url))} · opens in a new tab</p>` +
+        `<a class="p-btn p-btn--lime" href="${esc(url)}" target="_blank" rel="noopener" data-cc-open>${icon("i-live")}<span>${state === "ended" ? "Open link" : "Join live class"}</span></a></div>`
+      );
+  }
+  if (e.mode === "iframe")
+    return (
+      `<div class="cc-player cc-player--${e.ratio === "16/9" ? "wide" : "doc"}"><iframe src="${esc(e.src)}" title="${esc(it.title)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"${
+        e.web ? ' sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation allow-downloads"' : ""
+      }></iframe></div>`
+    );
+  if (e.mode === "video") return `<div class="cc-player cc-player--wide"><video src="${esc(e.src)}" controls playsinline preload="metadata" controlslist="nodownload" data-cc-media></video></div>`;
+  if (e.mode === "audio")
+    return `<div class="cc-player cc-player--audio"><span class="cc-tile cc-tile--lg cc-tone--audio">${CC_ICONS.audio}</span><div class="cc-audio-body"><b>${esc(it.title)}</b><small>${esc(ccMeta(m, it))}</small><audio src="${esc(e.src)}" controls preload="metadata" controlslist="nodownload" data-cc-media></audio></div></div>`;
+  if (e.mode === "image") return `<div class="cc-player cc-player--img"><img src="${esc(e.src)}" alt="${esc(it.title)}"></div>`;
+  return (
+    `<div class="cc-player cc-player--card"><span class="cc-tile cc-tile--lg cc-tone--${t.tone}">${ccIcon(it.type)}</span><b>${esc(it.title)}</b>` +
+    `<p>${esc(sourceLabel(url))} · opens in a new tab</p>` +
+    `<a class="p-btn p-btn--lime" href="${esc(url)}" target="_blank" rel="noopener" data-cc-open>${CC_ICONS.ext}<span>${esc(t.open)} ${esc(t.label.toLowerCase())}</span></a></div>`
+  );
+}
+
+function ccSideHTML(c, m, it) {
+  const sibs = childrenOf(m.list, it.parent).filter((i) => i.type !== "folder");
+  const parent = it.parent ? m.list.find((i) => i.id === it.parent) : null;
+  const st = ccStats(m, it.parent || "");
+  const doneHere = sibs.filter((i) => m.done[i.id]).length;
+  return (
+    `<div class="cc-side-head"><span class="sp-k">${parent ? "In this folder" : "Course content"}</span><b>${esc(parent ? parent.title : c.title)}</b>` +
+    (m.full ? `<small>${doneHere} of ${sibs.length} done${parent ? ` · course ${st.pct}%` : ""}</small>` : `<small>${sibs.length} item${sibs.length === 1 ? "" : "s"}</small>`) +
+    `</div><div class="cc-side-list">${sibs.map((i) => ccItemRow(c, m, i, { compact: true, current: i.id === it.id })).join("")}</div>` +
+    `<a class="cc-side-all" href="${ccHref(c.id, parent ? "f" : "", parent ? parent.id : "")}">${CC_ICONS.folder}<span>${parent ? "Open folder" : "All content"}</span>${icon("i-chev-r")}</a>`
+  );
+}
+
+function ccDoneBtn(m, it) {
+  const done = Boolean(m.done[it.id]);
+  return `<button class="p-btn p-btn--sm cc-done-btn${done ? " is-done" : ""}" type="button" data-cc-done>${done ? CC_ICONS.done : CC_ICONS.todo}<span>${done ? "Completed" : "Mark as complete"}</span></button>`;
+}
+
+function ccSetDone(cid, iid, on) {
+  const p = (S.progress[cid] = { ...(S.progress[cid] || {}) });
+  p.done = { ...(p.done || {}) };
+  if (on) p.done[iid] = Date.now();
+  else delete p.done[iid];
+  changed("progress");
+  dbSet(`${CC_PATH.progress}/${S.user.uid}/${cid}/done/${iid}`, on ? Date.now() : null).catch((err) => toast(friendlyError(err), "err"));
+}
+
+function vViewer(c, m, iid) {
+  const base = { title: c.title, crumb: m.enrolled ? "My courses" : "Course store" };
+  if (!m.ready) return { ...base, html: `<div class="cc-view"><div class="cc-view-main"><div class="cc-player cc-player--wide sp-skel"></div></div></div>` };
+  const it = m.list.find((i) => i.id === iid);
+  if (!it)
+    return {
+      ...base,
+      html: empty("i-search", "This item isn’t available", "It may have been moved or removed by the academy.", `<a class="p-btn p-btn--sm" href="${ccHref(c.id)}">${CC_ICONS.folder}<span>All content</span></a>`)
+    };
+  if (it.type === "folder") {
+    setTimeout(() => location.replace(ccHref(c.id, "f", it.id)), 0);
+    return { ...base, html: "" };
+  }
+  const url = ccUrl(m, it);
+  const order = ccFlat(m.list);
+  const idx = order.findIndex((i) => i.id === it.id);
+  const prev = idx > 0 ? order[idx - 1] : null;
+  const nxt = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
+  const parent = it.parent ? m.list.find((i) => i.id === it.parent) : null;
+  const t = ccType(it.type);
+  const e = url ? embedFor(url, it.type) : { mode: "" };
+  const desc = String(it.desc || "").trim();
+  const html =
+    `<a class="sp-back" href="${ccHref(c.id, parent ? "f" : "", parent ? parent.id : "")}">${icon("i-chev-l")}${esc(parent ? parent.title : c.title)}</a>` +
+    `<div class="cc-view">` +
+    `<div class="cc-view-main">` +
+    ccPlayer(c, m, it, url) +
+    (e.web ? `<p class="cc-embed-note">${icon("i-info")}Page not loading? Some websites block being shown inside apps — <a href="${esc(url)}" target="_blank" rel="noopener">open it in a new tab</a>.</p>` : "") +
+    (e.alt ? `<p class="cc-embed-note">${icon("i-info")}PDF not showing? <a href="${esc(e.alt)}" target="_blank" rel="noopener">Open the original file</a>.</p>` : "") +
+    `<div class="cc-vhead">` +
+    `<div class="cc-vtags"><span class="cc-vtag cc-tone--${t.tone}">${ccIcon(it.type)}${esc(t.label)}</span>${!m.full && it.free ? `<span class="cc-free">Free preview</span>` : ""}${isNew(it) ? `<span class="cc-new">New</span>` : ""}</div>` +
+    `<h2>${esc(it.title)}</h2>` +
+    `<p class="cc-vmeta">${esc([pathTo(m.list, it.id).slice(0, -1).map((x) => x.title).join(" › ") || c.title, it.mins ? minsLabel(it.mins) : "", it.createdAt ? "Added " + formatDate(num(it.createdAt)) : ""].filter(Boolean).join(" · "))}</p>` +
+    `</div>` +
+    `<div class="cc-vacts">` +
+    (url ? `<span data-cc-done-slot>${ccDoneBtn(m, it)}</span>` : "") +
+    (url ? `<a class="p-btn p-btn--ghost p-btn--sm" href="${esc(e.alt || url)}" target="_blank" rel="noopener">${CC_ICONS.ext}<span>Open in new tab</span></a>` : "") +
+    `<span class="cc-vacts-sp"></span>` +
+    (prev ? `<a class="p-btn p-btn--ghost p-btn--sm" href="${ccHref(c.id, "i", prev.id)}" title="${esc(prev.title)}">${icon("i-chev-l")}<span>Previous</span></a>` : "") +
+    (nxt ? `<a class="p-btn p-btn--sm" href="${ccHref(c.id, "i", nxt.id)}" title="${esc(nxt.title)}"><span>Next</span>${icon("i-chev-r")}</a>` : "") +
+    `</div>` +
+    (desc ? `<section class="cc-desc">${desc.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("")}</section>` : "") +
+    `</div>` +
+    `<aside class="cc-side" data-cc-side>${ccSideHTML(c, m, it)}</aside>` +
+    `</div>`;
+
+  let root = null;
+  const patch = () => {
+    const m2 = classroom(c.id);
+    const it2 = m2.list.find((i) => i.id === iid);
+    if (!root || !root.isConnected || !it2) return false;
+    const slot = $("[data-cc-done-slot]", root);
+    if (slot) slot.innerHTML = ccDoneBtn(m2, it2);
+    const side = $("[data-cc-side]", root);
+    if (side) {
+      const scroll = ($(".cc-side-list", side) || {}).scrollTop || 0;
+      side.innerHTML = ccSideHTML(c, m2, it2);
+      const l = $(".cc-side-list", side);
+      if (l) l.scrollTop = scroll;
+    }
+    return true;
+  };
+  return {
+    title: it.title,
+    crumb: c.title,
+    html,
+    /* progress / live content changes patch the page instead of re-rendering,
+       so a playing video is never reloaded */
+    update(keys) {
+      const m2 = classroom(c.id);
+      if (m2.full !== m.full || m2.ready !== m.ready) return false;
+      const it2 = m2.list.find((i) => i.id === iid);
+      if (!it2 || ccUrl(m2, it2) !== url || it2.type !== it.type || it2.title !== it.title || String(it2.desc || "") !== String(it.desc || "")) return false;
+      if (keys.has("cc") && ccFlat(m2.list).map((i) => i.id).join() !== order.map((i) => i.id).join()) return false;
+      return patch();
+    },
+    mount(r) {
+      root = r;
+      bindAdd(r);
+      $$("[data-cc-buy]", r).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.ccBuy, b, true)));
+      if (!url) return;
+      const p = S.progress[c.id] || {};
+      if (!p.last || p.last.id !== iid) {
+        S.progress[c.id] = { ...p, last: { id: iid, at: Date.now() } };
+        dbSet(`${CC_PATH.progress}/${S.user.uid}/${c.id}/last`, { id: iid, at: Date.now() }).catch(() => {});
+      }
+      /* notes, links and files count as done once opened; videos/audio when finished or ticked */
+      const media = ["video", "audio", "live"].includes(it.type);
+      if (!media && !m.done[iid]) setTimeout(() => ccSetDone(c.id, iid, true), 1500);
+      r.addEventListener("click", (ev) => {
+        if (ev.target.closest("[data-cc-done]")) ccSetDone(c.id, iid, !classroom(c.id).done[iid]);
+        if (ev.target.closest("[data-cc-open]") && it.type === "live" && !classroom(c.id).done[iid]) ccSetDone(c.id, iid, true);
+      });
+      const el = $("[data-cc-media]", r);
+      if (el)
+        el.addEventListener("ended", () => {
+          if (!classroom(c.id).done[iid]) {
+            ccSetDone(c.id, iid, true);
+            toast(nxt ? `Completed — up next: ${nxt.title}` : "Completed — that’s the last item in this course!");
+          }
         });
     }
   };
+}
+
+/* curriculum block for the course details page (public outline) */
+function ccCurriculum(c) {
+  const m = classroom(c.id);
+  if (!m.ready || !m.list.length) return m.ready ? "" : `<section class="sp-panel cc-curr"><div class="sp-skel"></div><div class="sp-skel sp-skel--short"></div></section>`;
+  const leaves = m.list.filter((i) => i.type !== "folder");
+  const counts = countByType(m.list);
+  const free = ccFlat(m.list).filter((i) => ccUrl(m, i) && (!m.full || i.free)).filter((i) => i.free);
+  const top = childrenOf(m.list, "");
+  const mins = leaves.reduce((s, i) => s + num(i.mins), 0);
+  const bits = [counts.folder ? `${counts.folder} folder${counts.folder === 1 ? "" : "s"}` : "", countsLabel(leaves, { max: 4 }), mins ? minsLabel(mins) + " of video & audio" : ""].filter(Boolean);
+  return (
+    `<section class="sp-panel cc-curr">` +
+    `<div class="cc-curr-head"><div><span class="sp-k">Curriculum</span><h3>Course content</h3><p class="sp-muted sp-small">${esc(bits.join(" · "))}</p></div>` +
+    `<a class="p-btn p-btn--ghost p-btn--sm" href="${ccHref(c.id)}">${CC_ICONS.folder}<span>${m.full ? "Open classroom" : "Browse content"}</span></a></div>` +
+    (free.length && !m.full
+      ? `<div class="cc-demo"><span class="p-label">Free previews</span><div class="cc-demo-row">${free
+          .slice(0, 6)
+          .map((i) => `<a class="cc-demo-a" href="${ccHref(c.id, "i", i.id)}"><span class="cc-tile cc-tile--sm cc-tone--${ccType(i.type).tone}">${ccIcon(i.type)}</span><span><b>${esc(i.title)}</b><small>${esc(ccMeta(m, i))}</small></span>${icon("i-play")}</a>`)
+          .join("")}</div></div>`
+      : "") +
+    `<div class="cc-curr-list">${top
+      .slice(0, 8)
+      .map((i) => (i.type === "folder" ? ccFolderCard(c, m, i) : ccItemRow(c, m, i)))
+      .join("")}</div>` +
+    (top.length > 8 ? `<a class="cc-side-all" href="${ccHref(c.id)}">${CC_ICONS.folder}<span>See all ${top.length} sections</span>${icon("i-chev-r")}</a>` : "") +
+    `</section>`
+  );
 }
 
 function vMembership(focus) {
@@ -2332,6 +2846,10 @@ async function init() {
     S.plansReady = true;
     changed("plans");
     changed("cart");
+  });
+  dbWatch(`${CC_PATH.progress}/${user.uid}`, (v) => {
+    S.progress = v && typeof v === "object" ? v : {};
+    changed("progress");
   });
   dbWatch(`members/${user.uid}`, (v) => {
     S.member = v;
