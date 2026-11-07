@@ -12,9 +12,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=11">
 <link rel="stylesheet" href="assets/css/portal.css?v=8">
-<link rel="stylesheet" href="assets/css/store.css?v=12">
+<link rel="stylesheet" href="assets/css/store.css?v=13">
 <link rel="stylesheet" href="assets/css/fest.css?v=1">
-<link rel="stylesheet" href="assets/css/admin.css?v=4">
+<link rel="stylesheet" href="assets/css/admin.css?v=5">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin" class="crm-body">
@@ -592,13 +592,14 @@
             <div class="crm-panel-head">
               <div>
                 <h2>EMI &amp; part payments</h2>
-                <p>Every instalment plan students are paying. Each part arrives as a normal order — approve UPI parts in <b>Orders</b>. Access stays open until the next due date (+5 days grace) and pauses automatically if a part is missed; the final part unlocks the full validity. Turn EMI on per course in <b>Courses → Edit → Pay in parts</b>.</p>
+                <p>Every instalment plan students are paying. Each part arrives as a normal order — approve UPI parts in <b>Orders</b>. Access stays open until the next due date (+5 days grace) and pauses automatically if a part is missed; the final part unlocks the full validity. Switch on EMI for every course below, or fine-tune one course in <b>Courses → Edit → Pay in parts</b>.</p>
               </div>
               <div class="crm-top-actions">
                 <button class="p-btn p-btn--lime p-btn--sm" id="emRemindAll" type="button"><span>Remind everyone due</span><svg><use href="#i-bell"/></svg></button>
               </div>
             </div>
-            <div class="crm-stats" id="emStats"></div>
+            <form class="crm-card em-all" id="emAll" novalidate><p class="em-all-note">Loading EMI settings…</p></form>
+            <div class="crm-stats" id="emStats" style="margin-top:16px"></div>
             <div class="as-toolbar" style="margin-top:16px">
               <div class="em-chips" id="emChips"></div>
               <input class="p-input as-grow" id="emQ" type="search" placeholder="Search student, phone, course, order no…">
@@ -869,6 +870,6 @@
 <script src="assets/js/chrome.js?v=13"></script>
 <script src="assets/js/site.js?v=5"></script>
 <script type="module" src="assets/js/content.js?v=15"></script>
-<script type="module" src="assets/js/admin.js?v=21"></script>
+<script type="module" src="assets/js/admin.js?v=22"></script>
 </body>
 </html>

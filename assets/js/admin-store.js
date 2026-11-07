@@ -696,14 +696,19 @@ function courseForm(c) {
 /* EMI / part payments block of the course editor */
 function emiFieldset(c) {
   const cfg = emiConfig(c);
-  const raw = c.emi && typeof c.emi === "object" ? c.emi : {};
+  /* "EMI on every course" (EMI tab) pre-fills brand-new courses */
+  const all = A.pay && A.pay.emiAll && A.pay.emiAll.on === true ? A.pay.emiAll : null;
+  const fresh = !A.editing && !c.emi;
+  const raw = c.emi && typeof c.emi === "object" ? c.emi : fresh && all ? all : {};
   const parts = cfg ? cfg.parts : Math.round(num(raw.parts)) || 3;
   const gap = cfg ? cfg.gapDays : Math.round(num(raw.gapDays)) || 30;
+  const preOn = Boolean(cfg || (fresh && all));
   const equal = cfg ? splitEmi(cfg.total, cfg.parts) : [];
   const first = cfg && equal[0] !== cfg.first ? cfg.first : "";
   return (
     `<fieldset class="as-coins as-emi p-field--wide"><legend>${icon("i-clock")}Pay in parts (EMI)</legend>` +
-    `<label class="as-check p-field--wide"><input type="checkbox" name="emiOn"${cfg ? " checked" : ""}>Let students pay this course in instalments</label>` +
+    `<label class="as-check p-field--wide"><input type="checkbox" name="emiOn"${preOn ? " checked" : ""}>Let students pay this course in instalments</label>` +
+    (fresh && all ? `<span class="p-hint p-field--wide">On by default — <b>EMI on every course</b> is switched on in the EMI tab.</span>` : "") +
     `<label class="p-field"><span class="p-label">Number of parts</span><select class="p-select" name="emiParts">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}"${n === parts ? " selected" : ""}>${n} parts</option>`).join("")}</select></label>` +
     `<label class="p-field"><span class="p-label">Gap between parts</span><select class="p-select" name="emiGap">${EMI_GAPS.map((d) => `<option value="${d}"${d === gap ? " selected" : ""}>Every ${d} days</option>`).join("")}</select></label>` +
     `<label class="p-field"><span class="p-label">First payment (₹, optional)</span><input class="p-input" name="emiFirst" inputmode="numeric" value="${esc(first)}" placeholder="Equal split"><span class="p-hint">A bigger down payment; the rest is split equally.</span></label>` +
@@ -1462,6 +1467,8 @@ function bindPayments() {
     if (rec.razorpayKey && !/^rzp_(test|live)_[A-Za-z0-9]{6,}$/.test(rec.razorpayKey)) return alert("err", "That Razorpay Key ID doesn’t look right.");
     busy(form.querySelector('button[type="submit"]'), "Saving…", async () => {
       try {
+        /* keep the "EMI on every course" defaults saved from the EMI tab */
+        if (A.pay && A.pay.emiAll && typeof A.pay.emiAll === "object") rec.emiAll = A.pay.emiAll;
         await dbSet(PATH.payments, { ...rec, updatedAt: Date.now() });
         form.dataset.dirty = "0";
         alert("ok", "Payment settings saved. Checkout uses them immediately.");

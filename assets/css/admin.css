@@ -626,3 +626,35 @@ button.ov-kpi:hover { transform: translateY(-2px); border-color: var(--ad-line-2
   .aa-col > .aa-card:has(#aaInvites) { order: 3; }
   .aa-col > .aa-card:has(#aaLog) { order: 4; }
 }
+
+/* EMI tab — "No-cost EMI on every course" */
+.em-all { display: grid; gap: 14px; margin-top: 4px; background: linear-gradient(160deg, rgba(90, 75, 255, 0.06), rgba(217, 255, 87, 0.12)) , var(--ad-card) !important; border: 1px solid rgba(90, 75, 255, 0.22) !important; }
+.em-all-head { display: flex; align-items: flex-start; gap: 12px; }
+.em-all-head > div { flex: 1; min-width: 0; }
+.em-all-head h3 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+.em-all-head p { margin: 3px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.em-all-ic { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--violet); color: #fff; }
+.em-all-ic svg { width: 19px; height: 19px; }
+.em-all-state { flex: none; align-self: center; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(229, 140, 30, 0.12); color: #9A5A06; white-space: nowrap; }
+.em-all-state[data-full="1"] { background: rgba(18, 128, 90, 0.12); color: #12805A; }
+.em-all-grid { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.em-all-grid > * { min-width: 0; }
+.em-all-switch { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 12px; border-radius: 14px; background: var(--ad-card); border: 1px solid var(--ad-line); cursor: pointer; }
+.em-all-switch input { width: 20px; height: 20px; accent-color: var(--violet); flex: none; }
+.em-all-switch b { display: block; font-size: 14px; }
+.em-all-switch small { display: block; font-size: 11.5px; color: var(--muted); }
+.em-all-keep { font-size: 13px; }
+.em-all-preview:empty { display: none; }
+.em-all-ex { margin: 0 0 6px; font-size: 13px; }
+.em-all-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.em-all-list li::before { content: "•"; margin-right: 6px; color: var(--violet); }
+.em-all-list li.is-ok { color: #12805A; font-weight: 600; }
+.em-all-list li.is-skip::before { color: #C77B10; }
+.em-all-note { margin: 0; font-size: 13px; color: var(--muted); }
+.em-all-actions { display: flex; justify-content: flex-end; }
+.em-all [disabled] { opacity: 0.55; }
+@media (max-width: 860px) {
+  .em-all-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .em-all-switch { grid-column: 1 / -1; }
+  .em-all-head { flex-wrap: wrap; }
+}

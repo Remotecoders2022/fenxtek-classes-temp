@@ -19,11 +19,11 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=5";
-import { initStore, storeTabOpened } from "./admin-store.js?v=8";
+import { initStore, storeTabOpened } from "./admin-store.js?v=9";
 import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=3";
 import { initOverview, overviewOpened } from "./admin-overview.js?v=3";
 import { initTheme, themeTabOpened } from "./admin-theme.js?v=2";
-import { initEmi, emiTabOpened } from "./admin-emi.js?v=1";
+import { initEmi, emiTabOpened } from "./admin-emi.js?v=2";
 import { initNotifyAdmin, notifyTabOpened } from "./admin-notify.js?v=1";
 import { claimAdminInvite, ensureOwnerSeat, isSuperAdmin, isBuiltinSuper } from "./admin-claim.js?v=2";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
