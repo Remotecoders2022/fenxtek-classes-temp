@@ -140,6 +140,7 @@ export function normalizeCourse(raw) {
     /* E-coins: -1 = follow the academy-wide rule in site/rewards */
     earnCoins: optCoins(c.earnCoins), // coins the buyer earns on this course
     referCoins: optCoins(c.referCoins), // coins the referrer earns when a friend's first order includes it
+    emi: c.emi && typeof c.emi === "object" ? c.emi : null, // part-payment plan (see emi.js)
     createdAt: num(c.createdAt, 0),
     updatedAt: num(c.updatedAt, 0)
   };

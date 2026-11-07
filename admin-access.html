@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin access — FenxTek</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0D0D13">
+<link rel="icon" href="fenxtek-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css?v=11">
+<link rel="stylesheet" href="assets/css/portal.css?v=8">
+<link rel="stylesheet" href="assets/css/store.css?v=11">
+<link rel="stylesheet" href="assets/css/admin.css?v=3">
+<noscript><style>.preloader{display:none}</style></noscript>
+</head>
+<body data-page="admin" class="crm-body aa-body">
+<main class="aa">
+  <header class="aa-top">
+    <a class="aa-brand" href="admin.html"><img src="fenxtek-logo.png" alt="" width="34" height="34"><div><b>FenxTek</b><small>Admin access</small></div></a>
+    <div class="aa-top-acts">
+      <a class="crm-bar-btn" href="admin.html"><svg><use href="#i-chev-l"/></svg><span>Back to CRM</span></a>
+      <span class="aa-me" id="aaMe" hidden><span class="crm-me-av" id="aaAv">A</span><span><b id="aaMeName">—</b><small id="aaMeRole">—</small></span></span>
+      <button class="crm-bar-btn crm-bar-btn--ink" id="aaOut" type="button" hidden><svg><use href="#i-logout"/></svg><span>Sign out</span></button>
+    </div>
+  </header>
+
+  <div class="aa-gate" id="aaGate">
+    <div class="crm-card aa-gate-card">
+      <div class="dash-skeleton" style="width:34%"></div>
+      <div class="dash-skeleton" style="width:70%;height:26px"></div>
+      <div class="dash-skeleton" style="width:52%"></div>
+    </div>
+  </div>
+
+  <div class="aa-app" id="aaApp" hidden>
+    <section class="aa-hero">
+      <div>
+        <span class="aa-k"><svg><use href="#i-key"/></svg>Super admin</span>
+        <h1>Who can run <em>FenxTek</em></h1>
+        <p>Give your team access to the admin CRM. <b>Admins</b> manage courses, orders, students and content. <b>Super admins</b> can also add and remove admins on this page. Every change is logged.</p>
+      </div>
+      <div class="aa-stats" id="aaStats"></div>
+    </section>
+
+    <div class="p-alert" id="aaAlert" role="status" aria-live="polite" hidden></div>
+
+    <div class="aa-grid">
+      <section class="aa-card aa-card--add">
+        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-plus"/></svg></span><div><h2>Add an admin</h2><p>Use the email they sign in with.</p></div></div>
+        <form id="aaForm" class="aa-form" novalidate>
+          <label class="p-field"><span class="p-label">Email address</span><input class="p-input" name="email" type="email" list="aaUsers" placeholder="teammate@gmail.com" autocomplete="off" required><datalist id="aaUsers"></datalist></label>
+          <div class="p-field"><span class="p-label">Role</span>
+            <div class="aa-roles">
+              <label class="aa-role"><input type="radio" name="role" value="admin" checked><span><b>Admin</b><small>Full CRM — courses, orders, students, content</small></span></label>
+              <label class="aa-role"><input type="radio" name="role" value="super"><span><b>Super admin</b><small>Everything above + manage admins</small></span></label>
+            </div>
+          </div>
+          <button class="p-btn p-btn--lime p-btn--block" type="submit"><svg><use href="#i-shield"/></svg><span>Grant access</span></button>
+          <p class="aa-hint" id="aaHint">If they haven’t signed up yet, we save an invite — access switches on the first time they sign in with this email.</p>
+        </form>
+      </section>
+
+      <section class="aa-card aa-card--team">
+        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-users"/></svg></span><div><h2>Team</h2><p id="aaTeamNote">People who can open the admin CRM.</p></div></div>
+        <div class="aa-list" id="aaTeam"><p class="crm-table-empty">Loading…</p></div>
+      </section>
+
+      <section class="aa-card">
+        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-mail"/></svg></span><div><h2>Pending invites</h2><p>Waiting for these people to sign in.</p></div></div>
+        <div class="aa-list" id="aaInvites"><p class="crm-table-empty">Loading…</p></div>
+      </section>
+
+      <section class="aa-card">
+        <div class="aa-card-head"><span class="aa-ic"><svg><use href="#i-clock"/></svg></span><div><h2>Activity</h2><p>Who changed access, and when.</p></div></div>
+        <div class="aa-log" id="aaLog"><p class="crm-table-empty">Loading…</p></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/chrome.js?v=12"></script>
+<script type="module" src="assets/js/admin-access.js?v=1"></script>
+</body>
+</html>

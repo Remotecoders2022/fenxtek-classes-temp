@@ -88,9 +88,11 @@ import {
   courseEarnCoins,
   courseReferCoins,
   orderEarnCoins
-} from "./commerce.js?v=4";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=4";
+} from "./commerce.js?v=5";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=5";
 import { THEME_PATH, resolveTheme, heroHTML, fxHTML, ribbonHTML, themeVars, signature, startCountdowns, fxAllowed, setFxAllowed } from "./store-theme.js?v=1";
+import { emiConfig, emiPlans, planForCourse, emiEnrollUntil, emiSummary, emiItemOf, EMI_STATE, EMI_GRACE_DAYS } from "./emi.js?v=1";
+import { initNotify, refreshNotify } from "./notify.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -232,12 +234,12 @@ const ROUTES = [
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
   { id: "notes", label: "Notes & PDFs", icon: "i-file", group: "Learn", soon: true, blurb: "Outlines, phrase lists and dictation passages, organised by course." },
   { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay", "rewards", "wallet", "refs", "orders", "theme"] },
-  { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders"] },
+  { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders", "courses", "pay"] },
   { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
   { id: "rewards", label: "Refer & earn", icon: "i-coin", group: "Purchases", pill: "coins", view: vRewards, deps: ["rewards", "wallet", "refs", "orders", "profile", "courses"] },
   { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: ["wallet", "rewards"] },
   /* detail screens (not in the menu) */
-  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member", "rewards", "theme"] },
+  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member", "rewards", "theme", "orders"] },
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll", "cart", "cc", "progress", "content"] },
   { id: "success", parent: "orders", view: vSuccess, deps: ["orders"] },
   { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] },
@@ -382,6 +384,7 @@ let pending = new Set();
 let raf = 0;
 function changed(key) {
   pending.add(key);
+  if (key === "orders" || key === "courses" || key === "enroll" || key === "member") refreshNotify();
   paintBadges();
   if (raf) return;
   raf = requestAnimationFrame(() => {
@@ -953,6 +956,7 @@ async function applyCoupon(raw, btn) {
    checkout
    ============================================================ */
 async function placeOrder({ status, method, extra = {}, expect = null }) {
+  if (expect && expect.emi) return placeEmiOrder({ status, method, extra, expect });
   const items = cartItems();
   if (!items.length) throw new Error("Your cart is empty.");
   const uid = S.user.uid;
@@ -1102,6 +1106,205 @@ async function placeOrder({ status, method, extra = {}, expect = null }) {
   return { id: oid, ...order };
 }
 
+/* ============================================================
+   EMI / part payments — every instalment is its own order
+   ============================================================ */
+const myPlans = () => (S.user ? emiPlans(S.orders.map((o) => ({ ...o, uid: S.user.uid }))) : []);
+const myPlanFor = (courseId) => planForCourse(myPlans(), courseId);
+
+/* checkout context for part 1 of a course's EMI plan */
+function emiStartCtx(c) {
+  const cfg = emiConfig(c);
+  if (!cfg) return null;
+  return { courseId: c.id, title: c.title, n: 1, of: cfg.parts, gap: cfg.gapDays, total: cfg.total, plan: cfg.plan, amount: cfg.first };
+}
+/* checkout context for the next part of a running plan */
+function emiNextCtx(plan) {
+  if (!plan || plan.done || plan.pending || !plan.paidN) return null;
+  const c = courseById(plan.courseId);
+  return { courseId: plan.courseId, title: (c && c.title) || plan.title, n: plan.nextN, of: plan.of, gap: plan.gap, total: plan.total, start: plan.start, first: plan.firstId, prev: plan.prevId, amount: plan.nextAmount };
+}
+const emiPricing = (ctx) => ({ total: ctx.amount, subtotal: ctx.amount, mrpTotal: ctx.amount, discount: 0, coins: 0, couponDiscount: 0, memberDiscount: 0, prices: {}, emi: ctx });
+const emiLine = (ctx) => `${ctx.title} — Instalment ${ctx.n} of ${ctx.of}`;
+
+function openEmiCheckout(ctx) {
+  if (ctx) openPaySheet(emiPricing(ctx));
+}
+
+async function placeEmiOrder({ status, method, extra = {}, expect }) {
+  const ctx = expect.emi;
+  const uid = S.user.uid;
+  const c = courseById(ctx.courseId);
+  if (!c) throw userErr("This course isn’t available right now. Please contact the academy.");
+  if (ctx.n === 1) {
+    const cfg = emiConfig(c);
+    if (!cfg || cfg.first !== ctx.amount || cfg.parts !== ctx.of || cfg.gapDays !== ctx.gap || cfg.total !== ctx.total) {
+      changed("courses");
+      throw userErr("The instalment plan for this course was just updated — please review it and try again.");
+    }
+    if (owns(c.id)) throw userErr("You already have access to this course.");
+  }
+  const oid = await dbKey(`${PATH.orders}/${uid}`);
+  const orderNo = orderNumber();
+  const now = Date.now();
+  const emi = { n: ctx.n, of: ctx.of, gap: ctx.gap, start: ctx.n === 1 ? now : ctx.start, total: ctx.total };
+  if (ctx.n === 1) emi.plan = ctx.plan;
+  else {
+    emi.first = ctx.first;
+    emi.prev = ctx.prev;
+  }
+  const item = { title: emiLine({ ...ctx, title: c.title }).slice(0, 200), price: ctx.amount, mrp: ctx.amount, validityDays: c.validityDays, category: c.category, mode: c.mode, language: c.language, emi };
+  const order = {
+    orderNo,
+    uid,
+    name: S.profile.name || S.user.displayName || "Student",
+    email: S.user.email || S.profile.email || "",
+    phone: S.profile.phone || "",
+    items: { [c.id]: item },
+    emiCourse: c.id,
+    mrpTotal: ctx.amount,
+    subtotal: ctx.amount,
+    discount: 0,
+    total: ctx.amount,
+    currency: "INR",
+    status,
+    method,
+    verified: false,
+    createdAt: now,
+    ...extra
+  };
+  if (status === "paid") order.paidAt = now;
+  const updates = { [`${PATH.orders}/${uid}/${oid}`]: order };
+  if (S.cart[c.id]) updates[`${PATH.carts}/${uid}/${c.id}`] = null;
+  let enrollRec = null;
+  if (status === "paid") {
+    const prev = S.enroll[c.id];
+    const until = emiEnrollUntil(emi, c.validityDays, prev && num(prev.until), now);
+    if (!(prev && (num(prev.until) === 0 || num(prev.until) > until) && ctx.n < ctx.of)) {
+      enrollRec = { orderId: oid, orderNo, since: now, until, title: c.title };
+      updates[`${PATH.enrollments}/${uid}/${c.id}`] = enrollRec;
+    }
+  }
+  try {
+    await dbUpdateRoot(updates);
+  } catch (err) {
+    if (!/permission/i.test(String((err && (err.code || err.message)) || ""))) throw err;
+    console.warn("[emi] instalment refused by the database rules", err);
+    const phone = String((S.content && S.content.phone) || "+91 73090 82749");
+    throw userErr(`We couldn’t record this instalment. Refresh the page and try again — if it keeps happening, call the academy on ${phone}.`);
+  }
+  S.orders = [{ ...order, id: oid }, ...S.orders.filter((o) => o.id !== oid)];
+  if (updates[`${PATH.carts}/${uid}/${c.id}`] === null) {
+    const next = { ...S.cart };
+    delete next[c.id];
+    S.cart = next;
+    changed("cart");
+  }
+  if (enrollRec) S.enroll[c.id] = enrollRec;
+  changed("orders");
+  changed("enroll");
+  return { id: oid, ...order };
+}
+
+/* segmented progress bar + numbers for a plan */
+function emiBar(plan) {
+  return (
+    `<div class="sp-emi-bar" role="img" aria-label="${plan.paidN} of ${plan.of} parts paid">` +
+    plan.amounts
+      .map((a, i) => {
+        const part = plan.parts[i + 1];
+        const cls = part && part.status === "paid" ? "is-paid" : part && part.status === "pending" ? "is-pending" : i + 1 === plan.nextN ? `is-next is-${plan.state}` : "";
+        return `<i class="${cls}" title="Part ${i + 1} · ${money(a)}"></i>`;
+      })
+      .join("") +
+    `</div>`
+  );
+}
+
+/* status card for a running/finished plan (course page, orders, home) */
+function emiCard(plan, { compact = false, withTitle = false } = {}) {
+  const st = EMI_STATE[plan.state] || EMI_STATE.ok;
+  const c = courseById(plan.courseId);
+  const title = (c && c.title) || plan.title;
+  let msg = "";
+  let cta = "";
+  if (plan.done) {
+    msg = `All ${plan.of} parts paid · ${money(plan.total)}. Full validity unlocked.`;
+  } else if (plan.pending) {
+    const part = plan.parts[plan.nextN];
+    msg = `Part ${plan.nextN} (${money(part ? part.amount : plan.nextAmount)}) submitted${part && part.order.utr ? ` · UTR ${esc(part.order.utr)}` : ""} — the academy is verifying it.`;
+  } else if (!plan.paidN) {
+    msg = "Part 1 is being verified. Your course unlocks as soon as it’s approved.";
+  } else {
+    const due = formatDate(plan.dueAt);
+    if (plan.state === "locked") msg = `<b>Access paused</b> — part ${plan.nextN} (${money(plan.nextAmount)}) was due on ${esc(due)}. Pay now to unlock the course again.`;
+    else if (plan.state === "overdue") msg = `Part ${plan.nextN} (${money(plan.nextAmount)}) was due on ${esc(due)}. Pay before <b>${esc(formatDate(plan.accessUntil))}</b> to keep your access.`;
+    else msg = `Next: part ${plan.nextN} · <b>${money(plan.nextAmount)}</b> due on <b>${esc(due)}</b>${plan.daysToDue > 0 ? ` (in ${plan.daysToDue} day${plan.daysToDue === 1 ? "" : "s"})` : " (today)"}.`;
+    cta = `<button class="p-btn ${plan.state === "ok" ? "p-btn--ghost" : "p-btn--lime"} p-btn--block${compact ? " p-btn--sm" : ""}" type="button" data-emi-pay="${esc(plan.key)}">${icon("i-bolt")}<span>Pay ${money(plan.nextAmount)} now</span></button>`;
+  }
+  return (
+    `<div class="sp-emi-card is-${plan.state}${compact ? " is-compact" : ""}">` +
+    `<div class="sp-emi-card-top"><span class="sp-k">${icon("i-clock")}EMI plan</span><span class="sp-emi-pill is-${st.tone}">${esc(st.label)}</span></div>` +
+    (withTitle ? `<a class="sp-emi-title" href="#course/${esc(plan.courseId)}">${esc(title)}</a>` : "") +
+    `<div class="sp-emi-num"><b>${plan.paidN} of ${plan.of} parts paid</b><span>${money(plan.paidAmount)} of ${money(plan.total)}</span></div>` +
+    emiBar(plan) +
+    `<p class="sp-emi-msg">${msg}</p>` +
+    cta +
+    `</div>`
+  );
+}
+
+/* "Pay in 3 parts" offer on the course page */
+function emiOffer(c) {
+  const cfg = emiConfig(c);
+  if (!cfg) return "";
+  return (
+    `<div class="sp-emi-offer">` +
+    `<div class="sp-emi-offer-head"><span class="sp-emi-offer-ic">${icon("i-clock")}</span><div><b>Or pay in ${cfg.parts} parts</b><span>No extra cost · ${esc(emiSummary(cfg, money))}</span></div></div>` +
+    `<div class="sp-emi-steps">${cfg.amounts.map((a, i) => `<span class="${i === 0 ? "is-now" : ""}"><b>${money(a)}</b><small>${i === 0 ? "Today" : `Day ${i * cfg.gapDays}`}</small></span>`).join("")}</div>` +
+    `<button class="p-btn p-btn--block sp-emi-go" type="button" data-emi-start="${esc(c.id)}">${icon("i-bolt")}<span>Pay ${money(cfg.first)} now · part 1 of ${cfg.parts}</span></button>` +
+    `<small class="sp-emi-fine">Course unlocks after part 1 and stays open while you pay on time (${EMI_GRACE_DAYS}-day grace). The last part unlocks the full ${esc(validityLabel(c.validityDays).replace(" access", ""))}. Coupons & E-coins don’t apply.</small>` +
+    `</div>`
+  );
+}
+
+function bindEmi(root) {
+  $$("[data-emi-start]", root).forEach((b) =>
+    b.addEventListener("click", () => {
+      const c = courseById(b.dataset.emiStart);
+      if (c) openEmiCheckout(emiStartCtx(c));
+    })
+  );
+  $$("[data-emi-pay]", root).forEach((b) =>
+    b.addEventListener("click", () => {
+      const plan = myPlans().find((p) => p.key === b.dataset.emiPay);
+      const ctx = emiNextCtx(plan);
+      if (ctx) openEmiCheckout(ctx);
+      else toast("This instalment can’t be paid right now — refresh and try again.", "err");
+    })
+  );
+}
+
+/* reminders for the bell (notify.js) */
+function emiReminders() {
+  return myPlans()
+    .filter((p) => !p.done && !p.pending && p.paidN && (p.state === "due" || p.state === "overdue" || p.state === "locked"))
+    .map((p) => {
+      const c = courseById(p.courseId);
+      const t = (c && c.title) || p.title;
+      const locked = p.state === "locked";
+      return {
+        id: `emi-${p.courseId}-${p.start}-${p.nextN}-${p.state}`,
+        kind: "emi",
+        title: locked ? "Course access paused" : p.state === "overdue" ? `Instalment overdue — ${money(p.nextAmount)}` : `Instalment due ${p.daysToDue <= 0 ? "today" : `in ${p.daysToDue} day${p.daysToDue === 1 ? "" : "s"}`}`,
+        body: locked ? `Pay part ${p.nextN} (${money(p.nextAmount)}) of ${t} to unlock it again.` : `Part ${p.nextN} of ${p.of} for ${t} — ${money(p.nextAmount)} due ${formatDate(p.dueAt)}.`,
+        link: `#course/${p.courseId}`,
+        at: locked ? p.accessUntil : p.state === "overdue" ? p.dueAt : p.dueAt - 3 * DAY,
+        virtual: true
+      };
+    });
+}
+
 /* turn a refused order write into something a student can act on */
 async function orderRefusal(err, items) {
   if (!/permission/i.test(String((err && (err.code || err.message)) || ""))) return err;
@@ -1125,6 +1328,14 @@ async function orderRefusal(err, items) {
 }
 
 function payHeader(pricing) {
+  if (pricing.emi) {
+    const e = pricing.emi;
+    return (
+      `<div class="sp-pay-head"><span class="sp-k">EMI · part ${e.n} of ${e.of}</span>` +
+      `<h3>Pay ${money(pricing.total)}</h3>` +
+      `<p>${esc(e.title)}${e.n < e.of ? ` · ${money(e.total)} in ${e.of} parts` : " · final part"}</p></div>`
+    );
+  }
   return (
     `<div class="sp-pay-head"><span class="sp-k">Secure checkout</span>` +
     `<h3>Pay ${money(pricing.total)}</h3>` +
@@ -1145,9 +1356,14 @@ function openCheckout() {
   const items = cartItems();
   if (!items.length) return;
   const { p: pricing } = cartPricing(items);
+  openPaySheet(pricing, items);
+}
+
+/* the payment sheet — cart checkout and EMI instalments share it */
+function openPaySheet(pricing, items = []) {
   const pay = S.pay || {};
 
-  if (pricing.total === 0) {
+  if (pricing.total === 0 && !pricing.emi) {
     openModal(
       (pricing.subtotal === 0
         ? `<div class="sp-pay-head"><span class="sp-k">Free enrolment</span><h3>Enrol for free</h3><p>${esc(countLabel(items))} · no payment needed</p></div>` +
@@ -1244,10 +1460,12 @@ async function payRazorpay(pricing, btn) {
       amount: Math.round(pricing.total * 100),
       currency: "INR",
       name: pay.businessName || "FenxTek Shorthand Classes",
-      description: cartItems()
-        .map((c) => c.title)
-        .join(", ")
-        .slice(0, 250),
+      description: (pricing.emi
+        ? emiLine(pricing.emi)
+        : cartItems()
+            .map((c) => c.title)
+            .join(", ")
+      ).slice(0, 250),
       image: new URL("fenxtek-logo.png", location.href).href,
       prefill: { name: S.profile.name || "", email: S.user.email || "", contact: S.profile.phone || "" },
       notes: { uid: S.user.uid, coupon: S.coupon ? S.coupon.code : "", coins: String(pricing.coins || 0) },
@@ -1274,7 +1492,7 @@ async function payRazorpay(pricing, btn) {
 
 async function payUPI(pricing) {
   const pay = S.pay || {};
-  const note = "FenxTek " + cartItems().map((c) => c.title).join(", ");
+  const note = "FenxTek " + (pricing.emi ? emiLine(pricing.emi) : cartItems().map((c) => c.title).join(", "));
   const link = upiLink({ upiId: pay.upiId, payee: pay.payeeName || pay.businessName, amount: pricing.total, note });
   openModal(
     `<div class="sp-pay-head"><span class="sp-k">Step 1 · Pay</span><h3>Scan &amp; pay ${money(pricing.total)}</h3><p>Use any UPI app — GPay, PhonePe, Paytm or your bank.</p></div>` +
@@ -1352,6 +1570,13 @@ function greeting() {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
+/* due / overdue instalments on the home screen */
+function emiHomeStrip() {
+  const due = myPlans().filter((p) => !p.done && (p.state === "due" || p.state === "overdue" || p.state === "locked" || p.pending));
+  if (!due.length) return "";
+  return `<section class="sp-sec sp-emi-home">${sectionHead("Part payments", "Instalments")}<div class="sp-emi-grid">${due.map((p) => emiCard(p, { compact: true, withTitle: true })).join("")}</div></section>`;
+}
+
 function vHome() {
   const first = String(S.profile.name || S.user.displayName || "there").split(/\s+/)[0];
   const ownedList = S.courses.filter((c) => access(c.id));
@@ -1385,6 +1610,7 @@ function vHome() {
     stat("i-receipt", S.orders.length, pendingOrders ? `Orders · ${pendingOrders} pending` : "Orders", "#orders") +
     stat("i-tag", money(saved), "Total saved", "#orders") +
     `</div>` +
+    emiHomeStrip() +
     walletCard() +
     memberPromo("home") +
     inviteBanner() +
@@ -1418,6 +1644,7 @@ function vHome() {
     mount(root) {
       bindAdd(root);
       bindGift(root);
+      bindEmi(root);
       countUpCoins(root);
     }
   };
@@ -1618,6 +1845,8 @@ function vCourse(id) {
   const a = access(c.id);
   const off = offPercent(c.price, c.mrp);
   const offers = offersFor(c);
+  const plan = myPlanFor(c.id);
+  const planOpen = plan && !plan.done;
   const desc = String(c.description || "")
     .split(/\n{2,}/)
     .map((p) => p.trim())
@@ -1634,7 +1863,9 @@ function vCourse(id) {
     (a && a.active
       ? `<div class="sp-buy-owned">${icon("i-check")}<div><b>You’re enrolled</b><span>${a.until ? `Access till ${formatDate(a.until)} · ${a.daysLeft} days left` : "Lifetime access"}</span></div></div>` +
         `<a class="p-btn p-btn--lime p-btn--block" href="#learn/${esc(c.id)}">${icon("i-play")}<span>Continue learning</span></a>` +
-        (a.until ? `<button class="p-btn p-btn--ghost p-btn--block" type="button" data-renew="${esc(c.id)}">${icon("i-refresh")}<span>Extend validity</span></button>` : "")
+        (planOpen ? emiCard(plan) : a.until ? `<button class="p-btn p-btn--ghost p-btn--block" type="button" data-renew="${esc(c.id)}">${icon("i-refresh")}<span>Extend validity</span></button>` : "")
+      : planOpen && plan.paidN
+      ? `<div class="sp-buy-owned is-paused">${icon("i-lock")}<div><b>Access paused</b><span>Your EMI plan is ${plan.paidN} of ${plan.of} paid — clear the due part to continue.</span></div></div>` + emiCard(plan)
       : priceHTML(c, true) +
         (memberPriceFor(c) != null
           ? `<p class="sp-buy-save">${icon("i-crown")}You save ${money(Math.max(c.mrp, c.price) - memberPriceFor(c))} as a ${esc(myPlan().title)} member</p>`
@@ -1646,7 +1877,8 @@ function vCourse(id) {
         (S.cart[c.id]
           ? `<a class="p-btn p-btn--lime p-btn--block" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
           : `<button class="p-btn p-btn--lime p-btn--block" type="button" data-buy="${esc(c.id)}">${icon("i-bolt")}<span>Buy now</span></button>` +
-            `<button class="p-btn p-btn--ghost p-btn--block" type="button" data-add="${esc(c.id)}">${icon("i-cart")}<span>Add to cart</span></button>`)) +
+            `<button class="p-btn p-btn--ghost p-btn--block" type="button" data-add="${esc(c.id)}">${icon("i-cart")}<span>Add to cart</span></button>`) +
+        (planOpen ? emiCard(plan) : emiOffer(c))) +
     (offers.length && !(a && a.active)
       ? `<div class="sp-buy-offers"><span class="p-label">Offers for this course</span>${offers
           .map((o) => offerTile(o, "copy"))
@@ -1689,6 +1921,7 @@ function vCourse(id) {
     mount(root) {
       bindAdd(root);
       bindFest(root);
+      bindEmi(root);
       $$("[data-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.buy, b, true)));
       $$("[data-cc-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.ccBuy, b, true)));
       $$("[data-renew]", root).forEach((b) =>
@@ -1943,7 +2176,11 @@ function vOrders() {
       html: empty("i-receipt", "No orders yet", "When you buy a course, your order and a downloadable receipt appear here.", `<a class="p-btn p-btn--sm" href="#store">${icon("i-bolt")}<span>Browse courses</span></a>`)
     };
   }
+  const plans = myPlans();
   const html =
+    (plans.length
+      ? `<section class="sp-sec sp-emi-sec">${sectionHead("Part payments", `EMI plans <span class="sp-pill-n">${plans.length}</span>`)}<div class="sp-emi-grid">${plans.map((pl) => emiCard(pl, { withTitle: true })).join("")}</div></section>`
+      : "") +
     `<div class="sp-orders">` +
     S.orders
       .map((o) => {
@@ -1951,7 +2188,7 @@ function vOrders() {
         const canReceipt = o.status === "paid" || o.status === "refunded";
         return (
           `<article class="sp-order">` +
-          `<div class="sp-order-top"><div><span class="sp-k">${esc(o.orderNo)}</span><b>${esc(items.map((i) => i.title).join(", ") || "Order")}</b>` +
+          `<div class="sp-order-top"><div><span class="sp-k">${esc(o.orderNo)}${emiItemOf(o) ? ` <em class="sp-emi-tag">EMI ${num(emiItemOf(o).emi.n)}/${num(emiItemOf(o).emi.of)}</em>` : ""}</span><b>${esc(items.map((i) => i.title).join(", ") || "Order")}</b>` +
           `<small>${esc(formatDate(o.createdAt, true))} · ${esc(methodLabel(o.method))}</small></div>${statusPill(o)}</div>` +
           `<div class="sp-order-foot"><div class="sp-order-amt"><b>${money(o.total)}</b>${orderSaveNote(o)}${orderCoinNote(o)}</div>` +
           `<div class="sp-order-acts">` +
@@ -1972,6 +2209,7 @@ function vOrders() {
     crumb: "Purchases",
     html,
     mount(root) {
+      bindEmi(root);
       $$("[data-dl]", root).forEach((b) =>
         b.addEventListener("click", () => {
           const o = S.orders.find((x) => x.id === b.dataset.dl);
@@ -1993,7 +2231,9 @@ function vSuccess(id) {
   const planIt = items.find(isPlanItem);
   const onlyPlan = planIt && items.length === 1;
   const mem = planIt && S.member && S.member.orderId === o.id ? S.member : null;
-  const head = paid ? (onlyPlan ? `Welcome to ${planIt.title}!` : "You’re enrolled!") : "We’re verifying your payment";
+  const emIt = emiItemOf(o);
+  const emPlan = emIt ? myPlans().find((p) => p.courseId === emIt.id && p.start === num(emIt.emi.start)) : null;
+  const head = paid ? (onlyPlan ? `Welcome to ${planIt.title}!` : emIt && num(emIt.emi.n) < num(emIt.emi.of) ? `Part ${num(emIt.emi.n)} of ${num(emIt.emi.of)} paid!` : "You’re enrolled!") : "We’re verifying your payment";
   const lead = paid
     ? onlyPlan
       ? `Your membership is active${mem && num(mem.endAt) ? ` till <b>${esc(formatDate(mem.endAt))}</b>` : ""}. Your premium receipt is ready to download.`
@@ -2009,6 +2249,7 @@ function vSuccess(id) {
     `<h2>${esc(head)}</h2>` +
     `<p>${lead}</p>` +
     `<div class="sp-success-card"><div><span>Order</span><b>${esc(o.orderNo)}</b></div><div><span>Amount</span><b>${money(o.total)}</b></div><div><span>${planIt ? "Items" : "Courses"}</span><b>${items.length}</b></div>${num(o.discount) || num(o.coins) ? `<div><span>Saved</span><b>${money(Math.max(0, num(o.mrpTotal) - num(o.total)))}</b></div>` : ""}</div>` +
+    (emPlan ? `<div class="sp-success-emi">${emiCard(emPlan, { compact: true })}</div>` : "") +
     `<div class="sp-success-cta">` +
     (paid
       ? `<button class="p-btn p-btn--lime" type="button" id="spDl">${icon("i-download")}<span>Download receipt (PNG)</span></button>` +
@@ -2020,6 +2261,7 @@ function vSuccess(id) {
     crumb: "Orders",
     html,
     mount(root) {
+      bindEmi(root);
       const dl = $("#spDl", root);
       if (dl) dl.addEventListener("click", () => busy(dl, "Preparing", () => downloadReceipt({ ...o, items }, receiptSettings()).then(() => toast("Receipt downloaded"))));
     }
@@ -3954,6 +4196,17 @@ async function init() {
   window.addEventListener("hashchange", () => render());
   render();
   checkInvite();
+  initNotify({
+    uid: user.uid,
+    seen: num(profile.notifSeen),
+    toast: (m) => toast(m),
+    extra: emiReminders,
+    audience: () => ({
+      member: membershipStatus(S.member).key === "active",
+      buyer: S.orders.some((o) => o.status === "paid"),
+      courses: new Set(Object.keys(S.enroll || {}))
+    })
+  });
 
   /* live data */
   dbWatch(PATH.courses, (v) => {
