@@ -8,7 +8,7 @@
      preview (desktop / mobile) rendered by store-theme.js
    ============================================================ */
 import { dbWatch, dbUpdate, dbSet, friendlyError } from "./firebase.js?v=5";
-import { PATH, esc, money, num, coursesFrom } from "./commerce.js?v=4";
+import { PATH, esc, money, num, coursesFrom } from "./commerce.js?v=5";
 import { THEME_PATH, THEME_IDS, PRESETS, EFFECTS, LEVELS, themeOf, resolveTheme, themeStatus, heroHTML, fxHTML, ribbonHTML, themeVars, shortDate, startCountdowns } from "./store-theme.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);

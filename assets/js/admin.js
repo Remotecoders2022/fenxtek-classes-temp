@@ -19,10 +19,13 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=5";
-import { initStore, storeTabOpened } from "./admin-store.js?v=7";
-import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=2";
-import { initOverview, overviewOpened } from "./admin-overview.js?v=2";
-import { initTheme, themeTabOpened } from "./admin-theme.js?v=1";
+import { initStore, storeTabOpened } from "./admin-store.js?v=8";
+import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=3";
+import { initOverview, overviewOpened } from "./admin-overview.js?v=3";
+import { initTheme, themeTabOpened } from "./admin-theme.js?v=2";
+import { initEmi, emiTabOpened } from "./admin-emi.js?v=1";
+import { initNotifyAdmin, notifyTabOpened } from "./admin-notify.js?v=1";
+import { claimAdminInvite, ensureOwnerSeat, isSuperAdmin } from "./admin-claim.js?v=1";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
 import {
@@ -202,6 +205,8 @@ function openTab(name) {
   storeTabOpened(name);
   rewardsTabOpened(name);
   themeTabOpened(name);
+  emiTabOpened(name);
+  notifyTabOpened(name);
   if (history.replaceState) history.replaceState(null, "", "#" + name);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -2201,6 +2206,18 @@ async function init() {
   }
   state.user = user;
 
+  /* an admin invite sent from admin-access.html is accepted on first visit */
+  const invite = await claimAdminInvite(user).catch(() => null);
+  if (invite && invite.needsVerify) {
+    const sent = await sendVerification().then(() => true).catch(() => false);
+    showDenied(
+      "Verify your email to accept",
+      `You’ve been invited as an admin. Verify ${user.email} first — ${sent ? "we just sent a link to that inbox" : "reload in a minute for a verification link"} — then reload this page. Or sign in with Google using the same Gmail.`,
+      "Reload",
+      "admin.html"
+    );
+    return;
+  }
   const admin = await isAdmin(user).catch(() => false);
   if (!admin && isAdminEmail(user) && !user.emailVerified) {
     const sent = await sendVerification().then(() => true).catch(() => false);
@@ -2217,7 +2234,7 @@ async function init() {
   if (!admin) {
     showDenied(
       "No admin access",
-      `You are signed in as ${user.email || "this account"}, but it is not an admin. Sign in with the admin Gmail, or add this uid to admins/${user.uid} in Realtime Database.`,
+      `You are signed in as ${user.email || "this account"}, but it is not an admin. Sign in with an admin account, or ask the super admin to add ${user.email || "you"} from Admin access.`,
       "Go to dashboard",
       "dashboard.html"
     );
@@ -2276,6 +2293,24 @@ async function init() {
   } catch (err) {
     console.warn("[admin] theme init", err);
   }
+  try {
+    initEmi({ user, showAlert, withBusy });
+  } catch (err) {
+    console.warn("[admin] emi init", err);
+  }
+  try {
+    initNotifyAdmin({ user, showAlert, withBusy });
+  } catch (err) {
+    console.warn("[admin] notifications init", err);
+  }
+  /* the owner gets the super-admin seat; super admins see the Admin access link */
+  (async () => {
+    await ensureOwnerSeat(user).catch(() => false);
+    if (await isSuperAdmin(user).catch(() => false)) {
+      const link = $("#crmAccessLink");
+      if (link) link.hidden = false;
+    }
+  })();
   try {
     initOverview({ user, openTab });
   } catch (err) {

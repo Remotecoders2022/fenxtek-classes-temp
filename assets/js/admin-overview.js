@@ -7,7 +7,7 @@
    Firebase SDK shares one subscription per path).
    ============================================================ */
 import { dbWatch } from "./firebase.js?v=5";
-import { PATH, esc, money, num, formatDate, flattenOrders, rewardsFrom, statusOf, coinsLabel } from "./commerce.js?v=4";
+import { PATH, esc, money, num, formatDate, flattenOrders, rewardsFrom, statusOf, coinsLabel } from "./commerce.js?v=5";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const icon = (id) => `<svg><use href="#${id}"/></svg>`;

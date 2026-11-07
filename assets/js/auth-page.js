@@ -18,6 +18,7 @@ import {
   friendlyError,
   onAuthChange
 } from "./firebase.js?v=5";
+import { claimAdminInvite } from "./admin-claim.js?v=1";
 
 const $ = (sel) => document.querySelector(sel);
 const alertBox = $("#authAlert");
@@ -215,8 +216,11 @@ function safeNext() {
    a ?next= link is kept only when it already points inside admin.html. */
 async function destinationFor(user) {
   const next = safeNext();
+  /* someone invited from admin-access.html becomes an admin on first sign-in */
+  const invite = await claimAdminInvite(user).catch(() => null);
+  if (invite && invite.needsVerify) return "admin.html";
   const admin = isAdminEmail(user) || (await isAdmin(user).catch(() => false));
-  if (admin) return /^admin\.html/i.test(next) ? next : "admin.html";
+  if (admin) return /^admin(-access)?\.html/i.test(next) ? next : "admin.html";
   return next || "dashboard.html";
 }
 

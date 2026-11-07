@@ -12,9 +12,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=11">
 <link rel="stylesheet" href="assets/css/portal.css?v=8">
-<link rel="stylesheet" href="assets/css/store.css?v=10">
+<link rel="stylesheet" href="assets/css/store.css?v=11">
 <link rel="stylesheet" href="assets/css/fest.css?v=1">
-<link rel="stylesheet" href="assets/css/admin.css?v=2">
+<link rel="stylesheet" href="assets/css/admin.css?v=3">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin" class="crm-body">
@@ -53,6 +53,7 @@
           <div class="crm-group">
             <span class="crm-side-label">Store</span>
             <button class="crm-nav" type="button" data-crm-tab="orders"><svg><use href="#i-receipt"/></svg><span class="crm-nav-t">Orders &amp; receipts</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="emi"><svg><use href="#i-clock"/></svg><span class="crm-nav-t">EMI &amp; part payments</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="courses"><svg><use href="#i-book"/></svg><span class="crm-nav-t">Courses</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="coupons"><svg><use href="#i-tag"/></svg><span class="crm-nav-t">Coupons</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="rewards"><svg><use href="#i-coin"/></svg><span class="crm-nav-t">E-coins &amp; referrals</span><span class="crm-badge"></span></button>
@@ -64,6 +65,7 @@
             <button class="crm-nav" type="button" data-crm-tab="students"><svg><use href="#i-users"/></svg><span class="crm-nav-t">Students</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="leads"><svg><use href="#i-phone"/></svg><span class="crm-nav-t">Leads</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="memberships"><svg><use href="#i-crown"/></svg><span class="crm-nav-t">Memberships</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="notify"><svg><use href="#i-bell"/></svg><span class="crm-nav-t">Notifications</span><span class="crm-badge"></span></button>
           </div>
           <div class="crm-group">
             <span class="crm-side-label">Website</span>
@@ -76,6 +78,7 @@
           </div>
         </nav>
         <div class="crm-side-foot">
+          <a class="crm-side-link crm-side-link--key" id="crmAccessLink" href="admin-access.html" hidden><svg><use href="#i-key"/></svg><span>Admin access</span></a>
           <button class="crm-side-link" id="seedBtn" type="button"><svg><use href="#i-refresh"/></svg><span>Load starter content</span></button>
           <div class="crm-me"><span class="crm-me-av" id="crmAvatar">A</span><div><b>Admin</b><small id="crmEmail">—</small></div><button class="crm-me-out" id="crmSignOut2" type="button" aria-label="Sign out" title="Sign out"><svg><use href="#i-logout"/></svg></button></div>
         </div>
@@ -584,6 +587,51 @@
             </div>
           </section>
 
+          <!-- EMI -->
+          <section class="crm-panel" data-crm-panel="emi" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>EMI &amp; part payments</h2>
+                <p>Every instalment plan students are paying. Each part arrives as a normal order — approve UPI parts in <b>Orders</b>. Access stays open until the next due date (+5 days grace) and pauses automatically if a part is missed; the final part unlocks the full validity. Turn EMI on per course in <b>Courses → Edit → Pay in parts</b>.</p>
+              </div>
+              <div class="crm-top-actions">
+                <button class="p-btn p-btn--lime p-btn--sm" id="emRemindAll" type="button"><span>Remind everyone due</span><svg><use href="#i-bell"/></svg></button>
+              </div>
+            </div>
+            <div class="crm-stats" id="emStats"></div>
+            <div class="as-toolbar" style="margin-top:16px">
+              <div class="em-chips" id="emChips"></div>
+              <input class="p-input as-grow" id="emQ" type="search" placeholder="Search student, phone, course, order no…">
+              <span class="crm-save-state" id="emCount"></span>
+            </div>
+            <div class="crm-table-wrap">
+              <table class="crm-table">
+                <thead>
+                  <tr><th>Student</th><th>Course</th><th>Progress</th><th>Next payment</th><th>Status</th><th class="actions">Actions</th></tr>
+                </thead>
+                <tbody id="emBody">
+                  <tr><td colspan="6" class="crm-table-empty">Loading plans…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- NOTIFICATIONS -->
+          <section class="crm-panel" data-crm-panel="notify" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Notifications</h2>
+                <p>Send announcements to the bell in every student’s portal — new batches, offers, class changes. Students who switch on “Alerts on this device” also get a pop-up while the portal is open. Payment approvals, rejections, refunds and EMI reminders are sent automatically.</p>
+              </div>
+            </div>
+            <div class="nt-compose">
+              <form class="crm-card crm-form" id="ntForm" novalidate></form>
+              <aside class="nt-preview-wrap"><span class="p-label">Live preview</span><div id="ntPreview"></div></aside>
+            </div>
+            <div class="crm-panel-head" style="margin-top:26px"><div><h2 style="font-size:20px">Sent announcements</h2><p>Delete one to remove it from every student’s bell.</p></div></div>
+            <div class="nt-sent-list" id="ntList"><p class="crm-table-empty">Loading…</p></div>
+          </section>
+
           <!-- COURSES -->
           <section class="crm-panel" data-crm-panel="courses" hidden>
             <div class="crm-panel-head">
@@ -818,9 +866,9 @@
   </div>
 </main>
 
-<script src="assets/js/chrome.js?v=11"></script>
+<script src="assets/js/chrome.js?v=12"></script>
 <script src="assets/js/site.js?v=5"></script>
 <script type="module" src="assets/js/content.js?v=14"></script>
-<script type="module" src="assets/js/admin.js?v=18"></script>
+<script type="module" src="assets/js/admin.js?v=19"></script>
 </body>
 </html>

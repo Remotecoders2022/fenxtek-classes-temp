@@ -44,10 +44,12 @@ import {
   rewardsFrom,
   courseEarnCoins,
   courseReferCoins
-} from "./commerce.js?v=4";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=4";
-import { orderRewardUpdates, coinRefundUpdates, referralOfOrder, orderReversalUpdates } from "./admin-rewards.js?v=2";
+} from "./commerce.js?v=5";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=5";
+import { orderRewardUpdates, coinRefundUpdates, referralOfOrder, orderReversalUpdates } from "./admin-rewards.js?v=3";
 import { openContentManager, watchContent, contentCount, contentDeleteUpdates } from "./admin-content.js?v=1";
+import { emiConfig, emiRecord, emiSummary, emiEnrollUntil, emiItemOf, emiValidityOk, splitEmi, dueAtOf, EMI_GAPS, EMI_GRACE_DAYS } from "./emi.js?v=1";
+import { noticeUpdates } from "./notices.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -209,7 +211,7 @@ function paintOrders() {
         `<tr>` +
         `<td><b class="as-code">${esc(o.orderNo || o.id)}</b><div class="as-sub">${esc(formatDate(o.createdAt, true))}</div></td>` +
         `<td><b>${esc(o.name || "—")}</b><div class="as-sub">${esc(o.email || "")}${o.phone ? " · " + esc(o.phone) : ""}</div></td>` +
-        `<td>${items.map((i) => esc(i.title)).join("<br>")}</td>` +
+        `<td>${items.map((i) => esc(i.title) + (i.emi ? ` <span class="as-pill as-pill--violet as-emi-pill">${icon("i-clock")}EMI ${num(i.emi.n)}/${num(i.emi.of)}</span>` : "")).join("<br>")}</td>` +
         `<td><span class="as-amount">${money(o.total)}</span>${saveLines(o)}</td>` +
         `<td>${esc(methodLabel(o.method))}${ref ? `<div class="as-sub as-code">${esc(ref)}</div>` : ""}</td>` +
         `<td>${pill(o)}${o.status === "paid" ? `<div class="as-sub">${o.verified ? "Verified" : o.method === "razorpay" ? "Not verified" : ""}</div>` : ""}${o.rejectReason ? `<div class="as-sub">${esc(o.rejectReason)}</div>` : ""}</td>` +
@@ -243,10 +245,38 @@ async function enrollmentUpdates(o, when) {
     const days = num(it.validityDays);
     let until = 0;
     if (prev && num(prev.until) === 0) until = 0;
+    else if (it.emi) until = emiEnrollUntil(it.emi, days, prev && num(prev.until), when);
     else if (days) until = (prev && num(prev.until) > when ? num(prev.until) : when) + days * DAY;
-    updates[`${PATH.enrollments}/${o.uid}/${it.id}`] = { orderId: o.id, orderNo: o.orderNo, since: when, until, title: it.title || "" };
+    updates[`${PATH.enrollments}/${o.uid}/${it.id}`] = { orderId: o.id, orderNo: o.orderNo, since: when, until, title: String(it.title || "").replace(/\s+—\s+Instalment \d+ of \d+$/, "") };
   });
   return updates;
+}
+
+/* bell notification for the student when a payment is approved */
+function approvedNotice(o, reward) {
+  const items = orderItems(o);
+  const coins = reward && reward[`${PATH.orders}/${o.uid}/${o.id}/coinsEarned`];
+  const extra = coins ? ` You earned ${coinsLabel(coins)}.` : "";
+  const em = emiItemOf(o);
+  if (em) {
+    const e = em.emi;
+    const title = String(em.title || "").replace(/\s+[—-]\s+Instalment.*$/i, "");
+    if (num(e.n) >= num(e.of)) return { title: "Final instalment received 🎉", body: `${title} is fully paid and unlocked for its full validity.${extra}`, link: `#learn/${em.id}`, kind: "emi" };
+    const nextAmt = e.plan ? num(e.plan["p" + (num(e.n) + 1)]) : 0;
+    return {
+      title: `Instalment ${num(e.n)} of ${num(e.of)} received`,
+      body: `${title} is unlocked. ${nextAmt ? `Next instalment ${money(nextAmt)}` : "Next instalment"} is due on ${formatDate(dueAtOf(e.start, num(e.n) + 1, e.gap))}.`.replace(/\s+/g, " "),
+      link: "#orders",
+      kind: "emi"
+    };
+  }
+  const onlyPlan = items.some(isPlanItem) && items.length === 1;
+  return {
+    title: onlyPlan ? "Membership activated" : "Payment verified — you’re enrolled",
+    body: `${o.orderNo} · ${money(o.total)} — ${items.map((i) => i.title).join(", ").slice(0, 200)} ${onlyPlan ? "is active" : items.length > 1 ? "are unlocked" : "is unlocked"}.${extra}`,
+    link: onlyPlan ? "#membership" : "#my-courses",
+    kind: "order"
+  };
 }
 
 /* "· 74 E-coins credited · referral rewarded" after approving */
@@ -271,6 +301,7 @@ async function approveOrder(o, btn) {
       updates[`${base}/verifiedAt`] = now;
       const reward = await orderRewardUpdates(o, now);
       Object.assign(updates, reward);
+      Object.assign(updates, await noticeUpdates(o.uid, approvedNotice(o, reward), now));
       await dbUpdateRoot(updates);
       alert("ok", `Approved ${o.orderNo} — ${o.name || "the student"} ${orderItems(o).some(isPlanItem) && orderItems(o).length === 1 ? "is now a member" : "is now enrolled"}.${rewardNote(reward, o)}`);
     } catch (err) {
@@ -294,6 +325,15 @@ async function rejectOrder(o) {
     if (release) Object.assign(updates, releaseCoupon(o));
     const back = await coinRefundUpdates(o, `Returned — ${o.orderNo} was rejected`);
     Object.assign(updates, back);
+    Object.assign(
+      updates,
+      await noticeUpdates(o.uid, {
+        title: "Payment couldn’t be verified",
+        body: `${o.orderNo}: ${String(reason).slice(0, 200) || "The academy couldn’t match this payment."}${Object.keys(back).length ? ` ${coinsLabel(o.coins)} returned to your wallet.` : ""} Pay again or contact the academy.`,
+        link: "#orders",
+        kind: "order"
+      })
+    );
     await dbUpdateRoot(updates);
     alert("ok", `Rejected ${o.orderNo}.${Object.keys(back).length ? ` ${coinsLabel(o.coins)} returned to the student’s wallet.` : ""}`);
   } catch (err) {
@@ -333,6 +373,7 @@ async function refundOrder(o) {
     const clawReferral = ref && window.confirm(`This order earned a referral reward (${coinsLabel(ref.referrerCoins)} to the referrer, ${coinsLabel(ref.refereeCoins)} to this student). Take those E-coins back too?`) ? ref : null;
     const coins = await orderReversalUpdates(o, { reason: `Returned — ${o.orderNo} was refunded`, clawReferral });
     Object.assign(updates, coins);
+    Object.assign(updates, await noticeUpdates(o.uid, { title: "Order refunded", body: `${o.orderNo} (${money(o.total)}) has been marked as refunded. Access to ${orderItems(o).map((i) => i.title).join(", ").slice(0, 160)} has ended.`, link: "#orders", kind: "order" }));
     await dbUpdateRoot(updates);
     const notes = [];
     if (num(o.coins) && !o.coinsReturned) notes.push(`${coinsLabel(o.coins)} returned to the wallet`);
@@ -500,6 +541,7 @@ async function offlineSale() {
             updates[`${PATH.orders}/${uid}/${oid}`] = order;
             const reward = await orderRewardUpdates({ ...order, id: oid }, now);
             Object.assign(updates, reward);
+            Object.assign(updates, await noticeUpdates(uid, approvedNotice({ ...order, id: oid }, reward), now));
             await dbUpdateRoot(updates);
             alert("ok", `Recorded ${order.orderNo} — ${order.name} is enrolled.${rewardNote(reward, { ...order, id: oid })}`);
             close();
@@ -579,7 +621,7 @@ function paintCourses() {
         `<div class="as-course${c.published ? "" : " is-off"}" data-cid="${esc(c.id)}">` +
         `<div class="as-course-cover" data-acover="${esc(c.id)}">${coverHTML(c, courseImgSrc(c), { size: "sm" })}</div>` +
         `<div><h4>${esc(c.title)}</h4><p>${money(c.price)}${c.mrp > c.price ? ` <s>${money(c.mrp)}</s> · ${offPercent(c.price, c.mrp)}% off` : ""} · ${esc(validityLabel(c.validityDays))} · ${esc(c.category)} · ${esc(c.mode)}</p>` +
-        `<p><span class="as-pill ${c.published ? "as-pill--ok" : "as-pill--muted"}">${c.published ? "Published" : "Hidden"}</span> <span class="as-pill as-pill--violet">${sold} sold</span> <button class="as-pill as-pill--cc" type="button" data-c-content="${esc(c.id)}">${cc.items || cc.folders ? `${cc.folders} folder${cc.folders === 1 ? "" : "s"} · ${cc.items} item${cc.items === 1 ? "" : "s"}` : "No content yet"}</button>${c.badge ? ` <span class="as-pill as-pill--warn">${esc(c.badge)}</span>` : ""}</p>${coinLine(c)}</div>` +
+        `<p><span class="as-pill ${c.published ? "as-pill--ok" : "as-pill--muted"}">${c.published ? "Published" : "Hidden"}</span> <span class="as-pill as-pill--violet">${sold} sold</span> <button class="as-pill as-pill--cc" type="button" data-c-content="${esc(c.id)}">${cc.items || cc.folders ? `${cc.folders} folder${cc.folders === 1 ? "" : "s"} · ${cc.items} item${cc.items === 1 ? "" : "s"}` : "No content yet"}</button>${c.badge ? ` <span class="as-pill as-pill--warn">${esc(c.badge)}</span>` : ""}${emiConfig(c) ? ` <span class="as-pill as-pill--violet">EMI · ${emiConfig(c).parts} parts</span>` : ""}</p>${coinLine(c)}</div>` +
         `<div class="as-course-acts">` +
         `<button class="as-icon" type="button" data-c-up="${esc(c.id)}" title="Move up"${i === 0 ? " disabled" : ""}>${icon("i-arr-u")}</button>` +
         `<button class="as-icon" type="button" data-c-down="${esc(c.id)}" title="Move down"${i === A.courses.length - 1 ? " disabled" : ""}>${icon("i-arr-d")}</button>` +
@@ -631,6 +673,7 @@ function courseForm(c) {
     `<label class="p-field"><span class="p-label">E-coins on purchase</span><input class="p-input" name="earnCoins" inputmode="numeric" value="${c.earnCoins >= 0 ? esc(c.earnCoins) : ""}" placeholder="Default"><span class="p-hint" id="asEarnHint"></span></label>` +
     `<label class="p-field"><span class="p-label">Referral bonus (E-coins)</span><input class="p-input" name="referCoins" inputmode="numeric" value="${c.referCoins >= 0 ? esc(c.referCoins) : ""}" placeholder="Default"><span class="p-hint" id="asReferHint"></span></label>` +
     `</fieldset>` +
+    emiFieldset(c) +
     `<label class="p-field p-field--wide"><span class="p-label">What you get — one per line</span><textarea class="p-textarea" name="features" rows="5" placeholder="Daily 10-minute Hindi dictation&#10;Weekly full-length mock test&#10;Transcription error analysis">${esc(c.features.join("\n"))}</textarea></label>` +
     `<label class="p-field p-field--wide"><span class="p-label">Description (blank line = new paragraph)</span><textarea class="p-textarea" name="description" rows="5">${esc(c.description)}</textarea></label>` +
     `<div class="p-field p-field--wide"><span class="p-label">Cover theme</span><div class="as-accents">${Object.keys(ACCENTS)
@@ -648,6 +691,58 @@ function courseForm(c) {
     `<button class="p-btn p-btn--ghost p-btn--sm" type="button" id="asCourseCancel"><span>Cancel</span></button>` +
     `<button class="p-btn p-btn--lime" type="button" id="asCourseSave">${icon("i-check")}<span>Save course</span></button></div>`
   );
+}
+
+/* EMI / part payments block of the course editor */
+function emiFieldset(c) {
+  const cfg = emiConfig(c);
+  const raw = c.emi && typeof c.emi === "object" ? c.emi : {};
+  const parts = cfg ? cfg.parts : Math.round(num(raw.parts)) || 3;
+  const gap = cfg ? cfg.gapDays : Math.round(num(raw.gapDays)) || 30;
+  const equal = cfg ? splitEmi(cfg.total, cfg.parts) : [];
+  const first = cfg && equal[0] !== cfg.first ? cfg.first : "";
+  return (
+    `<fieldset class="as-coins as-emi p-field--wide"><legend>${icon("i-clock")}Pay in parts (EMI)</legend>` +
+    `<label class="as-check p-field--wide"><input type="checkbox" name="emiOn"${cfg ? " checked" : ""}>Let students pay this course in instalments</label>` +
+    `<label class="p-field"><span class="p-label">Number of parts</span><select class="p-select" name="emiParts">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}"${n === parts ? " selected" : ""}>${n} parts</option>`).join("")}</select></label>` +
+    `<label class="p-field"><span class="p-label">Gap between parts</span><select class="p-select" name="emiGap">${EMI_GAPS.map((d) => `<option value="${d}"${d === gap ? " selected" : ""}>Every ${d} days</option>`).join("")}</select></label>` +
+    `<label class="p-field"><span class="p-label">First payment (₹, optional)</span><input class="p-input" name="emiFirst" inputmode="numeric" value="${esc(first)}" placeholder="Equal split"><span class="p-hint">A bigger down payment; the rest is split equally.</span></label>` +
+    `<div class="as-emi-plan p-field--wide" id="asEmiPlan"></div>` +
+    `<p class="p-hint p-field--wide">Each part unlocks the course until the next due date (+${EMI_GRACE_DAYS} days grace). Access pauses automatically if a part is missed and the final part unlocks the full validity. No coupons, member prices or E-coins on instalments.</p>` +
+    `</fieldset>`
+  );
+}
+
+function readEmi(form, price) {
+  const on = form.emiOn && form.emiOn.checked;
+  return emiRecord({ on, parts: num(form.emiParts && form.emiParts.value), gapDays: num(form.emiGap && form.emiGap.value), first: num(form.emiFirst && form.emiFirst.value), price });
+}
+
+function paintEmiPlan(form, c) {
+  const box = $("#asEmiPlan");
+  if (!box) return;
+  const on = form.emiOn && form.emiOn.checked;
+  $$("[name=emiParts],[name=emiGap],[name=emiFirst]", form).forEach((el) => (el.disabled = !on));
+  if (!on) {
+    box.innerHTML = "";
+    return;
+  }
+  const rec = readEmi(form, c.price);
+  const cfg = rec && emiConfig({ price: c.price, emi: rec });
+  if (cfg && !emiValidityOk(c.validityDays, cfg.gapDays)) {
+    box.innerHTML = `<span class="as-sub as-sub--warn">${c.validityDays ? `Validity (${c.validityDays} days) must be at least the gap + ${EMI_GRACE_DAYS} days. Pick a shorter gap or a longer validity.` : "Lifetime courses can’t be sold in parts — set a validity (e.g. 1 year) to offer EMI."}</span>`;
+    return;
+  }
+  if (!cfg) {
+    box.innerHTML = `<span class="as-sub as-sub--warn">${c.price > 0 ? "Price is too low for this many parts, or the first payment is too big." : "Set a selling price first — free courses don’t need EMI."}</span>`;
+    return;
+  }
+  const first = num(form.emiFirst.value);
+  const warn = first && first !== cfg.first ? `<span class="as-sub as-sub--warn">First payment must be less than the price — using an equal split.</span>` : "";
+  box.innerHTML =
+    `<div class="as-emi-steps">` +
+    cfg.amounts.map((a, i) => `<div class="as-emi-step${i === 0 ? " is-now" : ""}"><small>${i === 0 ? "Today" : `Day ${i * cfg.gapDays}`}</small><b>${money(a)}</b><span>Part ${i + 1}</span></div>`).join("") +
+    `</div><span class="as-sub">${esc(emiSummary(cfg, money))} · total ${money(cfg.total)}</span>${warn}`;
 }
 
 function readCourseForm(form) {
@@ -689,7 +784,13 @@ function paintCoursePreview(form) {
     (c.memberPrice > 0 && c.memberPrice < c.price ? `<span class="as-sub as-sub--mem">${icon("i-crown")}Members ${money(c.memberPrice)}</span>` : "") +
     `<span class="as-sub">${esc(validityLabel(c.validityDays))} · ${esc(c.mode)} · ${esc(c.language)}</span>` +
     coinLine(c) +
+    (() => {
+      const rec = readEmi(form, c.price);
+      const cfg = rec && emiConfig({ price: c.price, validityDays: c.validityDays, emi: rec });
+      return cfg ? `<span class="as-sub as-sub--emi">${icon("i-clock")}Or ${cfg.parts} parts · ${esc(emiSummary(cfg, money))}</span>` : "";
+    })() +
     `</div>`;
+  paintEmiPlan(form, c);
   const rw = A.rewards;
   const eh = $("#asEarnHint");
   const rh = $("#asReferHint");
@@ -776,6 +877,10 @@ async function saveCourse(form, btn) {
   if (c.memberPrice && c.memberPrice >= c.price) return alert("err", "The member price should be lower than the selling price (or leave it blank).");
   if (c.thumb === "link" && !safeImageUrl(c.thumbUrl).startsWith("http")) return alert("err", "Paste a full image URL starting with https://");
   if (c.thumb === "upload" && !A.draft.image && !A.editing) return alert("err", "Choose an image to upload, or switch the cover to generated art.");
+  const emi = readEmi(form, c.price);
+  if (form.emiOn && form.emiOn.checked && !emi) return alert("err", "EMI needs a selling price of at least ₹1 per part. Lower the number of parts or turn EMI off.");
+  if (emi && num(form.emiFirst.value) && num(form.emiFirst.value) >= c.price) return alert("err", "The first EMI payment must be less than the course price.");
+  if (emi && !emiValidityOk(c.validityDays, emi.gapDays)) return alert("err", c.validityDays ? `For EMI, validity must be at least the gap between parts + ${EMI_GRACE_DAYS} days.` : "Lifetime courses can’t be sold in parts. Set a validity (e.g. 1 year) or turn EMI off.");
   await busy(btn, "Saving…", async () => {
     try {
       const id = A.editing || `${slug(c.title)}-${generateCode("", 4).toLowerCase()}`;
@@ -804,6 +909,7 @@ async function saveCourse(form, btn) {
       };
       if (c.earnCoins >= 0) rec.earnCoins = c.earnCoins;
       if (c.referCoins >= 0) rec.referCoins = c.referCoins;
+      if (emi) rec.emi = emi;
       const updates = { [`${PATH.courses}/${id}`]: rec };
       if (c.thumb === "upload" && A.draft.imageChanged && A.draft.image) updates[`${PATH.courseImages}/${id}`] = A.draft.image;
       if (c.thumb !== "upload") updates[`${PATH.courseImages}/${id}`] = null;

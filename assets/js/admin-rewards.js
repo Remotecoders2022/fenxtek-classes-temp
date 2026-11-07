@@ -12,7 +12,8 @@
    ============================================================ */
 
 import { dbGet, dbSet, dbWatch, dbUpdateRoot, dbKey, friendlyError } from "./firebase.js?v=5";
-import { PATH, esc, money, num, formatDate, rewardsFrom, coinsLabel, TX_LABEL, coursesFrom, orderEarnCoins, orderReferrerCoins, flattenOrders } from "./commerce.js?v=4";
+import { PATH, esc, money, num, formatDate, rewardsFrom, coinsLabel, TX_LABEL, coursesFrom, orderEarnCoins, orderReferrerCoins, flattenOrders } from "./commerce.js?v=5";
+import { emiItemOf } from "./emi.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -125,6 +126,11 @@ async function coursesMap() {
 export async function orderRewardUpdates(o, now = Date.now()) {
   try {
     if (!o || !o.uid || num(o.total) <= 0) return {};
+    /* EMI: earlier parts earn nothing; the final part earns (and settles the
+       referral) on the full course price, exactly like a one-time purchase */
+    const em = emiItemOf(o);
+    if (em && num(em.emi.n) < num(em.emi.of)) return {};
+    if (em) o = { ...o, total: num(em.emi.total) || num(o.total), items: { [em.id]: { ...em, price: num(em.emi.total) || num(em.price) } } };
     const rw = rewardsFrom(val(await dbGet(PATH.rewards)));
     if (!rw.enabled) return {};
     const courses = await coursesMap();

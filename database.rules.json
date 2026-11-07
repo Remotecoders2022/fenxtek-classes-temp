@@ -165,6 +165,44 @@
           },
           "referCoins": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+          },
+          "emi": {
+            ".validate": "newData.hasChildren(['on', 'parts', 'gapDays', 'amounts'])",
+            "on": {
+              ".validate": "newData.isBoolean()"
+            },
+            "parts": {
+              ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 6"
+            },
+            "gapDays": {
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 120"
+            },
+            "amounts": {
+              "p1": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+              },
+              "p2": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+              },
+              "p3": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+              },
+              "p4": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+              },
+              "p5": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+              },
+              "p6": {
+                ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+              },
+              "$other": {
+                ".validate": false
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         }
       },
@@ -438,6 +476,9 @@
         },
         "refCode": {
           ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9]{4,12}$/)"
+        },
+        "notifSeen": {
+          ".validate": "newData.isNumber()"
         }
       }
     },
@@ -590,7 +631,56 @@
           },
           "items": {
             "$course": {
-              ".validate": "newData.hasChildren(['title', 'price']) && newData.child('price').isNumber() && newData.child('price').val() <= newData.parent().parent().child('subtotal').val() && ((!$course.beginsWith('plan_') && root.child('site/courses').child($course).exists() && ((auth != null && root.child('admins').child(auth.uid).val() === true) || ((newData.child('price').val() === root.child('site/courses').child($course).child('price').val() || (root.child('site/courses').child($course).child('price').exists() && newData.child('price').val() + '' === root.child('site/courses').child($course).child('price').val() + '') || (root.child('site/courses').child($course).child('price').isNumber() && newData.child('price').val() > root.child('site/courses').child($course).child('price').val() - 1 && newData.child('price').val() < root.child('site/courses').child($course).child('price').val() + 1)) && (newData.child('validityDays').val() === root.child('site/courses').child($course).child('validityDays').val() || (root.child('site/courses').child($course).child('validityDays').exists() && newData.child('validityDays').val() + '' === root.child('site/courses').child($course).child('validityDays').val() + '') || (newData.child('validityDays').val() === 0 && !root.child('site/courses').child($course).child('validityDays').exists())) && root.child('site/courses').child($course).child('published').val() !== false))) || ($course.beginsWith('plan_') && root.child('site/memberships').child($course.replace('plan_', '')).exists() && newData.child('kind').val() === 'plan' && newData.child('planId').val() === $course.replace('plan_', '') && ((auth != null && root.child('admins').child(auth.uid).val() === true) || (root.child('site/memberships').child($course.replace('plan_', '')).child('active').val() !== false && root.child('site/memberships').child($course.replace('plan_', '')).child('durationDays').exists() && (newData.child('validityDays').val() === root.child('site/memberships').child($course.replace('plan_', '')).child('durationDays').val() || newData.child('validityDays').val() + '' === root.child('site/memberships').child($course.replace('plan_', '')).child('durationDays').val() + '') && newData.child('price').val() > 0 && (newData.child('price').val() === root.child('site/memberships').child($course.replace('plan_', '')).child('price').val() || newData.child('price').val() + '' === root.child('site/memberships').child($course.replace('plan_', '')).child('price').val()))))) && ((auth != null && root.child('admins').child(auth.uid).val() === true) || newData.parent().parent().child('method').val() !== 'free' || !newData.parent().parent().child('coupon').child('code').isString() || !root.child('coupons').child(newData.parent().parent().child('coupon').child('code').val()).child('courseIds').exists() || root.child('coupons').child(newData.parent().parent().child('coupon').child('code').val()).child('courseIds').child($course).val() === true)"
+              ".validate": "(!newData.parent().parent().child('emiCourse').exists() || newData.parent().parent().child('emiCourse').val() === $course) && newData.hasChildren(['title', 'price']) && newData.child('price').isNumber() && newData.child('price').val() <= newData.parent().parent().child('subtotal').val() && ((!$course.beginsWith('plan_') && root.child('site/courses').child($course).exists() && ((auth != null && root.child('admins').child(auth.uid).val() === true) || (((!newData.child('emi').exists() && (newData.child('price').val() === root.child('site/courses').child($course).child('price').val() || (root.child('site/courses').child($course).child('price').exists() && newData.child('price').val() + '' === root.child('site/courses').child($course).child('price').val() + '') || (root.child('site/courses').child($course).child('price').isNumber() && newData.child('price').val() > root.child('site/courses').child($course).child('price').val() - 1 && newData.child('price').val() < root.child('site/courses').child($course).child('price').val() + 1))) || (root.child('site/courses').child($course).child('emi').child('on').val() === true && newData.child('emi').child('n').isNumber() && newData.child('emi').child('of').isNumber() && newData.child('emi').child('n').val() >= 1 && newData.child('emi').child('n').val() <= newData.child('emi').child('of').val() && newData.parent().parent().child('emiCourse').val() === $course && newData.parent().parent().child('discount').val() === 0 && !newData.parent().parent().child('coupon').exists() && (!newData.parent().parent().child('coins').exists() || newData.parent().parent().child('coins').val() === 0) && newData.parent().parent().child('subtotal').val() === newData.child('price').val() && newData.child('price').val() > 0 && ((newData.child('emi').child('n').val() === 1 && newData.child('emi').child('of').val() === root.child('site/courses').child($course).child('emi').child('parts').val() && newData.child('emi').child('gap').val() === root.child('site/courses').child($course).child('emi').child('gapDays').val() && newData.child('emi').child('total').val() === root.child('site/courses').child($course).child('price').val() && newData.child('emi').child('start').val() === newData.parent().parent().child('createdAt').val() && !newData.child('emi').child('first').exists() && !newData.child('emi').child('prev').exists() && newData.child('price').val() === root.child('site/courses').child($course).child('emi').child('amounts').child('p1').val() && newData.child('emi').child('plan').child('p1').val() === root.child('site/courses').child($course).child('emi').child('amounts').child('p1').val() && newData.child('emi').child('plan').child('p2').val() === root.child('site/courses').child($course).child('emi').child('amounts').child('p2').val() && newData.child('emi').child('plan').child('p3').val() === root.child('site/courses').child($course).child('emi').child('amounts').child('p3').val() && newData.child('emi').child('plan').child('p4').val() === root.child('site/courses').child($course).child('emi').child('amounts').child('p4').val() && newData.child('emi').child('plan').child('p5').val() === root.child('site/courses').child($course).child('emi').child('amounts').child('p5').val() && newData.child('emi').child('plan').child('p6').val() === root.child('site/courses').child($course).child('emi').child('amounts').child('p6').val()) || (newData.child('emi').child('n').val() > 1 && newData.child('emi').child('first').isString() && newData.child('emi').child('prev').isString() && !newData.child('emi').child('plan').exists() && root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('status').val() === 'paid' && root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('n').val() === 1 && root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('of').val() === newData.child('emi').child('of').val() && root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('gap').val() === newData.child('emi').child('gap').val() && root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('start').val() === newData.child('emi').child('start').val() && root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('total').val() === newData.child('emi').child('total').val() && root.child('orders').child($uid).child(newData.child('emi').child('prev').val()).child('status').val() === 'paid' && root.child('orders').child($uid).child(newData.child('emi').child('prev').val()).child('items').child($course).child('emi').child('n').val() === newData.child('emi').child('n').val() - 1 && root.child('orders').child($uid).child(newData.child('emi').child('prev').val()).child('items').child($course).child('emi').child('start').val() === newData.child('emi').child('start').val() && ((newData.child('emi').child('n').val() === 2 && newData.child('price').val() === root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('plan').child('p2').val()) || (newData.child('emi').child('n').val() === 3 && newData.child('price').val() === root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('plan').child('p3').val()) || (newData.child('emi').child('n').val() === 4 && newData.child('price').val() === root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('plan').child('p4').val()) || (newData.child('emi').child('n').val() === 5 && newData.child('price').val() === root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('plan').child('p5').val()) || (newData.child('emi').child('n').val() === 6 && newData.child('price').val() === root.child('orders').child($uid).child(newData.child('emi').child('first').val()).child('items').child($course).child('emi').child('plan').child('p6').val())))))) && (newData.child('validityDays').val() === root.child('site/courses').child($course).child('validityDays').val() || (root.child('site/courses').child($course).child('validityDays').exists() && newData.child('validityDays').val() + '' === root.child('site/courses').child($course).child('validityDays').val() + '') || (newData.child('validityDays').val() === 0 && !root.child('site/courses').child($course).child('validityDays').exists())) && root.child('site/courses').child($course).child('published').val() !== false))) || ($course.beginsWith('plan_') && root.child('site/memberships').child($course.replace('plan_', '')).exists() && newData.child('kind').val() === 'plan' && newData.child('planId').val() === $course.replace('plan_', '') && ((auth != null && root.child('admins').child(auth.uid).val() === true) || (root.child('site/memberships').child($course.replace('plan_', '')).child('active').val() !== false && root.child('site/memberships').child($course.replace('plan_', '')).child('durationDays').exists() && (newData.child('validityDays').val() === root.child('site/memberships').child($course.replace('plan_', '')).child('durationDays').val() || newData.child('validityDays').val() + '' === root.child('site/memberships').child($course.replace('plan_', '')).child('durationDays').val() + '') && newData.child('price').val() > 0 && (newData.child('price').val() === root.child('site/memberships').child($course.replace('plan_', '')).child('price').val() || newData.child('price').val() + '' === root.child('site/memberships').child($course.replace('plan_', '')).child('price').val()))))) && ((auth != null && root.child('admins').child(auth.uid).val() === true) || newData.parent().parent().child('method').val() !== 'free' || !newData.parent().parent().child('coupon').child('code').isString() || !root.child('coupons').child(newData.parent().parent().child('coupon').child('code').val()).child('courseIds').exists() || root.child('coupons').child(newData.parent().parent().child('coupon').child('code').val()).child('courseIds').child($course).val() === true)",
+              "emi": {
+                "n": {
+                  ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 6"
+                },
+                "of": {
+                  ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 6"
+                },
+                "gap": {
+                  ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 120"
+                },
+                "start": {
+                  ".validate": "newData.isNumber()"
+                },
+                "total": {
+                  ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+                },
+                "first": {
+                  ".validate": "newData.isString() && newData.val().length <= 40"
+                },
+                "prev": {
+                  ".validate": "newData.isString() && newData.val().length <= 40"
+                },
+                "plan": {
+                  "p1": {
+                    ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+                  },
+                  "p2": {
+                    ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+                  },
+                  "p3": {
+                    ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+                  },
+                  "p4": {
+                    ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+                  },
+                  "p5": {
+                    ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+                  },
+                  "p6": {
+                    ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000"
+                  },
+                  "$other": {
+                    ".validate": false
+                  }
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
             }
           },
           "coins": {
@@ -601,6 +691,9 @@
           },
           "coinsEarned": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && auth != null && root.child('admins').child(auth.uid).val() === true"
+          },
+          "emiCourse": {
+            ".validate": "newData.isString() && newData.parent().child('items').child(newData.val()).exists()"
           }
         }
       }
@@ -611,7 +704,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$course": {
-          ".write": "!$course.beginsWith('plan_') && auth != null && auth.uid === $uid && newData.exists() && newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('status').val() === 'paid' && newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).exists() && newData.child('since').val() === newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() && (!data.exists() || newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() > data.child('since').val()) && ((newData.child('until').val() === 0 && (newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('validityDays').val() === 0 || (data.exists() && data.child('until').val() === 0))) || (newData.child('until').val() > 0 && newData.child('until').val() <= (data.exists() && data.child('until').val() > newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() ? data.child('until').val() : newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val()) + newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('validityDays').val() * 86400000))",
+          ".write": "!$course.beginsWith('plan_') && auth != null && auth.uid === $uid && newData.exists() && newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('status').val() === 'paid' && newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).exists() && newData.child('since').val() === newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() && (!data.exists() || newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() > data.child('since').val()) && ((newData.child('until').val() === 0 && (newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('validityDays').val() === 0 || (data.exists() && data.child('until').val() === 0))) || (newData.child('until').val() > 0 && newData.child('until').val() <= (data.exists() && data.child('until').val() > newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val() ? data.child('until').val() : newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('paidAt').val()) + newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('validityDays').val() * 86400000)) && (!newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('emi').exists() || newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('emi').child('n').val() === newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('emi').child('of').val() || (newData.child('until').val() > 0 && newData.child('until').val() <= newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('emi').child('start').val() + (newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('emi').child('n').val() * newData.parent().parent().parent().child('orders').child($uid).child(newData.child('orderId').val()).child('items').child($course).child('emi').child('gap').val() + 5) * 86400000))",
           ".validate": "newData.hasChildren(['orderId', 'since', 'until']) && newData.child('since').isNumber() && newData.child('until').isNumber()"
         }
       }
@@ -865,10 +958,156 @@
       }
     },
     "admins": {
+      ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || auth != null && root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('superadmins').child(auth.uid).val() === true && (auth.uid !== $uid || newData.val() === true) && (newData.exists() || !newData.parent().parent().child('superadmins').child($uid).exists())) || (auth.uid === $uid && newData.val() === true && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))",
         ".validate": "newData.isBoolean()"
+      }
+    },
+    "notifications": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && auth.uid === $uid && !newData.exists()",
+          ".validate": "newData.hasChildren(['title', 'at'])",
+          "title": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+          },
+          "body": {
+            ".validate": "newData.isString() && newData.val().length <= 500"
+          },
+          "link": {
+            ".validate": "newData.isString() && newData.val().length <= 300 && newData.val().matches(/^(#[a-z0-9-]+(\\/[A-Za-z0-9_-]+)?|https:\\/\\/\\S+)$/)"
+          },
+          "kind": {
+            ".validate": "newData.isString() && newData.val().matches(/^(info|order|emi|offer|class|alert)$/)"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "broadcasts": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$id": {
+        ".validate": "newData.hasChildren(['title', 'at', 'audience'])",
+        "title": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+        },
+        "body": {
+          ".validate": "newData.isString() && newData.val().length <= 500"
+        },
+        "link": {
+          ".validate": "newData.isString() && newData.val().length <= 300 && newData.val().matches(/^(#[a-z0-9-]+(\\/[A-Za-z0-9_-]+)?|https:\\/\\/\\S+)$/)"
+        },
+        "kind": {
+          ".validate": "newData.isString() && newData.val().matches(/^(info|order|emi|offer|class|alert)$/)"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "audience": {
+          ".validate": "newData.isString() && newData.val().matches(/^(all|members|buyers|course:[A-Za-z0-9_-]{1,80})$/)"
+        },
+        "expiresAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "by": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "superadmins": {
+      ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('superadmins').child(auth.uid).val() === true && auth.uid !== $uid) || (auth.uid === $uid && newData.val() === true && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'super' && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))",
+        ".validate": "newData.val() === true && newData.parent().parent().child('admins').child($uid).val() === true"
+      }
+    },
+    "adminMeta": {
+      ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && (auth != null && root.child('superadmins').child(auth.uid).val() === true || (auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth.uid === $uid && !data.exists() && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && newData.child('role').val() === root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))",
+        ".validate": "newData.hasChildren(['email', 'role', 'at'])",
+        "email": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 100"
+        },
+        "role": {
+          ".validate": "newData.isString() && newData.val().matches(/^(owner|super|admin)$/) && (newData.val() !== 'owner' || (auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true))"
+        },
+        "addedBy": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "adminInvites": {
+      ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
+      "$key": {
+        ".read": "auth != null && auth.token.email != null && $key === auth.token.email.toLowerCase().replace('.', ',')",
+        ".write": "auth != null && (auth != null && root.child('superadmins').child(auth.uid).val() === true || (!newData.exists() && auth.token.email_verified === true && $key === auth.token.email.toLowerCase().replace('.', ',') && newData.parent().parent().child('admins').child(auth.uid).val() === true))",
+        ".validate": "newData.hasChildren(['email', 'role', 'at']) && newData.child('email').isString() && newData.child('email').val().toLowerCase().replace('.', ',') === $key",
+        "email": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "role": {
+          ".validate": "newData.isString() && newData.val().matches(/^(admin|super)$/)"
+        },
+        "by": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "adminLog": {
+      ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
+      "$id": {
+        ".write": "auth != null && !data.exists() && (auth != null && root.child('superadmins').child(auth.uid).val() === true || (newData.child('action').val() === 'joined' && newData.child('by').val() === auth.token.email.toLowerCase() && newData.parent().parent().child('admins').child(auth.uid).val() === true))",
+        ".validate": "newData.hasChildren(['at', 'by', 'action'])",
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "by": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "action": {
+          ".validate": "newData.isString() && newData.val().matches(/^(added|invited|removed|revoked|promoted|demoted|joined)$/)"
+        },
+        "target": {
+          ".validate": "newData.isString() && newData.val().length <= 200"
+        },
+        "role": {
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     }
   }
