@@ -19,7 +19,7 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=5";
-import { initStore, storeTabOpened } from "./admin-store.js?v=6";
+import { initStore, storeTabOpened } from "./admin-store.js?v=7";
 import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=2";
 import { initOverview, overviewOpened } from "./admin-overview.js?v=2";
 import { initTheme, themeTabOpened } from "./admin-theme.js?v=1";
