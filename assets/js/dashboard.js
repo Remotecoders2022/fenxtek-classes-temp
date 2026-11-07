@@ -90,6 +90,7 @@ import {
   orderEarnCoins
 } from "./commerce.js?v=4";
 import { downloadReceipt, receiptDataURL } from "./receipt.js?v=4";
+import { THEME_PATH, resolveTheme, heroHTML, fxHTML, ribbonHTML, themeVars, signature, startCountdowns, fxAllowed, setFxAllowed } from "./store-theme.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -99,6 +100,9 @@ const icon = (id, cls = "") => `<svg${cls ? ` class="${cls}"` : ""}><use href="#
    state
    ============================================================ */
 const S = {
+  fest: null, // live festive store theme (store-theme.js), null = normal
+  festRaw: null,
+  festPick: "", // coupon picked from the festive banner, applied in the cart
   user: null,
   profile: {},
   admin: false,
@@ -223,17 +227,17 @@ const owns = (id) => {
 const ROUTES = [
   { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content", "wallet", "rewards", "refs"] },
   { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart", "cc", "progress"] },
-  { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member", "rewards"] },
+  { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member", "rewards", "theme"] },
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
   { id: "notes", label: "Notes & PDFs", icon: "i-file", group: "Learn", soon: true, blurb: "Outlines, phrase lists and dictation passages, organised by course." },
-  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay", "rewards", "wallet", "refs", "orders"] },
+  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay", "rewards", "wallet", "refs", "orders", "theme"] },
   { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders"] },
   { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
   { id: "rewards", label: "Refer & earn", icon: "i-coin", group: "Purchases", pill: "coins", view: vRewards, deps: ["rewards", "wallet", "refs", "orders", "profile", "courses"] },
   { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: ["wallet", "rewards"] },
   /* detail screens (not in the menu) */
-  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member", "rewards"] },
+  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member", "rewards", "theme"] },
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll", "cart", "cc", "progress", "content"] },
   { id: "success", parent: "orders", view: vSuccess, deps: ["orders"] },
   { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] },
@@ -362,6 +366,7 @@ function render(opts = {}) {
   current.out = out;
   if (out.mount) out.mount(view);
   hydrateCovers(view);
+  applyFest();
   if (changedRoute && !opts.quiet) {
     const html = document.documentElement;
     const prev = html.style.scrollBehavior;
@@ -607,6 +612,83 @@ function buyButtons(c, compact) {
    kicker, title, a three-cell spec strip, highlights, a price row with a
    quick add-to-cart button and full-width Explore / Buy now actions.
    Owned courses swap the price for remaining access and "Continue". */
+/* ============================================================
+   Festive store theme (Blinkit-style) — store-theme.js
+   ============================================================ */
+const FEST_ROUTES = new Set(["store", "course", "cart"]);
+function refreshFest(force) {
+  const next = resolveTheme(S.festRaw, Date.now());
+  const key = (t) => (t ? signature(t) + JSON.stringify([t.title, t.subtitle, t.badge, t.cta, t.coupon, t.ribbon, t.to, t.countdown, t.link]) : "");
+  if (!force && key(next) === key(S.fest)) return;
+  S.fest = next;
+  applyFest();
+  changed("theme");
+}
+function festHero() {
+  return S.fest ? heroHTML(S.fest, { fxOn: fxAllowed() }) : "";
+}
+/* themed header + falling effects on the store pages only */
+function applyFest() {
+  const html = document.documentElement;
+  const on = Boolean(S.fest && current.route && FEST_ROUTES.has(current.route.id));
+  if (on) {
+    html.dataset.fest = S.fest.id;
+    themeVars(S.fest)
+      .split(";")
+      .forEach((kv) => {
+        const [k, v] = kv.split(":");
+        html.style.setProperty(k, v);
+      });
+  } else if (html.dataset.fest) {
+    delete html.dataset.fest;
+    ["--ft-c1", "--ft-c2", "--ft-ac", "--ft-tx"].forEach((k) => html.style.removeProperty(k));
+  }
+  let layer = document.getElementById("ftFx");
+  const want = on && S.fest.effect !== "none" && fxAllowed();
+  if (!want) {
+    if (layer) layer.remove();
+    return;
+  }
+  const sig = signature(S.fest);
+  if (layer && layer.dataset.sig === sig) return;
+  if (layer) layer.remove();
+  document.body.insertAdjacentHTML("beforeend", fxHTML(S.fest));
+  layer = document.body.lastElementChild;
+  layer.id = "ftFx";
+}
+function bindFest(root) {
+  $$("[data-ft-coupon]", root).forEach((b) =>
+    b.addEventListener("click", () => {
+      const code = b.dataset.ftCoupon;
+      S.festPick = code;
+      b.classList.add("is-done");
+      const i = b.querySelector("i, em");
+      if (i) i.innerHTML = i.tagName === "EM" ? "Copied" : `${icon("i-check")}Copied`;
+      copyText(code).then(() => toast(cartItems().length ? `${code} copied — it’ll be applied in your cart.` : `${code} copied — add a course and it’s applied at checkout.`));
+    })
+  );
+  const hero = $(".ft", root);
+  if (!hero) return;
+  const fx = $("[data-ft-fx]", hero);
+  if (fx)
+    fx.addEventListener("click", () => {
+      const on = !fxAllowed();
+      setFxAllowed(on);
+      fx.setAttribute("aria-pressed", String(on));
+      const label = fx.querySelector("span");
+      if (label) label.textContent = on ? "Effects on" : "Effects off";
+      applyFest();
+    });
+  const go = $("[data-ft-scroll]", hero);
+  if (go)
+    go.addEventListener("click", (e) => {
+      const grid = $("#spStoreGrid", root);
+      if (!grid) return;
+      e.preventDefault();
+      grid.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+}
+
 function courseCard(c) {
   const a = access(c.id);
   const active = Boolean(a && a.active);
@@ -658,6 +740,7 @@ function courseCard(c) {
         `</span>`
       : "") +
     (off && !active ? `<span class="sc-off"><b>${off}%</b><small>off</small></span>` : "") +
+    (S.fest && !active ? ribbonHTML(S.fest) : "") +
     `<span class="sc-shine" aria-hidden="true"></span></a>` +
     `<div class="sc-body">` +
     `<div class="sc-kick"><span>${esc(c.category)}</span><i aria-hidden="true"></i><span>${esc(c.language)}</span></div>` +
@@ -1406,8 +1489,9 @@ function vMyCourses() {
 function vStore() {
   const f = S.filters;
   const cats = Array.from(new Set(S.courses.map((c) => c.category)));
-  const offer = S.offers.find((o) => !offerLocked(o)) || null;
+  const offer = S.offers.find((o) => !offerLocked(o) && !(S.fest && S.fest.coupon === o.code)) || null;
   const html =
+    festHero() +
     (offer
       ? `<div class="sp-offer${offer.members ? " is-member" : ""}">${icon(offer.members ? "i-crown" : "i-gift")}<span>${offer.members ? "Members: use" : "Use"} code <b>${esc(offer.code)}</b> — ${esc(offer.label)}</span><button type="button" class="sp-offer-copy" data-copy="${esc(offer.code)}">${icon("i-copy")}Copy</button></div>`
       : "") +
@@ -1430,6 +1514,7 @@ function vStore() {
     crumb: "Learn",
     html,
     mount(root) {
+      bindFest(root);
       const promo = $(".sp-mpromo", root);
       if (promo) bindAdd(promo);
       const paint = () => {
@@ -1513,6 +1598,9 @@ function vCourse(id) {
 
   const buyBox =
     `<aside class="sp-buy">` +
+    (S.fest && S.fest.coupon && !(a && a.active)
+      ? `<button type="button" class="sp-fest-coupon sp-fest-coupon--buy" style="${themeVars(S.fest)}" data-ft-coupon="${esc(S.fest.coupon)}">${icon("i-gift")}<span><b>${esc(S.fest.badge)}</b><small>Extra off with code <code>${esc(S.fest.coupon)}</code></small></span><em>Copy</em></button>`
+      : "") +
     `<div class="sp-buy-card">` +
     (a && a.active
       ? `<div class="sp-buy-owned">${icon("i-check")}<div><b>You’re enrolled</b><span>${a.until ? `Access till ${formatDate(a.until)} · ${a.daysLeft} days left` : "Lifetime access"}</span></div></div>` +
@@ -1571,6 +1659,7 @@ function vCourse(id) {
     html,
     mount(root) {
       bindAdd(root);
+      bindFest(root);
       $$("[data-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.buy, b, true)));
       $$("[data-cc-buy]", root).forEach((b) => b.addEventListener("click", () => addToCart(b.dataset.ccBuy, b, true)));
       $$("[data-renew]", root).forEach((b) =>
@@ -1681,6 +1770,9 @@ function vCart() {
     `<aside class="sp-cart-side">` +
     `<section class="sp-panel">` +
     `<span class="sp-k">Coupon</span>` +
+    (!applied && S.fest && S.fest.coupon
+      ? `<button type="button" class="sp-fest-coupon" style="${themeVars(S.fest)}" data-apply="${esc(S.fest.coupon)}">${icon("i-gift")}<span><b>${esc(S.fest.badge)}</b><small>Festive code <code>${esc(S.fest.coupon)}</code></small></span><em>Apply</em></button>`
+      : "") +
     (applied
       ? `<div class="sp-applied${S.coupon.coupon && S.coupon.coupon.members ? " is-member" : ""}">${icon(S.coupon.coupon && S.coupon.coupon.members ? "i-crown" : "i-tag")}<div><b>${esc(S.coupon.code)}</b><span>${esc(couponLabel(S.coupon.coupon))}${S.coupon.coupon && S.coupon.coupon.members ? " · members" : ""} · saving ${money(p.couponDiscount)}</span></div><button type="button" class="sp-icon-btn" id="spCouponRm" aria-label="Remove coupon">${icon("i-x")}</button></div>`
       : `<form class="sp-coupon" id="spCoupon" data-sp-keep novalidate><input class="p-input" name="code" placeholder="Enter coupon code" autocomplete="off" autocapitalize="characters" maxlength="24"><button class="p-btn p-btn--sm" type="submit"><span>Apply</span></button></form>` +
@@ -1732,6 +1824,12 @@ function vCart() {
           applyCoupon(cf.code.value, cf.querySelector("button"));
         });
       $$("[data-apply]", root).forEach((b) => b.addEventListener("click", () => applyCoupon(b.dataset.apply, b)));
+      /* code picked from the festive banner → apply it once the cart has items */
+      if (S.festPick && !S.coupon && cartItems().length) {
+        const code = S.festPick;
+        S.festPick = "";
+        setTimeout(() => applyCoupon(code, null), 0);
+      }
       const uc = $("#spUseCoins", root);
       if (uc)
         uc.addEventListener("change", () => {
@@ -3838,6 +3936,13 @@ async function init() {
     S.pay = v || {};
     changed("pay");
   });
+  dbWatch(THEME_PATH, (v) => {
+    S.festRaw = v;
+    refreshFest(true);
+  });
+  /* schedules start and end on their own */
+  setInterval(() => refreshFest(false), 60000);
+  startCountdowns();
   dbWatch(PATH.offers, (v) => {
     S.offers = Object.keys(v || {})
       .map((k) => ({ ...v[k], code: k }))

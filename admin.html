@@ -13,7 +13,8 @@
 <link rel="stylesheet" href="assets/css/site.css?v=11">
 <link rel="stylesheet" href="assets/css/portal.css?v=8">
 <link rel="stylesheet" href="assets/css/store.css?v=10">
-<link rel="stylesheet" href="assets/css/admin.css?v=1">
+<link rel="stylesheet" href="assets/css/fest.css?v=1">
+<link rel="stylesheet" href="assets/css/admin.css?v=2">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin" class="crm-body">
@@ -55,6 +56,7 @@
             <button class="crm-nav" type="button" data-crm-tab="courses"><svg><use href="#i-book"/></svg><span class="crm-nav-t">Courses</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="coupons"><svg><use href="#i-tag"/></svg><span class="crm-nav-t">Coupons</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="rewards"><svg><use href="#i-coin"/></svg><span class="crm-nav-t">E-coins &amp; referrals</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="theme"><svg><use href="#i-gift"/></svg><span class="crm-nav-t">Store theme</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="payments"><svg><use href="#i-card"/></svg><span class="crm-nav-t">Payment settings</span><span class="crm-badge"></span></button>
           </div>
           <div class="crm-group">
@@ -674,6 +676,20 @@
             </form>
           </section>
 
+          <!-- STORE THEME -->
+          <section class="crm-panel" data-crm-panel="theme" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Store theme <span class="as-pill as-pill--muted" id="thLivePill">Normal</span></h2>
+                <p>Dress the student store up for festivals, like Blinkit does. Pick Diwali, Holi, Christmas, New Year or a holiday sale; customise the banner, colours, coupon and effects; and schedule it to start and end on its own. Students see it on the course store, course pages and cart.</p>
+              </div>
+            </div>
+            <div class="th-live" id="thLive"></div>
+            <div class="th-sec-h"><h3>Themes</h3><p>Tap a theme to customise it. “Go live” makes it your manual choice.</p></div>
+            <div class="th-gallery" id="thGallery"></div>
+            <div class="crm-card th-editor" id="thEditor" hidden></div>
+          </section>
+
           <!-- REFER & EARN -->
           <section class="crm-panel" data-crm-panel="rewards" hidden>
             <div class="crm-panel-head">
@@ -805,6 +821,6 @@
 <script src="assets/js/chrome.js?v=11"></script>
 <script src="assets/js/site.js?v=5"></script>
 <script type="module" src="assets/js/content.js?v=14"></script>
-<script type="module" src="assets/js/admin.js?v=16"></script>
+<script type="module" src="assets/js/admin.js?v=17"></script>
 </body>
 </html>
