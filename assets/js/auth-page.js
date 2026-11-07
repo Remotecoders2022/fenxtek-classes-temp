@@ -18,7 +18,7 @@ import {
   friendlyError,
   onAuthChange
 } from "./firebase.js?v=5";
-import { claimAdminInvite } from "./admin-claim.js?v=1";
+import { claimAdminInvite, isBuiltinSuper } from "./admin-claim.js?v=2";
 
 const $ = (sel) => document.querySelector(sel);
 const alertBox = $("#authAlert");
@@ -217,6 +217,7 @@ function safeNext() {
 async function destinationFor(user) {
   const next = safeNext();
   /* someone invited from admin-access.html becomes an admin on first sign-in */
+  if (isBuiltinSuper(user)) return /^admin(-access)?\.html/i.test(next) ? next : "admin.html";
   const invite = await claimAdminInvite(user).catch(() => null);
   if (invite && invite.needsVerify) return "admin.html";
   const admin = isAdminEmail(user) || (await isAdmin(user).catch(() => false));

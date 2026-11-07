@@ -961,7 +961,7 @@
       ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('superadmins').child(auth.uid).val() === true && (auth.uid !== $uid || newData.val() === true) && (newData.exists() || !newData.parent().parent().child('superadmins').child($uid).exists())) || (auth.uid === $uid && newData.val() === true && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))",
+        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('superadmins').child(auth.uid).val() === true && (auth.uid !== $uid || newData.val() === true) && (newData.exists() || !newData.parent().parent().child('superadmins').child($uid).exists())) || (auth.uid === $uid && newData.val() === true && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()) || (auth.uid === $uid && auth.token.email === 'admin@example.com' && newData.val() === true))",
         ".validate": "newData.isBoolean()"
       }
     },
@@ -1032,7 +1032,7 @@
       ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('superadmins').child(auth.uid).val() === true && auth.uid !== $uid) || (auth.uid === $uid && newData.val() === true && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'super' && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))",
+        ".write": "auth != null && ((auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth != null && root.child('superadmins').child(auth.uid).val() === true && auth.uid !== $uid) || (auth.uid === $uid && newData.val() === true && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() === 'super' && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()) || (auth.uid === $uid && auth.token.email === 'admin@example.com' && newData.val() === true))",
         ".validate": "newData.val() === true && newData.parent().parent().child('admins').child($uid).val() === true"
       }
     },
@@ -1040,7 +1040,7 @@
       ".read": "auth != null && root.child('superadmins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && (auth != null && root.child('superadmins').child(auth.uid).val() === true || (auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth.uid === $uid && !data.exists() && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && newData.child('role').val() === root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()))",
+        ".write": "auth != null && (auth != null && root.child('superadmins').child(auth.uid).val() === true || (auth.uid === $uid && auth.token.email === 'admin.kaif.fenxtek@gmail.com' && auth.token.email_verified === true) || (auth.uid === $uid && !data.exists() && auth.token.email_verified === true && root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists() && newData.child('role').val() === root.child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).child('role').val() && !newData.parent().parent().child('adminInvites').child(auth.token.email.toLowerCase().replace('.', ',')).exists()) || (auth.uid === $uid && auth.token.email === 'admin@example.com' && newData.child('role').val() === 'super'))",
         ".validate": "newData.hasChildren(['email', 'role', 'at'])",
         "email": {
           ".validate": "newData.isString() && newData.val().length <= 200"
