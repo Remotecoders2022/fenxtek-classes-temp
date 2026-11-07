@@ -1994,3 +1994,121 @@ html.sp-locked, html.sp-locked body { overflow: hidden; }
 .sp-del-err[hidden] { display: none; }
 .sp-del-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
 @media (max-width: 560px) { .sp-del-actions .p-btn { flex: 1; } }
+
+/* ============================================================
+   Share & earn — course cards, course page, share sheet, cart
+   ============================================================ */
+/* course card strip */
+.sc-reward { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; padding: 7px 7px 7px 10px; border-radius: 14px; background: linear-gradient(90deg, #FFF7DA, #FFFBEE 70%); border: 1px solid rgba(242, 183, 5, 0.32); }
+.sc-reward.is-share-only { justify-content: flex-end; padding: 0; background: none; border: 0; }
+.sc-earn { display: inline-flex; align-items: center; gap: 7px; min-width: 0; font-size: 12.5px; color: #5C4200; white-space: nowrap; }
+.sc-earn b { font-weight: 800; color: #3A2800; font-variant-numeric: tabular-nums; }
+.sc-coin { width: 20px; height: 20px; flex: none; filter: drop-shadow(0 1px 1px rgba(107, 74, 0, 0.35)); }
+.sc-share {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; height: 30px; padding: 0 11px 0 9px; border-radius: 999px; cursor: pointer;
+  font: 600 12px/1 var(--sans); color: var(--ink); background: #fff; border: 1px solid var(--sp-line-2, rgba(11, 11, 16, 0.16));
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s var(--ease);
+}
+.sc-share svg { width: 14px; height: 14px; flex: none; }
+.sc-share:hover { background: var(--ink); color: #fff; border-color: var(--ink); transform: translateY(-1px); }
+.sc-reward.is-share-only .sc-share { background: transparent; }
+.sc-reward.is-share-only .sc-share:hover { background: var(--ink); }
+
+/* course page */
+.sp-buy-earn { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border-radius: 14px; background: linear-gradient(90deg, #FFF5D1, #FFFBEC); border: 1px solid rgba(242, 183, 5, 0.35); font-size: 13.5px; color: #4A3500; }
+.sp-buy-earn b { color: #2E2000; }
+.sp-buy-earn small { display: block; margin-top: 1px; font-size: 11.5px; color: #7A5D17; }
+.sp-buy-coin { width: 30px; height: 30px; flex: none; filter: drop-shadow(0 2px 2px rgba(107, 74, 0, 0.3)); }
+.sp-share-card { display: grid; gap: 12px; margin-top: 12px; padding: 16px; border-radius: 20px; color: #FFF8E1; background: radial-gradient(90% 120% at 0% 0%, rgba(255, 196, 40, 0.28), transparent 60%), linear-gradient(135deg, #1A1305, #0E0B05); border: 1px solid rgba(255, 216, 102, 0.22); }
+.sp-share-top { display: flex; align-items: center; gap: 12px; }
+.sp-share-top b { display: block; font-size: 15px; letter-spacing: -0.01em; color: #FFE07A; }
+.sp-share-top small { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.45; color: rgba(255, 248, 225, 0.68); }
+.sp-share-art { flex: none; display: grid; place-items: center; width: 56px; height: 56px; }
+.sp-share-ic { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.08); color: #FFE07A; }
+.sp-share-ic svg { width: 20px; height: 20px; }
+.sp-share-btn { background: linear-gradient(180deg, #FFE07A, #F2B705); color: #2A1C00; border-color: #E8AE00; }
+.sp-share-btn:hover { background: linear-gradient(180deg, #FFE88F, #FFC21A); color: #2A1C00; border-color: #FFC21A; }
+
+/* share sheet */
+.sh { display: grid; gap: 14px; }
+.sh-course { display: flex; align-items: center; gap: 12px; padding-right: 36px; }
+.sh-course .sp-cover { width: 76px; flex: none; }
+.sh-course .sp-k { margin-bottom: 2px; }
+.sh-course b { display: block; font-size: 16px; line-height: 1.3; letter-spacing: -0.02em; }
+.sh-course small { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+.sh-course s { color: var(--muted); opacity: 0.7; }
+.sh-earn { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; color: #FFF8E1; background: radial-gradient(80% 140% at 0% 50%, rgba(255, 196, 40, 0.3), transparent 65%), linear-gradient(135deg, #1A1305, #0E0B05); }
+.sh-earn-art { flex: none; display: grid; place-items: center; width: 56px; height: 56px; }
+.sh-earn b { display: block; font-size: 17px; color: #FFE07A; letter-spacing: -0.02em; }
+.sh-earn small { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.45; color: rgba(255, 248, 225, 0.72); }
+.sh .p-label { margin-bottom: -6px; }
+.sh-link { display: flex; gap: 8px; }
+.sh-link .p-input { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; background: var(--paper-2, #ECE8DD); }
+.sh-link .p-btn { flex: none; }
+.sh-code { display: flex; gap: 8px; align-items: flex-start; margin: -4px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.sh-code svg { width: 15px; height: 15px; flex: none; margin-top: 1px; color: #C98A00; }
+.sh-code b { font-family: var(--mono); color: var(--ink); letter-spacing: 0.06em; }
+.sh-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.sh-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 12px; border-radius: 12px; cursor: pointer; font: 600 13.5px/1 var(--sans); color: var(--ink); background: var(--paper-2, #ECE8DD); border: 1px solid transparent; transition: transform 0.2s var(--ease), filter 0.2s; }
+.sh-btn[hidden] { display: none; }
+.sh-btn svg { width: 17px; height: 17px; flex: none; }
+.sh-btn:hover { transform: translateY(-1px); filter: brightness(0.96); }
+.sh-btn--wa { background: #25D366; color: #fff; }
+.sh-btn--tg { background: #229ED9; color: #fff; }
+.sh-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 2px 0 0; padding: 12px 0 0; list-style: none; border-top: 1px dashed var(--sp-line-2, rgba(11, 11, 16, 0.16)); }
+.sh-steps li { display: grid; justify-items: center; gap: 6px; text-align: center; font-size: 11.5px; line-height: 1.35; color: var(--muted); }
+.sh-steps b { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 700 11px/1 var(--mono); background: var(--ink); color: var(--lime); }
+
+/* Refer & earn: share a course */
+.rw-share-courses { margin-top: 16px; }
+.rw-sc { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; }
+.rw-sc li { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 16px; border: 1px solid var(--sp-line); background: #fff; }
+.rw-sc-cover { width: 64px; flex: none; }
+.rw-sc-txt { flex: 1; min-width: 0; }
+.rw-sc-txt b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13.5px; line-height: 1.3; letter-spacing: -0.01em; }
+.rw-sc-txt small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.rw-sc-txt s { opacity: 0.7; }
+.rw-sc-earn { display: inline-flex; align-items: center; gap: 5px; flex: none; font: 700 13px/1 var(--sans); color: #6B4A00; font-variant-numeric: tabular-nums; }
+.rw-sc-coin { width: 18px; height: 18px; }
+.rw-sc .p-btn { flex: none; }
+
+/* cart */
+.sp-earnbar { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: linear-gradient(90deg, #FFF5D1, #FFFBEC); border: 1px solid rgba(242, 183, 5, 0.35); font-size: 13px; color: #4A3500; }
+.sp-earnbar b { color: #2E2000; }
+.sp-earnbar small { display: block; font-size: 11.5px; color: #7A5D17; }
+.sp-earn-coin { width: 26px; height: 26px; flex: none; }
+.sp-invite .sp-muted { margin: 2px 0 10px; }
+.sp-invite-ok { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: #ECFDF3; border: 1px solid rgba(18, 140, 72, 0.22); color: #05603A; }
+.sp-invite-ok > svg { width: 20px; height: 20px; flex: none; }
+.sp-invite-ok b { display: block; font-size: 13.5px; }
+.sp-invite-ok small { display: block; font-size: 12px; opacity: 0.85; }
+.sp-cart-side > .sp-invite-ok { margin-bottom: 0; }
+
+/* orders */
+.sp-order-amt small.sp-order-coins { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; color: #8A6100; }
+.sp-oc-coin { width: 15px; height: 15px; }
+
+/* invite landing: 3D coin, course and success */
+.rw-inv-art { display: grid; place-items: center; margin: -6px 0 6px; }
+.rw-inv-course { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px 10px 10px; border-radius: 16px; text-align: left; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); color: inherit; transition: background 0.2s; }
+.rw-inv-course:hover { background: rgba(255, 255, 255, 0.1); }
+.rw-inv-card.is-plain .rw-inv-course { background: var(--paper-2, #ECE8DD); border-color: transparent; }
+.rw-inv-course .sp-cover { width: 64px; flex: none; }
+.rw-inv-course div { flex: 1; min-width: 0; }
+.rw-inv-course small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6; }
+.rw-inv-course b { display: block; margin-top: 2px; font-size: 14px; line-height: 1.3; }
+.rw-inv-course span { display: block; margin-top: 2px; font-size: 12.5px; opacity: 0.75; }
+.rw-inv-course > svg { width: 16px; height: 16px; flex: none; opacity: 0.6; }
+.rw-inv-card .p-btn--block { margin-top: 4px; }
+.rw-code-ok { display: inline-flex; align-items: center; gap: 5px; font-style: normal; font: 700 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--lime); }
+.rw-code-ok svg { width: 14px; height: 14px; }
+.rw-inv-card.is-done .rw-code--center { justify-content: space-between; text-align: left; }
+@media (max-width: 560px) {
+  .sc-earn span { font-size: 12px; }
+  .sh-steps { grid-template-columns: 1fr; justify-items: start; }
+  .sh-steps li { grid-template-columns: auto 1fr; justify-items: start; text-align: left; align-items: center; }
+  .rw-sc li { flex-wrap: wrap; }
+  .rw-sc-txt { flex-basis: calc(100% - 80px); }
+  .rw-sc-earn { margin-left: 76px; }
+  .rw-sc .p-btn { margin-left: auto; }
+}

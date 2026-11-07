@@ -106,6 +106,8 @@ export function toList(value) {
 }
 
 /* Normalise a raw course record into a predictable shape. */
+const optCoins = (v) => (v === undefined || v === null || v === "" || !isFinite(Number(v)) || Number(v) < 0 ? -1 : Math.min(100000, Math.round(Number(v))));
+
 export function normalizeCourse(raw) {
   const c = raw || {};
   const features = Array.isArray(c.features)
@@ -135,6 +137,9 @@ export function normalizeCourse(raw) {
     order: num(c.order, 0),
     lessons: Math.max(0, Math.round(num(c.lessons))),
     memberPrice: Math.max(0, Math.round(num(c.memberPrice))), // 0 = use the plan's % off
+    /* E-coins: -1 = follow the academy-wide rule in site/rewards */
+    earnCoins: optCoins(c.earnCoins), // coins the buyer earns on this course
+    referCoins: optCoins(c.referCoins), // coins the referrer earns when a friend's first order includes it
     createdAt: num(c.createdAt, 0),
     updatedAt: num(c.updatedAt, 0)
   };
@@ -433,7 +438,7 @@ export function priceCart(items, applied, opts = {}) {
 
 /* ---------------- refer & earn (E-coins) ---------------- */
 
-export const REWARDS_DEFAULT = { enabled: false, referrerCoins: 100, refereeCoins: 50, maxRedeemPct: 20, minOrder: 0 };
+export const REWARDS_DEFAULT = { enabled: false, referrerCoins: 100, refereeCoins: 50, maxRedeemPct: 20, minOrder: 0, buyOn: false, buyPct: 5, buyMax: 0 };
 export function rewardsFrom(v) {
   const r = v || {};
   const int = (x, d, lo, hi) => Math.min(hi, Math.max(lo, Math.round(x === undefined || x === null || x === "" || !isFinite(Number(x)) ? d : Number(x))));
@@ -443,6 +448,9 @@ export function rewardsFrom(v) {
     refereeCoins: int(r.refereeCoins, REWARDS_DEFAULT.refereeCoins, 0, 100000),
     maxRedeemPct: int(r.maxRedeemPct, REWARDS_DEFAULT.maxRedeemPct, 0, 90),
     minOrder: int(r.minOrder, 0, 0, 10000000),
+    buyOn: r.buyOn === true, // purchase rewards (cashback in E-coins)
+    buyPct: int(r.buyPct, REWARDS_DEFAULT.buyPct, 0, 50), // % of the amount paid
+    buyMax: int(r.buyMax, 0, 0, 100000), // cap per order for the % reward, 0 = no cap
     note: String(r.note || "")
   };
 }
@@ -465,8 +473,64 @@ export const TX_LABEL = {
   spend: "Used on order",
   refund: "Refunded to wallet",
   admin: "Added by academy",
-  debit: "Adjusted by academy"
+  debit: "Adjusted by academy",
+  purchase: "Course reward"
 };
+
+/* ---------------- E-coin rewards on purchases ----------------
+   Per course the admin can set a fixed number of coins (earnCoins >= 0).
+   Otherwise, when purchase rewards are on, the buyer earns buyPct % of
+   what they paid (capped at buyMax per order). Memberships use the %. */
+const itemsOf = (o) => {
+  const items = (o && o.items) || {};
+  return Array.isArray(items) ? items.filter(Boolean) : Object.keys(items).map((id) => ({ id, ...items[id] }));
+};
+
+/* What a single course earns at `price` (shown on cards / course page). */
+export function courseEarnCoins(course, rw, price) {
+  if (!rw || !rw.enabled || !course) return 0;
+  if (optCoins(course.earnCoins) >= 0) return optCoins(course.earnCoins);
+  if (!rw.buyOn || !rw.buyPct) return 0;
+  const p = Math.max(0, num(price === undefined ? course.price : price));
+  const c = Math.floor((p * rw.buyPct) / 100);
+  return rw.buyMax ? Math.min(rw.buyMax, c) : c;
+}
+
+/* What a paid order earns. `courses` = { id: course }. Free orders earn nothing. */
+export function orderEarnCoins(order, rw, courses = {}) {
+  if (!rw || !rw.enabled || !order) return 0;
+  const paid = Math.max(0, num(order.total));
+  if (!paid) return 0;
+  const items = itemsOf(order);
+  const subtotal = items.reduce((t, it) => t + Math.max(0, num(it.price)), 0) || paid;
+  let fixed = 0;
+  let pctBase = 0;
+  items.forEach((it) => {
+    const c = !isPlanItem(it) ? courses[it.id] : null;
+    if (c && optCoins(c.earnCoins) >= 0) fixed += optCoins(c.earnCoins);
+    else pctBase += Math.max(0, num(it.price));
+  });
+  let pct = 0;
+  if (rw.buyOn && rw.buyPct && pctBase) {
+    pct = Math.floor((paid * (pctBase / subtotal) * rw.buyPct) / 100);
+    if (rw.buyMax) pct = Math.min(rw.buyMax, pct);
+  }
+  return Math.max(0, fixed + pct);
+}
+
+/* Coins for the referrer when this order is the friend's first purchase:
+   the highest per-course "referCoins" in the order, else the default. */
+export function orderReferrerCoins(order, rw, courses = {}) {
+  let best = -1;
+  itemsOf(order).forEach((it) => {
+    const c = !isPlanItem(it) ? courses[it.id] : null;
+    if (c && optCoins(c.referCoins) > best) best = optCoins(c.referCoins);
+  });
+  return best >= 0 ? best : rw.referrerCoins;
+}
+
+/* Referrer reward shown on a course's share button. */
+export const courseReferCoins = (course, rw) => (course && optCoins(course.referCoins) >= 0 ? optCoins(course.referCoins) : (rw && rw.referrerCoins) || 0);
 
 /* ---------------- orders ---------------- */
 

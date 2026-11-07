@@ -4,7 +4,7 @@
    crisp at 2x and looks identical in the student portal and CRM.
    ============================================================ */
 
-import { money, num, formatDate, methodLabel, validityLabel, orderBreakdown } from "./commerce.js?v=3";
+import { money, num, formatDate, methodLabel, validityLabel, orderBreakdown } from "./commerce.js?v=4";
 
 const W = 1200; // css px — exported at 2x = 2400 px wide
 const PAD = 72;

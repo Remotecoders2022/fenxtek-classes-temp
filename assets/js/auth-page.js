@@ -79,6 +79,48 @@ if (altBtn) {
 /* invite links (?mode=signup, or a referral next=dashboard.html#ref/CODE) open on "Create account" */
 if (signupForm && (new URLSearchParams(location.search).get("mode") === "signup" || /#ref\//i.test(safeNext()))) setTab("signup");
 
+/* ---------------- invite codes (Refer & earn) ----------------
+   A friend's link looks like auth.html?mode=signup&ref=CODE&next=dashboard.html#ref/CODE/<course>.
+   The code is remembered in localStorage ("fx:invite") so it survives Google
+   sign-in or a detour, and the student portal applies it once the new
+   account is ready. Students can also type a code in the sign-up form. */
+const INVITE_KEY = "fx:invite";
+const cleanCode = (v) => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+const inviteFromUrl = (() => {
+  const q = new URLSearchParams(location.search);
+  const m = safeNext().match(/#ref\/([A-Za-z0-9]{4,12})(?:\/([A-Za-z0-9_-]{1,80}))?/);
+  const code = cleanCode(q.get("ref") || (m && m[1]) || "");
+  return code.length >= 4 ? { code, course: (m && m[2]) || "" } : null;
+})();
+function rememberInvite(code, course) {
+  const c = cleanCode(code);
+  if (c.length < 4) return;
+  try {
+    localStorage.setItem(INVITE_KEY, JSON.stringify({ code: c, course: course || "", at: Date.now() }));
+  } catch (e) {
+    /* private mode — the #ref link still works */
+  }
+}
+const inviteInput = $("#inviteInput");
+const inviteBox = $("#inviteBox");
+if (inviteFromUrl) {
+  rememberInvite(inviteFromUrl.code, inviteFromUrl.course);
+  if (inviteInput) inviteInput.value = inviteFromUrl.code;
+  if (inviteBox) inviteBox.open = true;
+  const chip = $("#inviteChip");
+  if (chip) {
+    chip.textContent = inviteFromUrl.code;
+    chip.hidden = false;
+  }
+}
+if (inviteInput) inviteInput.addEventListener("input", () => (inviteInput.value = cleanCode(inviteInput.value)));
+/* the typed code wins over the link's code */
+const inviteTyped = () => cleanCode(inviteInput && inviteInput.value);
+function keepTypedInvite() {
+  const typed = inviteTyped();
+  if (typed.length >= 4) rememberInvite(typed, typed === (inviteFromUrl && inviteFromUrl.code) ? inviteFromUrl.course : "");
+}
+
 /* Arriving from "Explore courses" (next=dashboard.html#store / #course/… / #cart):
    explain why we ask for a login and offer a one-tap switch to sign-up. */
 (() => {
@@ -93,6 +135,28 @@ if (signupForm && (new URLSearchParams(location.search).get("mode") === "signup"
     box.classList.add("auth-context--done");
     box.hidden = false;
     try { history.replaceState(null, "", "auth.html"); } catch (e) { /* ignore */ }
+    return;
+  }
+  if (box && inviteFromUrl) {
+    box.innerHTML =
+      '<span class="auth-context-ic auth-context-ic--coin"><svg><use href="#i-gift"/></svg></span>' +
+      '<span class="auth-context-txt"><b>You’ve been invited to FenxTek</b>' +
+      '<span id="inviteCtxText">Create your free account — your friend’s invite code <code>' + inviteFromUrl.code + "</code> is already added.</span></span>";
+    box.classList.add("auth-context--invite");
+    box.hidden = false;
+    /* show the real welcome bonus (site/rewards is public) */
+    dbGet("site/rewards")
+      .then((snap) => {
+        const r = (snap && snap.val && snap.val()) || {};
+        const coins = Math.round(Number(r.refereeCoins));
+        const t = document.getElementById("inviteCtxText");
+        if (t && r.enabled === true && coins > 0) {
+          t.innerHTML = "Create your free account and get <b>" + coins.toLocaleString("en-IN") + " E-coins</b> (₹" + coins.toLocaleString("en-IN") + " off) on your first course. Code <code>" + inviteFromUrl.code + "</code> is already added.";
+          const note = document.getElementById("inviteNote");
+          if (note) note.textContent = "You get " + coins.toLocaleString("en-IN") + " E-coins with your first course, and your friend earns too.";
+        }
+      })
+      .catch(() => {});
     return;
   }
   if (!box || !/^dashboard\.html#(store|course\/|cart)/i.test(next)) return;
@@ -245,6 +309,14 @@ if (signupForm) {
       return;
     }
 
+    const typedInvite = inviteTyped();
+    if (typedInvite && typedInvite.length < 4) {
+      showAlert("err", "That invite code looks too short — check it with your friend, or leave it blank.");
+      if (inviteInput) inviteInput.focus();
+      return;
+    }
+    keepTypedInvite();
+
     busy(btn, true, "Creating account…");
     try {
       const cred = await signUpEmail(name, email, password);
@@ -267,6 +339,7 @@ if (googleBtn) {
       showAlert("err", "Firebase is not configured yet. Add your keys to assets/js/firebase-config.js.");
       return;
     }
+    if (currentTab === "signup") keepTypedInvite();
     busy(googleBtn, true, "Opening Google…");
     try {
       const cred = await signInGoogle();

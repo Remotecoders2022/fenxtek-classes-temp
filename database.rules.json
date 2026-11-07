@@ -159,6 +159,12 @@
           },
           "memberPrice": {
             ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "earnCoins": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+          },
+          "referCoins": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
           }
         }
       },
@@ -215,6 +221,15 @@
         },
         "updatedAt": {
           ".validate": "newData.isNumber()"
+        },
+        "buyOn": {
+          ".validate": "newData.isBoolean()"
+        },
+        "buyPct": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 50"
+        },
+        "buyMax": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
         }
       }
     },
@@ -508,6 +523,9 @@
           },
           "memberDiscount": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= newData.parent().child('discount').val()"
+          },
+          "coinsEarned": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && auth != null && root.child('admins').child(auth.uid).val() === true"
           }
         }
       }
@@ -740,7 +758,7 @@
         ".read": "auth != null && auth.uid === $uid",
         "$tx": {
           ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.child('type').val() === 'spend' && newData.child('orderId').val() === $tx && newData.child('coins').val() < 0 && newData.child('coins').val() === 0 - newData.parent().parent().parent().child('orders').child($uid).child($tx).child('coins').val() && newData.parent().parent().parent().child('wallets').child($uid).child('lastSpend').child('orderId').val() === $tx",
-          ".validate": "newData.hasChildren(['type', 'coins', 'at']) && newData.child('type').isString() && newData.child('type').val().matches(/^(referral|welcome|spend|refund|admin|debit)$/)",
+          ".validate": "newData.hasChildren(['type', 'coins', 'at']) && newData.child('type').isString() && newData.child('type').val().matches(/^(referral|welcome|spend|refund|admin|debit|purchase)$/)",
           "coins": {
             ".validate": "newData.isNumber()"
           },
