@@ -491,6 +491,17 @@ async function busy(btn, label, fn) {
   }
 }
 
+/* like busy(), but leaves the button's label alone (no spinner) */
+async function quietBusy(btn, fn) {
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
+  try {
+    return await fn();
+  } finally {
+    if (btn && btn.isConnected) btn.disabled = false;
+  }
+}
+
 async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -929,7 +940,8 @@ async function applyCoupon(raw, btn) {
     toast("Enter a valid coupon code.", "err");
     return false;
   }
-  return busy(btn, "Checking", async () => {
+  /* no spinner here — the button just ignores repeat clicks while the code is checked */
+  return quietBusy(btn, async () => {
     try {
       const info = await fetchCoupon(code);
       const prev = S.coupon;
