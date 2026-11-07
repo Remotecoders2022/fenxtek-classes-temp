@@ -185,7 +185,7 @@ function paint() {
       ["i-coin", "E-coin rewards", "rewards", ""],
       ["i-edit", "Post announcement", "content", ""],
       ["i-crown", "Membership plans", "memberships", ""],
-      ["i-award", "Share a result", "achievements", ""]
+      ["i-gift", "Festive store theme", "theme", ""]
     ]
       .map(([ic, t, go, click]) => `<button type="button" class="ov-q" data-ov-go="${go}"${click ? ` data-ov-click="${click}"` : ""}><span>${icon(ic)}</span>${esc(t)}</button>`)
       .join("") +

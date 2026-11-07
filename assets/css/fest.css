@@ -1,0 +1,179 @@
+/* ============================================================
+   FENXTEK — festive store themes (hero, effects, ribbons)
+   Used by dashboard.html (student store) and admin.html
+   (live preview). Colours come from --ft-c1 / --ft-c2 /
+   --ft-ac / --ft-tx set by store-theme.js.
+   ============================================================ */
+
+/* ---------- hero banner ---------- */
+.ft-wrap { container-type: inline-size; margin: 0 0 18px; }
+.ft {
+  position: relative; isolation: isolate; overflow: hidden; display: grid; align-items: center;
+  min-height: 268px; margin: 0; padding: clamp(22px, 3.4vw, 40px); border-radius: 28px; color: var(--ft-tx);
+  background:
+    radial-gradient(90% 130% at 100% 0%, color-mix(in srgb, var(--ft-ac) 30%, transparent), transparent 55%),
+    radial-gradient(70% 120% at 0% 100%, color-mix(in srgb, var(--ft-c2) 70%, #000 0%), transparent 70%),
+    linear-gradient(120deg, var(--ft-c1), var(--ft-c2));
+  box-shadow: 0 30px 60px -34px color-mix(in srgb, var(--ft-c2) 85%, #000), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.ft::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.ft-pattern { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0.9; mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 80%); -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 80%); }
+.ft--diwali .ft-pattern { background-image: radial-gradient(color-mix(in srgb, var(--ft-ac) 45%, transparent) 1.3px, transparent 1.8px); background-size: 22px 22px; }
+.ft--christmas .ft-pattern { background-image: radial-gradient(rgba(255, 255, 255, 0.35) 1.2px, transparent 1.7px), radial-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1.5px); background-size: 34px 34px, 17px 17px; background-position: 0 0, 8px 11px; }
+.ft--newyear .ft-pattern { background-image: radial-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1.5px), radial-gradient(color-mix(in srgb, var(--ft-ac) 60%, transparent) 1.2px, transparent 1.7px); background-size: 46px 46px, 29px 29px; background-position: 0 0, 13px 7px; }
+.ft--holi .ft-pattern { background: radial-gradient(40% 60% at 10% 20%, rgba(255, 225, 77, 0.35), transparent 70%), radial-gradient(30% 50% at 35% 90%, rgba(34, 211, 238, 0.35), transparent 70%), radial-gradient(25% 40% at 55% 10%, rgba(74, 222, 128, 0.3), transparent 70%); mask-image: none; -webkit-mask-image: none; }
+.ft--sale .ft-pattern { background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0 14px, transparent 14px 28px); }
+
+.ft-art { position: absolute; right: -6px; bottom: 0; z-index: 0; width: min(54%, 540px); height: 100%; color: var(--ft-tx); pointer-events: none; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.25)); }
+.ft-body { position: relative; z-index: 1; display: grid; gap: 12px; justify-items: start; max-width: min(580px, 56%); }
+.ft-badge {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 9px; border-radius: 999px;
+  font: 700 11px/1 var(--mono, monospace); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ft-ac);
+  background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.ft-badge svg { width: 14px; height: 14px; flex: none; }
+.ft-title { margin: 0; font-size: clamp(28px, 3.9vw, 50px); line-height: 1.02; letter-spacing: -0.045em; font-weight: 800; color: var(--ft-tx); text-wrap: balance; }
+.ft-title em { font-family: var(--serif, Georgia, serif); font-style: italic; font-weight: 400; letter-spacing: -0.02em; color: var(--ft-ac); }
+.ft-sub { margin: 0; max-width: 46ch; font-size: 15px; line-height: 1.55; color: color-mix(in srgb, var(--ft-tx) 80%, transparent); }
+.ft-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
+.ft-cta {
+  display: inline-flex; align-items: center; gap: 9px; height: 48px; padding: 0 20px; border-radius: 14px; border: 0; cursor: pointer;
+  font: 700 15px/1 var(--sans, system-ui); letter-spacing: -0.01em; color: var(--ft-c1); background: var(--ft-ac); text-decoration: none;
+  box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--ft-ac) 80%, #000), inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s var(--ease, ease), box-shadow 0.2s;
+}
+.ft-cta svg { width: 16px; height: 16px; flex: none; transition: transform 0.2s; }
+.ft-cta:hover { transform: translateY(-2px); }
+.ft-cta:hover svg { transform: translateX(3px); }
+.ft-coupon {
+  position: relative; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 8px 0 16px; border-radius: 14px; cursor: pointer;
+  font: inherit; color: var(--ft-tx); background: rgba(255, 255, 255, 0.08); border: 1.5px dashed color-mix(in srgb, var(--ft-ac) 75%, transparent);
+  transition: background 0.2s;
+}
+.ft-coupon:hover { background: rgba(255, 255, 255, 0.14); }
+.ft-coupon-k { font: 600 9.5px/1.1 var(--mono, monospace); letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7; max-width: 44px; text-align: left; }
+.ft-coupon b { font: 700 16px/1 var(--mono, monospace); letter-spacing: 0.08em; color: var(--ft-ac); }
+.ft-coupon i { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; border-radius: 10px; font: 600 12px/1 var(--sans, system-ui); font-style: normal; background: rgba(255, 255, 255, 0.14); }
+.ft-coupon i svg { width: 13px; height: 13px; }
+.ft-coupon.is-done i { background: var(--ft-ac); color: var(--ft-c1); }
+.ft-count { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; }
+.ft-count small { margin-right: 4px; font: 600 10px/1.2 var(--mono, monospace); letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7; }
+.ft-count span { display: grid; justify-items: center; gap: 3px; }
+.ft-count b { min-width: 40px; height: 38px; display: grid; place-items: center; padding: 0 6px; border-radius: 10px; font: 700 17px/1 var(--mono, monospace); font-variant-numeric: tabular-nums; background: rgba(0, 0, 0, 0.26); border: 1px solid rgba(255, 255, 255, 0.14); }
+.ft-count i { font: 600 8.5px/1 var(--mono, monospace); letter-spacing: 0.12em; text-transform: uppercase; font-style: normal; opacity: 0.6; }
+.ft-count em { font-style: normal; font-weight: 700; opacity: 0.45; margin-top: -14px; }
+.ft-fxbtn {
+  position: absolute; bottom: 14px; right: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px 0 9px; border-radius: 999px; cursor: pointer;
+  font: 600 11.5px/1 var(--sans, system-ui); color: var(--ft-tx); background: rgba(0, 0, 0, 0.24); border: 1px solid rgba(255, 255, 255, 0.16); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.ft-fxbtn svg { width: 13px; height: 13px; color: var(--ft-ac); }
+.ft-fxbtn[aria-pressed="false"] { opacity: 0.7; }
+.ft-fxbtn[aria-pressed="false"] svg { color: currentColor; opacity: 0.6; }
+
+/* art motion */
+.ft-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: ftFlicker 1.6s ease-in-out infinite; }
+.ft-swing { transform-box: view-box; animation: ftSwing 5s ease-in-out infinite; }
+.ft-spin { transform-box: fill-box; transform-origin: center; animation: ftSpin 60s linear infinite; }
+.ft-pulse { animation: ftPulse 2.6s ease-in-out infinite; }
+.ft-burst { transform-box: fill-box; transform-origin: center; animation: ftBurst 3.2s ease-out infinite; }
+.ft-twinkle { animation: ftPulse 2s ease-in-out infinite; }
+.ft-float { transform-box: fill-box; transform-origin: center; animation: ftFloat 7s ease-in-out infinite; }
+@keyframes ftFlicker { 0%, 100% { transform: scale(1, 1); opacity: 1; } 30% { transform: scale(0.92, 1.08); } 55% { transform: scale(1.06, 0.94); opacity: 0.9; } 80% { transform: scale(0.97, 1.05); } }
+@keyframes ftSwing { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes ftSpin { to { transform: rotate(360deg); } }
+@keyframes ftPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes ftBurst { 0% { transform: scale(0.2); opacity: 0; } 15% { opacity: 1; } 60% { transform: scale(1); opacity: 0.95; } 100% { transform: scale(1.12); opacity: 0; } }
+@keyframes ftFloat { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+
+@container (max-width: 640px) {
+  .ft { min-height: 0; padding: 22px 20px 20px; border-radius: 22px; align-items: start; }
+  .ft-body { max-width: 100%; gap: 10px; }
+  .ft-art { top: 0; bottom: auto; right: -18px; width: 52%; height: 62%; opacity: 0.5; }
+  .ft-title { font-size: 30px; max-width: 13ch; }
+  .ft-sub { font-size: 13.5px; max-width: 34ch; }
+  .ft-acts { width: 100%; }
+  .ft-cta { flex: 1 1 auto; justify-content: center; height: 46px; }
+  .ft-coupon { height: 46px; }
+  .ft-count b { min-width: 36px; height: 34px; font-size: 15px; }
+  .ft-fxbtn span { display: none; }
+  .ft-fxbtn { width: 30px; padding: 0; justify-content: center; }
+}
+
+/* ---------- particle effects ---------- */
+.ft-fx { position: fixed; inset: 0; z-index: 35; overflow: hidden; pointer-events: none; --fh: 100vh; }
+.ft-fx.is-contained { position: absolute; z-index: 3; border-radius: inherit; }
+@supports (height: 1cqh) {
+  .ft-fx { container-type: size; }
+  .ft-fx i { --fh: 100cqh; }
+}
+.ft-fx i { position: absolute; left: var(--x); display: block; will-change: transform; }
+
+.ft-fx--snow i {
+  top: -14px; width: var(--s); height: var(--s); border-radius: 50%; opacity: var(--o);
+  background: radial-gradient(circle at 35% 35%, #fff, #E6F0FF 70%); box-shadow: 0 0 0 0.5px rgba(120, 150, 200, 0.35), 0 2px 6px rgba(80, 110, 170, 0.28);
+  animation: ftSnow var(--d) linear var(--dl) infinite;
+}
+@keyframes ftSnow { from { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(calc(var(--dx) * -0.5), calc(var(--fh) * 0.5), 0); } to { transform: translate3d(var(--dx), calc(var(--fh) + 28px), 0); } }
+
+.ft-fx--diya i {
+  bottom: -14px; width: var(--s); height: var(--s); border-radius: 50%;
+  background: radial-gradient(circle, #FFF7D6 0 25%, var(--c) 55%, transparent 72%); box-shadow: 0 0 10px 2px color-mix(in srgb, var(--c) 70%, transparent);
+  animation: ftRise var(--d) ease-in var(--dl) infinite;
+}
+@keyframes ftRise { 0% { transform: translate3d(0, 0, 0) scale(0.6); opacity: 0; } 12% { opacity: 1; } 70% { opacity: 0.85; } 100% { transform: translate3d(var(--dx), calc(var(--fh) * -0.85), 0) scale(1.1); opacity: 0; } }
+
+.ft-fx--confetti i {
+  top: -20px; width: var(--w); height: var(--h); border-radius: 2px; background: var(--c); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  animation: ftConfetti var(--d) linear var(--dl) infinite;
+}
+@keyframes ftConfetti { from { transform: translate3d(0, 0, 0) rotate3d(1, 0.4, 0.2, 0deg); } to { transform: translate3d(var(--dx), calc(var(--fh) + 30px), 0) rotate3d(1, 0.4, 0.2, var(--rot)); } }
+
+.ft-fx--colour i {
+  bottom: -40px; width: var(--s); height: var(--s); border-radius: 50%; filter: blur(10px); mix-blend-mode: multiply;
+  background: radial-gradient(circle, var(--c), transparent 66%); animation: ftGulal var(--d) ease-in-out var(--dl) infinite;
+}
+@keyframes ftGulal { 0% { transform: translate3d(0, 0, 0) scale(0.5); opacity: 0; } 25% { opacity: 0.32; } 75% { opacity: 0.18; } 100% { transform: translate3d(var(--dx), calc(var(--fh) * -0.7), 0) scale(1.5); opacity: 0; } }
+
+.ft-fx--fireworks i { top: var(--y); width: 0; height: 0; }
+.ft-fx--fireworks b {
+  position: absolute; left: -2.5px; top: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px 1px var(--c);
+  transform: rotate(var(--a)) translateY(0); opacity: 0; animation: ftSpark var(--d) cubic-bezier(0.15, 0.7, 0.3, 1) var(--dl) infinite;
+}
+@keyframes ftSpark { 0% { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 0; } 8% { opacity: 1; } 55% { transform: rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(0.9); opacity: 0.9; } 75%, 100% { transform: rotate(var(--a)) translateY(calc(var(--r) * -1.12)) scale(0.4); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ft-fx { display: none !important; }
+  .ft *, .sc-fest { animation: none !important; }
+}
+
+/* ---------- course card ribbon ---------- */
+.sc-fest {
+  position: absolute; left: 12px; top: 48px; z-index: 3; display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px 6px 8px; border-radius: 999px; overflow: hidden;
+  font: 700 11px/1 var(--sans, system-ui); letter-spacing: 0.01em; color: var(--ft-ac); background: linear-gradient(90deg, var(--ft-c1), var(--ft-c2));
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.16); pointer-events: none;
+}
+.sc-fest svg { width: 12px; height: 12px; flex: none; }
+.sc-fest::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%); background-size: 250% 100%; animation: ftShine 3.6s ease-in-out infinite; }
+@keyframes ftShine { 0% { background-position: 130% 0; } 60%, 100% { background-position: -130% 0; } }
+
+/* ---------- portal chrome while a theme is live ---------- */
+html[data-fest] .sp-top {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ft-c1) 9%, rgba(244, 241, 234, 0.9)), color-mix(in srgb, var(--ft-c2) 9%, rgba(244, 241, 234, 0.9)));
+}
+html[data-fest] .sp-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: linear-gradient(90deg, var(--ft-c1), var(--ft-c2), var(--ft-ac), var(--ft-c2)); background-size: 200% 100%; animation: ftBar 8s linear infinite; }
+@keyframes ftBar { to { background-position: -200% 0; } }
+
+/* cart: festive coupon tile */
+.sp-fest-coupon {
+  display: flex; align-items: center; gap: 12px; width: 100%; margin: 0 0 12px; padding: 12px 12px 12px 14px; border-radius: 16px; border: 0; cursor: pointer; text-align: left;
+  font: inherit; color: var(--ft-tx); background: radial-gradient(80% 140% at 100% 0%, color-mix(in srgb, var(--ft-ac) 30%, transparent), transparent 60%), linear-gradient(110deg, var(--ft-c1), var(--ft-c2));
+  box-shadow: 0 14px 26px -18px var(--ft-c2);
+}
+.sp-fest-coupon > svg { width: 22px; height: 22px; flex: none; color: var(--ft-ac); }
+.sp-fest-coupon span { flex: 1; min-width: 0; }
+.sp-fest-coupon b { display: block; font: 700 14px/1.2 var(--sans, system-ui); }
+.sp-fest-coupon small { display: block; margin-top: 3px; font-size: 12px; opacity: 0.8; }
+.sp-fest-coupon code { font: 700 12.5px/1 var(--mono, monospace); letter-spacing: 0.08em; color: var(--ft-ac); }
+.sp-fest-coupon em { flex: none; font-style: normal; font: 700 12px/1 var(--sans, system-ui); padding: 9px 12px; border-radius: 10px; background: var(--ft-ac); color: var(--ft-c1); }
+.sp-fest-coupon--buy { margin: 0 0 12px; }
+.sp-fest-coupon.is-done em { background: rgba(255, 255, 255, 0.92); color: #127A45; }

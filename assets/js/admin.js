@@ -21,7 +21,8 @@ import {
 } from "./firebase.js?v=5";
 import { initStore, storeTabOpened } from "./admin-store.js?v=6";
 import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=2";
-import { initOverview, overviewOpened } from "./admin-overview.js?v=1";
+import { initOverview, overviewOpened } from "./admin-overview.js?v=2";
+import { initTheme, themeTabOpened } from "./admin-theme.js?v=1";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
 import {
@@ -200,6 +201,7 @@ function openTab(name) {
   }
   storeTabOpened(name);
   rewardsTabOpened(name);
+  themeTabOpened(name);
   if (history.replaceState) history.replaceState(null, "", "#" + name);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -2268,6 +2270,11 @@ async function init() {
     initRewards({ user, showAlert, withBusy });
   } catch (err) {
     console.warn("[admin] rewards init", err);
+  }
+  try {
+    initTheme({ user, showAlert, withBusy });
+  } catch (err) {
+    console.warn("[admin] theme init", err);
   }
   try {
     initOverview({ user, openTab });

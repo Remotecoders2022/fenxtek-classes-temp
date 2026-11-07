@@ -231,6 +231,81 @@
         "buyMax": {
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
         }
+      },
+      "storeTheme": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "active": {
+          ".validate": "newData.isString() && newData.val().matches(/^(normal|diwali|holi|christmas|newyear|sale)$/)"
+        },
+        "auto": {
+          ".validate": "newData.isBoolean()"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "themes": {
+          "$id": {
+            ".validate": "$id.matches(/^(diwali|holi|christmas|newyear|sale)$/)",
+            "badge": {
+              ".validate": "newData.isString() && newData.val().length <= 40"
+            },
+            "title": {
+              ".validate": "newData.isString() && newData.val().length <= 90"
+            },
+            "subtitle": {
+              ".validate": "newData.isString() && newData.val().length <= 200"
+            },
+            "cta": {
+              ".validate": "newData.isString() && newData.val().length <= 30"
+            },
+            "link": {
+              ".validate": "newData.isString() && newData.val().length <= 120"
+            },
+            "coupon": {
+              ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9_-]{0,24}$/)"
+            },
+            "c1": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-Fa-f]{6}$/)"
+            },
+            "c2": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-Fa-f]{6}$/)"
+            },
+            "accent": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-Fa-f]{6}$/)"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-Fa-f]{6}$/)"
+            },
+            "effect": {
+              ".validate": "newData.isString() && newData.val().matches(/^(none|diya|snow|confetti|fireworks|colour)$/)"
+            },
+            "level": {
+              ".validate": "newData.isNumber() && (newData.val() === 1 || newData.val() === 2 || newData.val() === 3)"
+            },
+            "ribbon": {
+              ".validate": "newData.isString() && newData.val().length <= 24"
+            },
+            "countdown": {
+              ".validate": "newData.isBoolean()"
+            },
+            "on": {
+              ".validate": "newData.isBoolean()"
+            },
+            "from": {
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            },
+            "to": {
+              ".validate": "newData.isNumber() && newData.val() > 0 && (!newData.parent().child('from').exists() || newData.val() > newData.parent().child('from').val())"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "members": {
