@@ -1697,11 +1697,40 @@ function bindStudents() {
   });
 }
 
-/* ---------------- leads ---------------- */
+/* ---------------- leads (contact-page enquiries) ---------------- */
+
+const LEAD_STATUS = {
+  new: { label: "New", tone: "new" },
+  contacted: { label: "Contacted", tone: "contacted" },
+  demo: { label: "Demo booked", tone: "demo" },
+  joined: { label: "Joined", tone: "joined" },
+  closed: { label: "Not interested", tone: "closed" }
+};
+const leadStatus = (l) => (LEAD_STATUS[l.status] ? l.status : "new");
+const leadUi = { q: "", status: "all", course: "all", open: "" };
+
+const leadPhoneDigits = (p) => {
+  let d = String(p || "").replace(/\D/g, "");
+  if (d.length === 10) d = "91" + d;
+  return d;
+};
+const leadPhonePretty = (p) => {
+  const d = String(p || "").replace(/\D/g, "").slice(-10);
+  return d.length === 10 ? `+91 ${d.slice(0, 5)} ${d.slice(5)}` : String(p || "");
+};
+const leadTime = (ms) => {
+  const d = new Date(Number(ms) || 0);
+  if (!d.getTime()) return "—";
+  const diff = Date.now() - d.getTime();
+  if (diff < 60000) return "Just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+  if (diff < 86400000 && new Date().getDate() === d.getDate()) return `Today, ${d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`;
+  return `${formatDate(ms)}, ${d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`;
+};
 
 async function loadLeads() {
   const body = $("#leadsBody");
-  if (body) body.innerHTML = '<tr><td colspan="5" class="crm-table-empty">Loading leads…</td></tr>';
+  if (body && !state.leads.length) body.innerHTML = '<tr><td colspan="6" class="crm-table-empty">Loading leads…</td></tr>';
 
   const snap = await dbGet("site/leads").catch((err) => {
     console.warn("[admin] leads read", err);
@@ -1711,61 +1740,238 @@ async function loadLeads() {
   const list = [];
   if (snap && snap.forEach) {
     snap.forEach((child) => {
-      const value = child.val() || {};
-      list.push({ id: child.key, email: value.email || "", plan: value.plan || "", source: value.source || "", at: value.at || 0 });
+      const v = child.val() || {};
+      list.push({
+        id: child.key,
+        name: v.name || "",
+        phone: v.phone || "",
+        email: v.email || "",
+        course: v.course || "",
+        message: v.message || "",
+        plan: v.plan || "",
+        source: v.source || "",
+        status: v.status || "new",
+        note: v.note || "",
+        at: v.at || 0,
+        updatedAt: v.updatedAt || 0
+      });
     });
   }
   state.leads = list.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
+  paintLeadCourses();
+  paintLeads();
+  paintOverview();
+}
 
+function paintLeadCourses() {
+  const sel = $("#leadsCourse");
+  if (!sel) return;
+  const courses = [...new Set(state.leads.map((l) => l.course || l.plan).filter(Boolean))].sort();
+  if (leadUi.course !== "all" && !courses.includes(leadUi.course)) leadUi.course = "all";
+  sel.innerHTML = '<option value="all">All courses</option>' + courses.map((c) => `<option value="${esc(c)}"${c === leadUi.course ? " selected" : ""}>${esc(c)}</option>`).join("");
+}
+
+function filteredLeads() {
+  const q = leadUi.q.trim().toLowerCase();
+  const qd = q.replace(/\D/g, "");
+  return state.leads.filter((l) => {
+    if (leadUi.status !== "all" && leadStatus(l) !== leadUi.status) return false;
+    if (leadUi.course !== "all" && (l.course || l.plan) !== leadUi.course) return false;
+    if (!q) return true;
+    const hay = [l.name, l.email, l.course, l.plan, l.message, l.note, l.source].join(" ").toLowerCase();
+    return hay.includes(q) || (qd.length >= 3 && String(l.phone).replace(/\D/g, "").includes(qd));
+  });
+}
+
+function paintLeadStats() {
+  const box = $("#leadsStats");
+  if (!box) return;
+  const all = state.leads;
+  const weekAgo = Date.now() - 7 * 86400000;
+  const count = (s) => all.filter((l) => leadStatus(l) === s).length;
+  const joined = count("joined");
+  const rate = all.length ? Math.round((joined / all.length) * 100) : 0;
+  const stat = (n, label, filter) =>
+    `<button class="crm-stat ld-stat${filter && leadUi.status === filter ? " is-on" : ""}" type="button"${filter ? ` data-lead-filter="${filter}"` : ""}><b>${n}</b><span>${label}</span></button>`;
+  box.innerHTML =
+    stat(all.length, "Total enquiries", "all") +
+    stat(count("new"), "New — not called yet", "new") +
+    stat(all.filter((l) => Number(l.at) >= weekAgo).length, "Last 7 days", "") +
+    stat(count("demo"), "Demo booked", "demo") +
+    stat(`${joined}<small> · ${rate}%</small>`, "Joined · conversion", "joined");
+}
+
+function leadRow(l) {
+  const st = leadStatus(l);
+  const digits = leadPhoneDigits(l.phone);
+  const first = (l.name || "").split(" ")[0] || "there";
+  const wa = digits ? `https://wa.me/${digits}?text=${encodeURIComponent(`Hi ${first}, this is FenxTek Shorthand Classes. Thanks for your enquiry about ${l.course || "our courses"}.`)}` : "";
+  const initials = (l.name || l.email || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  const open = leadUi.open === l.id;
+  const opts = Object.keys(LEAD_STATUS).map((k) => `<option value="${k}"${k === st ? " selected" : ""}>${LEAD_STATUS[k].label}</option>`).join("");
+  const legacy = !l.name && !l.phone;
+  let html =
+    `<tr class="ld-row${st === "new" ? " is-new" : ""}${open ? " is-open" : ""}" data-lead-row="${esc(l.id)}">` +
+    `<td><div class="ld-who"><span class="ld-av">${esc(initials)}</span><span><b>${esc(l.name || (legacy ? "Newsletter sign-up" : "—"))}</b>` +
+    `<a class="as-sub" href="mailto:${esc(l.email)}">${esc(l.email)}</a></span></div></td>` +
+    `<td>${l.phone ? `<div class="ld-phone"><span>${esc(leadPhonePretty(l.phone))}</span><span class="ld-acts">` +
+      `<a class="ld-act" href="tel:+${esc(digits)}" title="Call" aria-label="Call ${esc(l.name)}"><svg><use href="#i-phone"/></svg></a>` +
+      `<a class="ld-act ld-act--wa" href="${esc(wa)}" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp ${esc(l.name)}"><svg><use href="#i-wa"/></svg></a>` +
+      `</span></div>` : '<span class="muted">—</span>'}</td>` +
+    `<td>${l.course || l.plan ? `<span class="ld-course">${esc(l.course || l.plan)}</span>` : '<span class="muted">—</span>'}` +
+    `${l.message ? `<span class="as-sub ld-msg" title="${esc(l.message)}">“${esc(l.message.length > 70 ? l.message.slice(0, 70) + "…" : l.message)}”</span>` : ""}</td>` +
+    `<td class="muted"><span class="ld-when">${esc(leadTime(l.at))}</span>${l.source ? `<span class="as-sub">${esc(l.source.replace(/\.html$/, ""))}</span>` : ""}</td>` +
+    `<td><label class="ld-status ld-status--${st}"><select data-lead-status="${esc(l.id)}" aria-label="Lead status">${opts}</select><svg><use href="#i-chev-r"/></svg></label></td>` +
+    `<td class="actions"><button class="crm-mini" type="button" data-lead-open="${esc(l.id)}" aria-expanded="${open}">${open ? "Close" : "Details"}</button>` +
+    `<button class="crm-remove" type="button" data-lead="${esc(l.id)}" aria-label="Delete lead">×</button></td></tr>`;
+  if (open) {
+    html +=
+      `<tr class="ld-detail"><td colspan="6"><div class="ld-detail-grid">` +
+      `<div><span class="p-label">Enquiry</span><dl class="ld-dl">` +
+      `<dt>Name</dt><dd>${esc(l.name || "—")}</dd>` +
+      `<dt>Mobile</dt><dd>${l.phone ? `<a href="tel:+${esc(digits)}">${esc(leadPhonePretty(l.phone))}</a>` : "—"}</dd>` +
+      `<dt>Email</dt><dd>${l.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : "—"}</dd>` +
+      `<dt>Interested in</dt><dd>${esc(l.course || "—")}${l.plan && l.plan !== l.course ? ` <span class="muted">(${esc(l.plan)})</span>` : ""}</dd>` +
+      `<dt>Received</dt><dd>${esc(leadTime(l.at))}${l.source ? ` · ${esc(l.source)}` : ""}</dd>` +
+      (l.updatedAt ? `<dt>Updated</dt><dd>${esc(leadTime(l.updatedAt))}</dd>` : "") +
+      `</dl>${l.message ? `<span class="p-label" style="margin-top:14px">Message</span><p class="ld-message">${esc(l.message)}</p>` : ""}</div>` +
+      `<form class="ld-note" data-lead-note="${esc(l.id)}"><label class="p-field"><span class="p-label">Private note (only admins see this)</span>` +
+      `<textarea class="p-input" name="note" rows="4" maxlength="1000" placeholder="e.g. Called on Monday — wants evening batch, demo on Friday 6 pm">${esc(l.note)}</textarea></label>` +
+      `<div class="ld-note-actions"><button class="p-btn p-btn--lime p-btn--sm" type="submit"><span>Save note</span><svg><use href="#i-check"/></svg></button>` +
+      (wa ? `<a class="p-btn p-btn--ghost p-btn--sm" href="${esc(wa)}" target="_blank" rel="noopener"><span>WhatsApp</span><svg><use href="#i-wa"/></svg></a>` : "") +
+      (digits ? `<a class="p-btn p-btn--ghost p-btn--sm" href="tel:+${esc(digits)}"><span>Call</span><svg><use href="#i-phone"/></svg></a>` : "") +
+      `</div></form></div></td></tr>`;
+  }
+  return html;
+}
+
+function paintLeads() {
+  paintLeadStats();
+  const body = $("#leadsBody");
   if (!body) return;
+  const list = filteredLeads();
+  const countEl = $("#leadsCount");
+  if (countEl) countEl.textContent = state.leads.length ? `${list.length} of ${state.leads.length}` : "";
   if (!state.leads.length) {
-    body.innerHTML = '<tr><td colspan="5" class="crm-table-empty">No leads captured yet.</td></tr>';
-    paintOverview();
+    body.innerHTML = '<tr><td colspan="6" class="crm-table-empty">No enquiries yet. They appear here as soon as a student sends the form on the contact page.</td></tr>';
     return;
   }
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="6" class="crm-table-empty">No leads match these filters.</td></tr>';
+    return;
+  }
+  body.innerHTML = list.map(leadRow).join("");
+}
 
-  body.innerHTML = state.leads
-    .map(
-      (lead) =>
-        `<tr><td><b>${esc(lead.email)}</b></td>` +
-        `<td>${lead.plan ? `<span class="crm-pill crm-pill--active">${esc(lead.plan)}</span>` : '<span class="muted">—</span>'}</td>` +
-        `<td class="muted">${esc(lead.source || "—")}</td>` +
-        `<td class="muted">${formatDate(lead.at)}</td>` +
-        `<td class="actions"><button class="crm-remove" type="button" data-lead="${esc(lead.id)}" aria-label="Delete lead">×</button></td></tr>`
-    )
-    .join("");
-  paintOverview();
+async function saveLead(id, patch, okMsg) {
+  const lead = state.leads.find((l) => l.id === id);
+  if (!lead) return false;
+  const now = Date.now();
+  try {
+    await dbUpdate(`site/leads/${id}`, { ...patch, updatedAt: now });
+    Object.assign(lead, patch, { updatedAt: now });
+    if (okMsg) showAlert("ok", okMsg);
+    return true;
+  } catch (err) {
+    showAlert("err", friendlyError(err));
+    return false;
+  }
 }
 
 function bindLeads() {
   const body = $("#leadsBody");
   if (body) {
     body.addEventListener("click", async (e) => {
+      const openBtn = e.target.closest("[data-lead-open]");
+      if (openBtn) {
+        leadUi.open = leadUi.open === openBtn.dataset.leadOpen ? "" : openBtn.dataset.leadOpen;
+        paintLeads();
+        return;
+      }
       const btn = e.target.closest("[data-lead]");
       if (!btn) return;
       const id = btn.dataset.lead;
+      const lead = state.leads.find((l) => l.id === id);
+      if (!window.confirm(`Delete the enquiry from ${lead && (lead.name || lead.email) ? lead.name || lead.email : "this student"}? This can’t be undone.`)) return;
       btn.disabled = true;
       try {
         await dbRemove(`site/leads/${id}`);
-        state.leads = state.leads.filter((lead) => lead.id !== id);
-        showAlert("ok", "Lead removed.");
-        await loadLeads();
+        state.leads = state.leads.filter((l) => l.id !== id);
+        if (leadUi.open === id) leadUi.open = "";
+        showAlert("ok", "Lead deleted.");
+        paintLeadCourses();
+        paintLeads();
+        paintOverview();
       } catch (err) {
         btn.disabled = false;
         showAlert("err", friendlyError(err));
       }
     });
+
+    body.addEventListener("change", async (e) => {
+      const sel = e.target.closest("[data-lead-status]");
+      if (!sel) return;
+      const id = sel.dataset.leadStatus;
+      const lead = state.leads.find((l) => l.id === id);
+      const prev = lead ? leadStatus(lead) : "new";
+      sel.disabled = true;
+      const ok = await saveLead(id, { status: sel.value }, `Marked as “${LEAD_STATUS[sel.value].label}”.`);
+      sel.disabled = false;
+      if (!ok) sel.value = prev;
+      paintLeads();
+      paintOverview();
+    });
+
+    body.addEventListener("submit", async (e) => {
+      const form = e.target.closest("[data-lead-note]");
+      if (!form) return;
+      e.preventDefault();
+      const btn = form.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      const note = form.elements.note.value.trim().slice(0, 1000);
+      const ok = await saveLead(form.dataset.leadNote, { note: note || null }, note ? "Note saved." : "Note cleared.");
+      btn.disabled = false;
+      if (ok) {
+        const lead = state.leads.find((l) => l.id === form.dataset.leadNote);
+        if (lead) lead.note = note;
+        paintLeads();
+      }
+    });
   }
+
+  const stats = $("#leadsStats");
+  if (stats) {
+    stats.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-lead-filter]");
+      if (!b) return;
+      leadUi.status = b.dataset.leadFilter;
+      const sel = $("#leadsStatus");
+      if (sel) sel.value = leadUi.status;
+      paintLeads();
+    });
+  }
+
+  const q = $("#leadsQ");
+  if (q) q.addEventListener("input", () => { leadUi.q = q.value; paintLeads(); });
+  const st = $("#leadsStatus");
+  if (st) st.addEventListener("change", () => { leadUi.status = st.value; paintLeads(); });
+  const co = $("#leadsCourse");
+  if (co) co.addEventListener("change", () => { leadUi.course = co.value; paintLeads(); });
 
   const exportBtn = $("#leadsExport");
   if (exportBtn) {
     exportBtn.addEventListener("click", () => {
-      if (!state.leads.length) {
-        showAlert("err", "There are no leads to export yet.");
+      const list = filteredLeads();
+      if (!list.length) {
+        showAlert("err", "There are no leads to export.");
         return;
       }
-      const rows = [["Email", "Plan enquiry", "Source", "Captured"]].concat(
-        state.leads.map((l) => [l.email, l.plan, l.source, formatDate(l.at)])
+      const stamp = (ms) => {
+        const d = new Date(Number(ms) || 0);
+        return d.getTime() ? d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "";
+      };
+      const rows = [["Name", "Mobile", "Email", "Interested in", "Message", "Membership plan", "Status", "Note", "Source", "Received"]].concat(
+        list.map((l) => [l.name, l.phone, l.email, l.course, l.message, l.plan, LEAD_STATUS[leadStatus(l)].label, l.note, l.source, stamp(l.at)])
       );
       const csv = rows
         .map((row) => row.map((cell) => `"${String(cell == null ? "" : cell).replace(/"/g, '""')}"`).join(","))
@@ -1802,7 +2008,7 @@ function paintOverview() {
   set("#statPlans", state.memberships.filter((p) => p.active !== false).length);
   set("#statMembers", Object.keys(state.members).filter((k) => membershipStatus(state.members[k]).key === "active").length);
   set("#statAchievements", state.achievements.length);
-  set("#statEnquiries", state.leads.filter((l) => l.plan).length);
+  set("#statEnquiries", state.leads.filter((l) => leadStatus(l) === "new").length);
   set("#statPrice", state.content.price ? "₹" + state.content.price : "—");
   set("#statAnnounce", state.content.announcement ? "Live" : "—");
 
