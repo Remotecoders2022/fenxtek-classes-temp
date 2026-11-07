@@ -11,11 +11,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=11">
-<link rel="stylesheet" href="assets/css/portal.css?v=7">
-<link rel="stylesheet" href="assets/css/store.css?v=9">
+<link rel="stylesheet" href="assets/css/portal.css?v=8">
+<link rel="stylesheet" href="assets/css/store.css?v=10">
+<link rel="stylesheet" href="assets/css/admin.css?v=1">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
-<body data-page="admin">
+<body data-page="admin" class="crm-body">
 <main class="portal crm">
   <div class="wrap">
 
@@ -37,53 +38,70 @@
       </div>
     </div>
 
-    <div id="crmBody" hidden>
-      <header class="crm-top">
-        <div>
-          <span class="eyebrow">Admin CRM</span>
-          <h1>Control <em>room.</em></h1>
-          <p>Edit the live website, run the course store — orders, courses, coupons and receipts — manage batches, fees and memberships, and read student accounts. Every save writes straight to Firebase Realtime Database.</p>
+    <div id="crmBody" class="crm-app" hidden>
+      <aside class="crm-side" id="crmSide" aria-label="CRM sections">
+        <div class="crm-brand">
+          <img src="fenxtek-logo.png" alt="" width="34" height="34">
+          <div><b>FenxTek</b><small>Admin console</small></div>
+          <button class="crm-side-x" type="button" data-crm-drawer="close" aria-label="Close menu"><svg><use href="#i-x"/></svg></button>
         </div>
-        <div class="crm-top-actions">
-          <span class="crm-user"><i></i><span id="crmEmail">—</span></span>
-          <a class="p-btn p-btn--ghost p-btn--sm" href="index.html" target="_blank" rel="noopener"><span>View site</span><svg><use href="#i-arr-ur"/></svg></a>
-          <button class="p-btn p-btn--sm" id="crmSignOut" type="button"><span>Sign out</span><svg><use href="#i-logout"/></svg></button>
-        </div>
-      </header>
-
-      <div class="crm-layout">
-        <nav class="crm-side" aria-label="CRM sections">
-          <button class="crm-nav" data-crm-tab="overview" aria-current="true">Overview <span>01</span></button>
-          <button class="crm-nav" data-crm-tab="content">Site content <span>02</span></button>
-          <button class="crm-nav" data-crm-tab="batches">Batches <span>03</span></button>
-          <button class="crm-nav" data-crm-tab="fees">Fees <span>04</span></button>
-          <button class="crm-nav" data-crm-tab="memberships">Memberships <span>05</span></button>
-          <button class="crm-nav" data-crm-tab="achievements">Achievements <span>06</span></button>
-          <button class="crm-nav" data-crm-tab="faqs">FAQs <span>07</span></button>
-          <button class="crm-nav" data-crm-tab="testimonials">Testimonials <span>08</span></button>
-          <button class="crm-nav" data-crm-tab="students">Students <span>09</span></button>
-          <button class="crm-nav" data-crm-tab="leads">Leads <span>10</span></button>
-          <span class="crm-side-label">Store</span>
-          <button class="crm-nav" data-crm-tab="orders">Orders &amp; receipts <span>11</span></button>
-          <button class="crm-nav" data-crm-tab="courses">Courses <span>12</span></button>
-          <button class="crm-nav" data-crm-tab="coupons">Coupons <span>13</span></button>
-          <button class="crm-nav" data-crm-tab="payments">Payment settings <span>14</span></button>
-          <button class="crm-nav" data-crm-tab="rewards">Refer &amp; earn <span>15</span></button>
-          <div class="crm-side-foot">
-            <button class="crm-add" id="seedBtn" type="button">Load starter content</button>
-            <button class="crm-add" id="crmSignOut2" type="button">Sign out</button>
+        <nav class="crm-side-nav">
+          <div class="crm-group">
+            <button class="crm-nav" type="button" data-crm-tab="overview" aria-current="true"><svg><use href="#i-grid"/></svg><span class="crm-nav-t">Overview</span><span class="crm-badge"></span></button>
+          </div>
+          <div class="crm-group">
+            <span class="crm-side-label">Store</span>
+            <button class="crm-nav" type="button" data-crm-tab="orders"><svg><use href="#i-receipt"/></svg><span class="crm-nav-t">Orders &amp; receipts</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="courses"><svg><use href="#i-book"/></svg><span class="crm-nav-t">Courses</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="coupons"><svg><use href="#i-tag"/></svg><span class="crm-nav-t">Coupons</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="rewards"><svg><use href="#i-coin"/></svg><span class="crm-nav-t">E-coins &amp; referrals</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="payments"><svg><use href="#i-card"/></svg><span class="crm-nav-t">Payment settings</span><span class="crm-badge"></span></button>
+          </div>
+          <div class="crm-group">
+            <span class="crm-side-label">People</span>
+            <button class="crm-nav" type="button" data-crm-tab="students"><svg><use href="#i-users"/></svg><span class="crm-nav-t">Students</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="leads"><svg><use href="#i-phone"/></svg><span class="crm-nav-t">Leads</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="memberships"><svg><use href="#i-crown"/></svg><span class="crm-nav-t">Memberships</span><span class="crm-badge"></span></button>
+          </div>
+          <div class="crm-group">
+            <span class="crm-side-label">Website</span>
+            <button class="crm-nav" type="button" data-crm-tab="content"><svg><use href="#i-edit"/></svg><span class="crm-nav-t">Site content</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="batches"><svg><use href="#i-clock"/></svg><span class="crm-nav-t">Batches</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="fees"><svg><use href="#i-file"/></svg><span class="crm-nav-t">Fees</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="achievements"><svg><use href="#i-award"/></svg><span class="crm-nav-t">Achievements</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="faqs"><svg><use href="#i-info"/></svg><span class="crm-nav-t">FAQs</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="testimonials"><svg><use href="#i-user"/></svg><span class="crm-nav-t">Testimonials</span><span class="crm-badge"></span></button>
           </div>
         </nav>
+        <div class="crm-side-foot">
+          <button class="crm-side-link" id="seedBtn" type="button"><svg><use href="#i-refresh"/></svg><span>Load starter content</span></button>
+          <div class="crm-me"><span class="crm-me-av" id="crmAvatar">A</span><div><b>Admin</b><small id="crmEmail">—</small></div><button class="crm-me-out" id="crmSignOut2" type="button" aria-label="Sign out" title="Sign out"><svg><use href="#i-logout"/></svg></button></div>
+        </div>
+      </aside>
+      <div class="crm-scrim" data-crm-drawer="close" hidden></div>
+
+      <div class="crm-shell">
+        <header class="crm-bar">
+          <button class="crm-burger" type="button" data-crm-drawer="open" aria-label="Open menu" aria-controls="crmSide"><svg><use href="#i-menu"/></svg></button>
+          <div class="crm-bar-title"><small id="crmBarGroup">Dashboard</small><b id="crmBarTitle">Overview</b></div>
+          <div class="crm-top-actions">
+            <a class="crm-bar-btn" href="index.html" target="_blank" rel="noopener"><svg><use href="#i-arr-ur"/></svg><span>View site</span></a>
+            <a class="crm-bar-btn" href="dashboard.html#store" target="_blank" rel="noopener"><svg><use href="#i-cart"/></svg><span>Student store</span></a>
+            <button class="crm-bar-btn crm-bar-btn--ink" id="crmSignOut" type="button"><svg><use href="#i-logout"/></svg><span>Sign out</span></button>
+          </div>
+        </header>
 
         <div class="crm-main">
           <div class="p-alert" id="crmAlert" role="status" aria-live="polite" hidden></div>
 
           <!-- OVERVIEW -->
           <section class="crm-panel" data-crm-panel="overview">
-            <div class="crm-panel-head">
+            <div id="ovDash" class="ov"></div>
+
+            <div class="crm-panel-head ov-site-head">
               <div>
-                <h2>Overview</h2>
-                <p>A quick read of what is live right now. Everything here is stored under <code>site/</code> in Realtime Database.</p>
+                <h2>Website at a glance</h2>
+                <p>What visitors see right now. Everything here is stored under <code>site/</code> in Realtime Database.</p>
               </div>
               <button class="p-btn p-btn--ghost p-btn--sm" id="refreshStats" type="button"><span>Refresh</span><svg><use href="#i-zap"/></svg></button>
             </div>
@@ -660,25 +678,50 @@
           <section class="crm-panel" data-crm-panel="rewards" hidden>
             <div class="crm-panel-head">
               <div>
-                <h2>Refer &amp; earn <span class="as-pill as-pill--muted" id="arLive">Off</span></h2>
+                <h2>E-coins &amp; referrals <span class="as-pill as-pill--muted" id="arLive">Off</span></h2>
                 <p>Every student gets a personal referral code. When a friend signs up with it and their first paid order is confirmed (you approve the UPI payment, verify the Razorpay payment or record an offline sale), both get <b>E-coins</b>. 1 E-coin = ₹1 off courses and memberships at checkout, like Flipkart SuperCoins.</p>
               </div>
             </div>
             <div class="crm-stats" id="arStats"></div>
-            <form class="crm-card" id="arForm" novalidate style="margin-top:16px">
-              <div class="crm-form">
-                <label class="as-check p-field--wide" style="margin-bottom:8px"><input type="checkbox" name="enabled">Program is live — students see <b>Refer &amp; earn</b> in their portal and can pay with E-coins</label>
-                <label class="p-field"><span class="p-label">Referrer earns (E-coins)</span><input class="p-input" name="referrerCoins" inputmode="numeric" placeholder="100"></label>
-                <label class="p-field"><span class="p-label">New student gets (E-coins)</span><input class="p-input" name="refereeCoins" inputmode="numeric" placeholder="50"></label>
-                <label class="p-field"><span class="p-label">Max % of an order payable with E-coins</span><input class="p-input" name="maxRedeemPct" inputmode="numeric" placeholder="20"><span class="p-hint">0–90. The rest is paid by UPI / Razorpay.</span></label>
-                <label class="p-field"><span class="p-label">Qualifying first order (minimum ₹)</span><input class="p-input" name="minOrder" inputmode="numeric" placeholder="0"><span class="p-hint">Free (100% coupon) orders never qualify.</span></label>
-                <label class="p-field p-field--wide"><span class="p-label">Extra terms shown to students (optional)</span><input class="p-input" name="note" maxlength="300" placeholder="Rewards are credited within 24 hours of payment confirmation."></label>
-              </div>
+            <div class="ar-setup">
+            <form class="crm-card ar-form" id="arForm" novalidate>
+              <label class="ar-switch">
+                <input type="checkbox" name="enabled">
+                <span class="ar-switch-ui" aria-hidden="true"></span>
+                <span><b>E-coins program is live</b><small>Students see their wallet, invite links and rewards, and can pay with E-coins.</small></span>
+              </label>
+              <fieldset class="ar-group">
+                <legend><span class="ar-group-ic"><svg><use href="#i-users"/></svg></span>Refer &amp; earn</legend>
+                <p class="ar-group-sub">Paid when a friend joins with a student’s invite link or code and their <b>first order</b> is confirmed.</p>
+                <div class="crm-form">
+                  <label class="p-field"><span class="p-label">Referrer earns (E-coins)</span><input class="p-input" name="referrerCoins" inputmode="numeric" placeholder="100"><span class="p-hint">Default. A course can offer more under Courses → “Referral bonus”.</span></label>
+                  <label class="p-field"><span class="p-label">New student gets (E-coins)</span><input class="p-input" name="refereeCoins" inputmode="numeric" placeholder="50"><span class="p-hint">Welcome bonus, added with the first order.</span></label>
+                  <label class="p-field"><span class="p-label">Qualifying first order (minimum ₹)</span><input class="p-input" name="minOrder" inputmode="numeric" placeholder="0"><span class="p-hint">Free (100% coupon) orders never qualify.</span></label>
+                </div>
+              </fieldset>
+              <fieldset class="ar-group">
+                <legend><span class="ar-group-ic"><svg><use href="#i-cart"/></svg></span>Purchase rewards</legend>
+                <p class="ar-group-sub">E-coins back on every paid order — like cashback. Set fixed coins for a single course under Courses → “E-coins on purchase”.</p>
+                <label class="as-check" style="margin-bottom:12px"><input type="checkbox" name="buyOn">Give E-coins on purchases</label>
+                <div class="crm-form">
+                  <label class="p-field"><span class="p-label">E-coins back (% of amount paid)</span><input class="p-input" name="buyPct" inputmode="numeric" placeholder="5"><span class="p-hint">0–50. Based on what the student actually paid.</span></label>
+                  <label class="p-field"><span class="p-label">Max E-coins per order</span><input class="p-input" name="buyMax" inputmode="numeric" placeholder="No limit"><span class="p-hint">Leave blank for no limit.</span></label>
+                </div>
+              </fieldset>
+              <fieldset class="ar-group">
+                <legend><span class="ar-group-ic"><svg><use href="#i-coin"/></svg></span>Redeeming</legend>
+                <div class="crm-form">
+                  <label class="p-field"><span class="p-label">Max % of an order payable with E-coins</span><input class="p-input" name="maxRedeemPct" inputmode="numeric" placeholder="20"><span class="p-hint">0–90. The rest is paid by UPI / Razorpay.</span></label>
+                  <label class="p-field p-field--wide"><span class="p-label">Extra terms shown to students (optional)</span><input class="p-input" name="note" maxlength="300" placeholder="Rewards are credited within 24 hours of payment confirmation."></label>
+                </div>
+              </fieldset>
               <div class="crm-actions">
-                <span class="crm-save-state">Stored in <code>site/rewards</code>. Rejected / refunded orders return the E-coins that were spent.</span>
+                <span class="crm-save-state">Stored in <code>site/rewards</code>. Coins are credited when you approve or verify a payment; refunds take them back.</span>
                 <button class="p-btn p-btn--lime" type="submit"><span>Save settings</span><svg><use href="#i-check"/></svg></button>
               </div>
             </form>
+            <aside class="crm-card ar-preview" id="arPreview" aria-live="polite"></aside>
+            </div>
             <div class="crm-card" style="margin-top:16px">
               <div class="as-toolbar">
                 <h3 class="as-grow" style="margin:0">Referrals</h3>
@@ -762,6 +805,6 @@
 <script src="assets/js/chrome.js?v=11"></script>
 <script src="assets/js/site.js?v=5"></script>
 <script type="module" src="assets/js/content.js?v=14"></script>
-<script type="module" src="assets/js/admin.js?v=15"></script>
+<script type="module" src="assets/js/admin.js?v=16"></script>
 </body>
 </html>

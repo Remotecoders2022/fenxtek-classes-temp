@@ -19,8 +19,9 @@ import {
   toList,
   friendlyError
 } from "./firebase.js?v=5";
-import { initStore, storeTabOpened } from "./admin-store.js?v=5";
-import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=1";
+import { initStore, storeTabOpened } from "./admin-store.js?v=6";
+import { initRewards, rewardsTabOpened } from "./admin-rewards.js?v=2";
+import { initOverview, overviewOpened } from "./admin-overview.js?v=1";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
 import {
@@ -167,15 +168,36 @@ async function withBusy(btn, label, fn) {
 
 /* ---------------- tabs ---------------- */
 
+function setDrawer(open) {
+  document.documentElement.classList.toggle("crm-drawer-open", open);
+  const scrim = $(".crm-scrim");
+  if (scrim) scrim.hidden = !open;
+}
+
 function openTab(name) {
   $$("[data-crm-tab]").forEach((b) => b.setAttribute("aria-current", String(b.dataset.crmTab === name)));
+  const navBtn = $(`.crm-nav[data-crm-tab="${name}"]`);
+  if (navBtn) {
+    const label = navBtn.querySelector(".crm-nav-t");
+    const group = navBtn.closest(".crm-group");
+    const gl = group && group.querySelector(".crm-side-label");
+    const t = $("#crmBarTitle");
+    const g = $("#crmBarGroup");
+    if (t && label) t.textContent = label.textContent;
+    if (g) g.textContent = gl ? gl.textContent : "Dashboard";
+    document.title = `${label ? label.textContent : "Admin"} · FenxTek Admin`;
+  }
+  setDrawer(false);
   $$("[data-crm-panel]").forEach((panel) => {
     panel.hidden = panel.dataset.crmPanel !== name;
   });
   if (name === "students") { loadStudents(); loadDeleted(); }
   if (name === "leads") loadLeads();
   if (name === "memberships") loadMembers();
-  if (name === "overview") paintOverview();
+  if (name === "overview") {
+    paintOverview();
+    overviewOpened();
+  }
   storeTabOpened(name);
   rewardsTabOpened(name);
   if (history.replaceState) history.replaceState(null, "", "#" + name);
@@ -185,6 +207,10 @@ function openTab(name) {
 function bindTabs() {
   $$("[data-crm-tab]").forEach((btn) => {
     btn.addEventListener("click", () => openTab(btn.dataset.crmTab));
+  });
+  $$("[data-crm-drawer]").forEach((btn) => btn.addEventListener("click", () => setDrawer(btn.dataset.crmDrawer === "open")));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.documentElement.classList.contains("crm-drawer-open")) setDrawer(false);
   });
 }
 
@@ -2198,6 +2224,8 @@ async function init() {
 
   const email = $("#crmEmail");
   if (email) email.textContent = user.email || "admin";
+  const avatar = $("#crmAvatar");
+  if (avatar) avatar.textContent = String(user.displayName || user.email || "A").trim().charAt(0).toUpperCase() || "A";
 
   const loading = $("#crmLoading");
   const body = $("#crmBody");
@@ -2240,6 +2268,11 @@ async function init() {
     initRewards({ user, showAlert, withBusy });
   } catch (err) {
     console.warn("[admin] rewards init", err);
+  }
+  try {
+    initOverview({ user, openTab });
+  } catch (err) {
+    console.warn("[admin] overview init", err);
   }
 
   /* Deep links: admin.html#achievements opens that tab. */

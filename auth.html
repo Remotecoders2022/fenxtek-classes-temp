@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/site.css?v=11">
-<link rel="stylesheet" href="assets/css/portal.css?v=7">
+<link rel="stylesheet" href="assets/css/portal.css?v=8">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="auth">
@@ -117,6 +117,14 @@
             <input class="p-input" id="signupConfirm" type="password" name="confirm" autocomplete="new-password" placeholder="Repeat password" required>
           </label>
           <div class="pw-note" id="pwMatch" aria-live="polite" hidden></div>
+          <details class="auth-invite" id="inviteBox">
+            <summary><svg><use href="#i-gift"/></svg><span>Have an invite code?</span><em id="inviteChip" hidden></em></summary>
+            <label class="p-field">
+              <span class="p-label">Friend’s invite code (optional)</span>
+              <input class="p-input" id="inviteInput" name="invite" maxlength="12" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. ASHA4K2">
+            </label>
+            <p class="auth-invite-note" id="inviteNote">Joined because a friend told you about FenxTek? Add their code — you both get E-coins after your first course.</p>
+          </details>
           <button class="p-btn p-btn--block" type="submit"><span>Create account</span><svg><use href="#i-arr"/></svg></button>
         </form>
 
@@ -152,6 +160,6 @@
 <script src="assets/js/chrome.js?v=11"></script>
 <script src="assets/js/site.js?v=5"></script>
 <script type="module" src="assets/js/content.js?v=14"></script>
-<script type="module" src="assets/js/auth-page.js?v=10"></script>
+<script type="module" src="assets/js/auth-page.js?v=11"></script>
 </body>
 </html>

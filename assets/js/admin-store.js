@@ -40,10 +40,13 @@ import {
   memberRecordFor,
   couponPlanIds,
   orderBreakdown,
-  coinsLabel
-} from "./commerce.js?v=3";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=3";
-import { referralRewardUpdates, coinRefundUpdates, referralClawbackUpdates } from "./admin-rewards.js?v=1";
+  coinsLabel,
+  rewardsFrom,
+  courseEarnCoins,
+  courseReferCoins
+} from "./commerce.js?v=4";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=4";
+import { orderRewardUpdates, coinRefundUpdates, referralOfOrder, orderReversalUpdates } from "./admin-rewards.js?v=2";
 import { openContentManager, watchContent, contentCount, contentDeleteUpdates } from "./admin-content.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -52,6 +55,7 @@ const icon = (id) => `<svg><use href="#${id}"/></svg>`;
 
 const A = {
   ctx: null,
+  rewards: rewardsFrom(null),
   courses: [],
   coursesRaw: {},
   plans: [],
@@ -160,8 +164,8 @@ function paintOrderStats() {
     stat(paid.length ? money(revenue / paid.length) : "₹0", "Average order") +
     stat(money(savings), "Discounts given (member + coupon)") +
     stat(String(new Set(paid.map((o) => o.uid)).size), "Paying students");
-  const badge = $('[data-crm-tab="orders"] span');
-  if (badge) badge.textContent = pending ? `${pending} new` : "11";
+  const badge = $('[data-crm-tab="orders"] .crm-badge');
+  if (badge) badge.textContent = pending ? `${pending} new` : "";
 }
 const stat = (b, s) => `<div class="crm-stat"><b>${esc(b)}</b><span>${esc(s)}</span></div>`;
 
@@ -172,6 +176,7 @@ function saveLines(o) {
   if (b.member) out.push(`<div class="as-sub as-sub--mem">${icon("i-crown")}Member${o.memberPlan ? ` (${esc(o.memberPlan)})` : ""} −${money(b.member)}</div>`);
   if (b.coupon) out.push(`<div class="as-sub">${esc((o.coupon && o.coupon.code) || "Discount")} −${money(b.coupon)}</div>`);
   if (b.coins) out.push(`<div class="as-sub as-sub--coin">${icon("i-coin")}E-coins −${money(b.coins)}${o.coinsReturned ? " · returned" : ""}</div>`);
+  if (num(o.coinsEarned)) out.push(`<div class="as-sub as-sub--earn">${icon("i-gift")}Earned +${coinsLabel(o.coinsEarned)}${o.coinsEarnedReversed ? " · reversed" : ""}</div>`);
   return out.join("");
 }
 
@@ -244,6 +249,14 @@ async function enrollmentUpdates(o, when) {
   return updates;
 }
 
+/* "· 74 E-coins credited · referral rewarded" after approving */
+function rewardNote(reward, o) {
+  if (!reward || !Object.keys(reward).length) return "";
+  const earned = reward[`${PATH.orders}/${o.uid}/${o.id}/coinsEarned`];
+  const ref = reward[`${PATH.referrals}/${o.uid}/status`] === "rewarded";
+  return ` ${[earned ? `${coinsLabel(earned)} credited to the student` : "", ref ? "referral reward paid" : ""].filter(Boolean).join(" · ")}.`;
+}
+
 async function approveOrder(o, btn) {
   await busy(btn, "…", async () => {
     try {
@@ -256,10 +269,10 @@ async function approveOrder(o, btn) {
       updates[`${base}/verified`] = true;
       updates[`${base}/verifiedBy`] = by;
       updates[`${base}/verifiedAt`] = now;
-      const reward = await referralRewardUpdates(o, now);
+      const reward = await orderRewardUpdates(o, now);
       Object.assign(updates, reward);
       await dbUpdateRoot(updates);
-      alert("ok", `Approved ${o.orderNo} — ${o.name || "the student"} ${orderItems(o).some(isPlanItem) && orderItems(o).length === 1 ? "is now a member" : "is now enrolled"}.${Object.keys(reward).length ? " Referral reward credited." : ""}`);
+      alert("ok", `Approved ${o.orderNo} — ${o.name || "the student"} ${orderItems(o).some(isPlanItem) && orderItems(o).length === 1 ? "is now a member" : "is now enrolled"}.${rewardNote(reward, o)}`);
     } catch (err) {
       alert("err", friendlyError(err));
     }
@@ -316,12 +329,15 @@ async function refundOrder(o) {
         updates[`${PATH.members}/${o.uid}/updatedAt`] = Date.now();
       }
     }
-    const back = await coinRefundUpdates(o, `Returned — ${o.orderNo} was refunded`);
-    Object.assign(updates, back);
-    const claw = await referralClawbackUpdates(o).catch(() => null);
-    if (claw && window.confirm(`This order earned a referral reward (${coinsLabel(claw.ref.referrerCoins)} to the referrer, ${coinsLabel(claw.ref.refereeCoins)} to this student). Take those E-coins back too?`)) Object.assign(updates, claw.updates);
+    const ref = await referralOfOrder(o).catch(() => null);
+    const clawReferral = ref && window.confirm(`This order earned a referral reward (${coinsLabel(ref.referrerCoins)} to the referrer, ${coinsLabel(ref.refereeCoins)} to this student). Take those E-coins back too?`) ? ref : null;
+    const coins = await orderReversalUpdates(o, { reason: `Returned — ${o.orderNo} was refunded`, clawReferral });
+    Object.assign(updates, coins);
     await dbUpdateRoot(updates);
-    alert("ok", `${o.orderNo} marked as refunded.${Object.keys(back).length ? ` ${coinsLabel(o.coins)} returned to the wallet.` : ""}`);
+    const notes = [];
+    if (num(o.coins) && !o.coinsReturned) notes.push(`${coinsLabel(o.coins)} returned to the wallet`);
+    if (num(o.coinsEarned) && !o.coinsEarnedReversed) notes.push(`${coinsLabel(o.coinsEarned)} course reward taken back`);
+    alert("ok", `${o.orderNo} marked as refunded.${notes.length ? ` ${notes.join(" · ")}.` : ""}`);
   } catch (err) {
     alert("err", friendlyError(err));
   }
@@ -333,10 +349,10 @@ async function verifyOrder(o, btn) {
       const now = Date.now();
       const base = `${PATH.orders}/${o.uid}/${o.id}`;
       const updates = { [`${base}/verified`]: true, [`${base}/verifiedBy`]: (A.ctx.user && A.ctx.user.email) || "admin", [`${base}/verifiedAt`]: now };
-      const reward = o.status === "paid" ? await referralRewardUpdates(o, now) : {};
+      const reward = o.status === "paid" ? await orderRewardUpdates(o, now) : {};
       Object.assign(updates, reward);
       await dbUpdateRoot(updates);
-      alert("ok", `${o.orderNo} marked as verified.${Object.keys(reward).length ? " Referral reward credited." : ""}`);
+      alert("ok", `${o.orderNo} marked as verified.${rewardNote(reward, o)}`);
     } catch (err) {
       alert("err", friendlyError(err));
     }
@@ -482,10 +498,10 @@ async function offlineSale() {
             if (form.note.value.trim()) order.note = form.note.value.trim().slice(0, 200);
             const updates = await enrollmentUpdates({ ...order, id: oid }, now);
             updates[`${PATH.orders}/${uid}/${oid}`] = order;
-            const reward = await referralRewardUpdates({ ...order, id: oid }, now);
+            const reward = await orderRewardUpdates({ ...order, id: oid }, now);
             Object.assign(updates, reward);
             await dbUpdateRoot(updates);
-            alert("ok", `Recorded ${order.orderNo} — ${order.name} is enrolled.${Object.keys(reward).length ? " Referral reward credited." : ""}`);
+            alert("ok", `Recorded ${order.orderNo} — ${order.name} is enrolled.${rewardNote(reward, { ...order, id: oid })}`);
             close();
           } catch (err) {
             alert("err", friendlyError(err));
@@ -563,7 +579,7 @@ function paintCourses() {
         `<div class="as-course${c.published ? "" : " is-off"}" data-cid="${esc(c.id)}">` +
         `<div class="as-course-cover" data-acover="${esc(c.id)}">${coverHTML(c, courseImgSrc(c), { size: "sm" })}</div>` +
         `<div><h4>${esc(c.title)}</h4><p>${money(c.price)}${c.mrp > c.price ? ` <s>${money(c.mrp)}</s> · ${offPercent(c.price, c.mrp)}% off` : ""} · ${esc(validityLabel(c.validityDays))} · ${esc(c.category)} · ${esc(c.mode)}</p>` +
-        `<p><span class="as-pill ${c.published ? "as-pill--ok" : "as-pill--muted"}">${c.published ? "Published" : "Hidden"}</span> <span class="as-pill as-pill--violet">${sold} sold</span> <button class="as-pill as-pill--cc" type="button" data-c-content="${esc(c.id)}">${cc.items || cc.folders ? `${cc.folders} folder${cc.folders === 1 ? "" : "s"} · ${cc.items} item${cc.items === 1 ? "" : "s"}` : "No content yet"}</button>${c.badge ? ` <span class="as-pill as-pill--warn">${esc(c.badge)}</span>` : ""}</p></div>` +
+        `<p><span class="as-pill ${c.published ? "as-pill--ok" : "as-pill--muted"}">${c.published ? "Published" : "Hidden"}</span> <span class="as-pill as-pill--violet">${sold} sold</span> <button class="as-pill as-pill--cc" type="button" data-c-content="${esc(c.id)}">${cc.items || cc.folders ? `${cc.folders} folder${cc.folders === 1 ? "" : "s"} · ${cc.items} item${cc.items === 1 ? "" : "s"}` : "No content yet"}</button>${c.badge ? ` <span class="as-pill as-pill--warn">${esc(c.badge)}</span>` : ""}</p>${coinLine(c)}</div>` +
         `<div class="as-course-acts">` +
         `<button class="as-icon" type="button" data-c-up="${esc(c.id)}" title="Move up"${i === 0 ? " disabled" : ""}>${icon("i-arr-u")}</button>` +
         `<button class="as-icon" type="button" data-c-down="${esc(c.id)}" title="Move down"${i === A.courses.length - 1 ? " disabled" : ""}>${icon("i-arr-d")}</button>` +
@@ -611,6 +627,10 @@ function courseForm(c) {
     `<label class="p-field"><span class="p-label">Badge (optional)</span><input class="p-input" name="badge" maxlength="24" value="${esc(c.badge)}" placeholder="Bestseller · New · Limited"></label>` +
     `<label class="p-field"><span class="p-label">Lessons / classes (optional)</span><input class="p-input" name="lessons" inputmode="numeric" value="${esc(c.lessons || "")}"></label>` +
     `<label class="p-field"><span class="p-label">Sort order</span><input class="p-input" name="order" inputmode="numeric" value="${esc(c.order)}"></label>` +
+    `<fieldset class="as-coins p-field--wide"><legend>${icon("i-coin")}E-coin rewards</legend>` +
+    `<label class="p-field"><span class="p-label">E-coins on purchase</span><input class="p-input" name="earnCoins" inputmode="numeric" value="${c.earnCoins >= 0 ? esc(c.earnCoins) : ""}" placeholder="Default"><span class="p-hint" id="asEarnHint"></span></label>` +
+    `<label class="p-field"><span class="p-label">Referral bonus (E-coins)</span><input class="p-input" name="referCoins" inputmode="numeric" value="${c.referCoins >= 0 ? esc(c.referCoins) : ""}" placeholder="Default"><span class="p-hint" id="asReferHint"></span></label>` +
+    `</fieldset>` +
     `<label class="p-field p-field--wide"><span class="p-label">What you get — one per line</span><textarea class="p-textarea" name="features" rows="5" placeholder="Daily 10-minute Hindi dictation&#10;Weekly full-length mock test&#10;Transcription error analysis">${esc(c.features.join("\n"))}</textarea></label>` +
     `<label class="p-field p-field--wide"><span class="p-label">Description (blank line = new paragraph)</span><textarea class="p-textarea" name="description" rows="5">${esc(c.description)}</textarea></label>` +
     `<div class="p-field p-field--wide"><span class="p-label">Cover theme</span><div class="as-accents">${Object.keys(ACCENTS)
@@ -647,6 +667,8 @@ function readCourseForm(form) {
     language: d.get("language"),
     badge: String(d.get("badge") || "").trim(),
     lessons: num(d.get("lessons")),
+    earnCoins: String(d.get("earnCoins") || "").trim() === "" ? -1 : num(d.get("earnCoins")),
+    referCoins: String(d.get("referCoins") || "").trim() === "" ? -1 : num(d.get("referCoins")),
     order: num(d.get("order")),
     features: String(d.get("features") || ""),
     description: String(d.get("description") || "").trim(),
@@ -665,7 +687,25 @@ function paintCoursePreview(form) {
     `<div class="as-preview-card"><b>${esc(c.title)}</b>${c.subtitle ? `<span class="as-sub">${esc(c.subtitle)}</span>` : ""}` +
     `<span><b>${money(c.price)}</b>${c.mrp > c.price ? ` <s class="as-sub">${money(c.mrp)}</s> <span class="as-pill as-pill--ok">${offPercent(c.price, c.mrp)}% off</span>` : ""}</span>` +
     (c.memberPrice > 0 && c.memberPrice < c.price ? `<span class="as-sub as-sub--mem">${icon("i-crown")}Members ${money(c.memberPrice)}</span>` : "") +
-    `<span class="as-sub">${esc(validityLabel(c.validityDays))} · ${esc(c.mode)} · ${esc(c.language)}</span></div>`;
+    `<span class="as-sub">${esc(validityLabel(c.validityDays))} · ${esc(c.mode)} · ${esc(c.language)}</span>` +
+    coinLine(c) +
+    `</div>`;
+  const rw = A.rewards;
+  const eh = $("#asEarnHint");
+  const rh = $("#asReferHint");
+  const pctNote = rw.buyOn && rw.buyPct ? `${rw.buyPct}% of price` : "no purchase reward";
+  if (eh) eh.textContent = !rw.enabled ? "E-coins program is off (Refer & earn tab)." : c.earnCoins >= 0 ? `Buyers earn ${c.earnCoins} E-coins.` : `Blank = default (${pctNote}${rw.buyOn && rw.buyPct ? ` → ${courseEarnCoins(c, rw, c.price)} coins` : ""}).`;
+  if (rh) rh.textContent = !rw.enabled ? "" : c.referCoins >= 0 ? `Referrer earns ${c.referCoins} when a friend’s first order includes this course.` : `Blank = default (${rw.referrerCoins} E-coins).`;
+}
+
+/* "Earn 74 E-coins · Share & earn 200" — used by the preview and the course list */
+function coinLine(c) {
+  const rw = A.rewards;
+  if (!rw.enabled) return "";
+  const earn = courseEarnCoins(c, rw, c.price);
+  const refer = courseReferCoins(c, rw);
+  if (!earn && !refer) return "";
+  return `<span class="as-sub as-sub--coin">${icon("i-coin")}${earn ? `Earn ${earn.toLocaleString("en-IN")}` : ""}${earn && refer ? " · " : ""}${refer ? `Referral ${refer.toLocaleString("en-IN")}` : ""}${c.earnCoins >= 0 || c.referCoins >= 0 ? " · custom" : ""}</span>`;
 }
 
 async function openCourseEditor(id) {
@@ -762,6 +802,8 @@ async function saveCourse(form, btn) {
         createdAt: (A.coursesRaw[id] && A.coursesRaw[id].createdAt) || now,
         updatedAt: now
       };
+      if (c.earnCoins >= 0) rec.earnCoins = c.earnCoins;
+      if (c.referCoins >= 0) rec.referCoins = c.referCoins;
       const updates = { [`${PATH.courses}/${id}`]: rec };
       if (c.thumb === "upload" && A.draft.imageChanged && A.draft.image) updates[`${PATH.courseImages}/${id}`] = A.draft.image;
       if (c.thumb !== "upload") updates[`${PATH.courseImages}/${id}`] = null;
@@ -1361,6 +1403,10 @@ export function initStore(ctx) {
   dbWatch(PATH.couponUsage, (v) => {
     A.usage = v || {};
     paintCoupons();
+  });
+  dbWatch(PATH.rewards, (v) => {
+    A.rewards = rewardsFrom(v);
+    if ($('[data-crm-panel="courses"]') && !$('[data-crm-panel="courses"]').hidden && !A.editing) paintCourses();
   });
   dbWatch(PATH.orders, (v) => {
     A.orders = flattenOrders(v);

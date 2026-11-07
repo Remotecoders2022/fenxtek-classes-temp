@@ -1691,3 +1691,20 @@
 .crm-subhead { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--line, rgba(11, 11, 16, 0.14)); }
 .crm-subhead h3 { font-size: 18px; font-weight: 650; letter-spacing: -0.02em; }
 .crm-subhead p { max-width: 70ch; }
+
+/* sign-up: invite code */
+.auth-invite { margin: 4px 0 2px; border-radius: 14px; border: 1px dashed rgba(201, 138, 0, 0.5); background: #FFFBEA; }
+.auth-invite summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; font-size: 14px; font-weight: 600; color: #4A3500; }
+.auth-invite summary::-webkit-details-marker { display: none; }
+.auth-invite summary > svg { width: 18px; height: 18px; flex: none; color: #C98A00; }
+.auth-invite summary::after { content: ""; width: 8px; height: 8px; margin-left: auto; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); opacity: 0.6; transition: transform 0.2s; }
+.auth-invite[open] summary::after { transform: rotate(225deg) translateY(-2px); }
+.auth-invite summary em { font-style: normal; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; padding: 3px 8px; border-radius: 999px; background: #F2B705; color: #2A1C00; }
+.auth-invite summary em[hidden] { display: none; }
+.auth-invite .p-field { margin: 0 14px; }
+.auth-invite .p-input { font-family: var(--mono); letter-spacing: 0.12em; text-transform: uppercase; background: #fff; }
+.auth-invite-note { margin: 8px 14px 14px; font-size: 12.5px; line-height: 1.5; color: #7A5D17; }
+.auth-context--invite { background: linear-gradient(135deg, #FFF6D6, #FFFBEC); border-color: rgba(242, 183, 5, 0.45); }
+.auth-context-ic--coin { background: radial-gradient(circle at 35% 30%, #FFE07A, #F2B705); color: #3A2800; }
+.auth-context--invite code { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border-radius: 6px; background: rgba(242, 183, 5, 0.25); color: #3A2800; }
+.auth-context--invite { margin-bottom: 16px; }

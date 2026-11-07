@@ -12,7 +12,7 @@
    ============================================================ */
 
 import { dbGet, dbSet, dbWatch, dbUpdateRoot, dbKey, friendlyError } from "./firebase.js?v=5";
-import { PATH, esc, money, num, formatDate, rewardsFrom, coinsLabel, TX_LABEL } from "./commerce.js?v=3";
+import { PATH, esc, money, num, formatDate, rewardsFrom, coinsLabel, TX_LABEL, coursesFrom, orderEarnCoins, orderReferrerCoins, flattenOrders } from "./commerce.js?v=4";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -25,6 +25,7 @@ const R = {
   rewards: rewardsFrom(null),
   referrals: {}, // uid -> record
   wallets: {}, // uid -> { balance, earned, spent }
+  orders: [], // flattened, for course-reward stats
   users: {}, // uid -> profile (loaded on demand)
   usersLoaded: false,
   filter: { q: "", status: "all" },
@@ -81,45 +82,78 @@ async function walletUpdates(entries, now = Date.now()) {
   return updates;
 }
 
-/* Credit both sides of a pending referral. `order` = the qualifying order (optional). */
-async function settleUpdates(uid, ref, rw, order, now = Date.now()) {
+/* Wallet entries + bookkeeping for a pending referral. `order` = the qualifying order (optional). */
+function settleParts(uid, ref, rw, order, referrerCoins, now) {
   const by = ref.by;
   const name = ref.name || "A friend";
+  const give = Math.max(0, Math.round(num(referrerCoins)));
   const entries = [];
-  if (rw.referrerCoins) entries.push({ uid: by, coins: rw.referrerCoins, type: "referral", key: `ref-${uid}`, note: `${name} joined with your code`, ref: uid, orderNo: order && order.orderNo });
+  if (give) entries.push({ uid: by, coins: give, type: "referral", key: `ref-${uid}`, note: `${name} joined with your code`, ref: uid, orderNo: order && order.orderNo });
   if (rw.refereeCoins) entries.push({ uid, coins: rw.refereeCoins, type: "welcome", key: `welcome-${by}`, note: `Joined with code ${ref.code || ""}`.trim(), ref: by, orderNo: order && order.orderNo });
-  const updates = await walletUpdates(entries, now);
+  const updates = {};
   const r = `${PATH.referrals}/${uid}`;
   updates[`${r}/status`] = "rewarded";
   updates[`${r}/rewardedAt`] = now;
-  updates[`${r}/referrerCoins`] = rw.referrerCoins;
+  updates[`${r}/referrerCoins`] = give;
   updates[`${r}/refereeCoins`] = rw.refereeCoins;
   if (order && order.id) updates[`${r}/orderId`] = String(order.id);
   if (order && order.orderNo) updates[`${r}/orderNo`] = String(order.orderNo);
   const b = `${PATH.referredBy}/${by}/${uid}`;
   updates[`${b}/status`] = "rewarded";
-  updates[`${b}/coins`] = rw.referrerCoins;
+  updates[`${b}/coins`] = give;
   updates[`${b}/rewardedAt`] = now;
-  return updates;
+  return { entries, updates };
+}
+
+/* Manual "Reward now" from the referrals table (no order). */
+async function settleUpdates(uid, ref, rw, order, now = Date.now()) {
+  const parts = settleParts(uid, ref, rw, order, rw.referrerCoins, now);
+  return Object.assign(await walletUpdates(parts.entries, now), parts.updates);
+}
+
+async function coursesMap() {
+  const map = {};
+  coursesFrom(val(await dbGet(PATH.courses).catch(() => null)), { all: true }).forEach((c) => (map[c.id] = c));
+  return map;
 }
 
 /* Called when an order becomes paid by an admin action (approve UPI, verify
-   Razorpay, offline sale). Returns {} when there is nothing to settle. */
-export async function referralRewardUpdates(o, now = Date.now()) {
+   Razorpay, offline sale). Credits, in ONE wallet write:
+   - the buyer's purchase reward (per-course coins or the % rule), once per order
+   - the referral reward for both sides if this is the friend's qualifying order
+   Returns {} when there is nothing to credit. */
+export async function orderRewardUpdates(o, now = Date.now()) {
   try {
     if (!o || !o.uid || num(o.total) <= 0) return {};
     const rw = rewardsFrom(val(await dbGet(PATH.rewards)));
-    if (!rw.enabled || num(o.total) < rw.minOrder) return {};
-    const ref = val(await dbGet(`${PATH.referrals}/${o.uid}`));
-    if (!ref || ref.status !== "pending" || !ref.by || ref.by === o.uid) return {};
-    return await settleUpdates(o.uid, ref, rw, o, now);
+    if (!rw.enabled) return {};
+    const courses = await coursesMap();
+    const entries = [];
+    let extra = {};
+    const earn = o.coinsEarned ? 0 : orderEarnCoins(o, rw, courses);
+    if (earn > 0) {
+      entries.push({ uid: o.uid, coins: earn, type: "purchase", key: `buy-${o.id}`, note: `Earned on ${o.orderNo || "your order"}`, orderId: o.id, orderNo: o.orderNo });
+      extra[`${PATH.orders}/${o.uid}/${o.id}/coinsEarned`] = earn;
+    }
+    if (num(o.total) >= rw.minOrder) {
+      const ref = val(await dbGet(`${PATH.referrals}/${o.uid}`).catch(() => null));
+      if (ref && ref.status === "pending" && ref.by && ref.by !== o.uid) {
+        const parts = settleParts(o.uid, ref, rw, o, orderReferrerCoins(o, rw, courses), now);
+        entries.push(...parts.entries);
+        extra = Object.assign(extra, parts.updates);
+      }
+    }
+    if (!entries.length) return {};
+    return Object.assign(await walletUpdates(entries, now), extra);
   } catch (err) {
-    console.warn("[rewards] settle", err);
+    console.warn("[rewards] order rewards", err);
     return {};
   }
 }
+/* kept for older call sites */
+export const referralRewardUpdates = orderRewardUpdates;
 
-/* Reject / refund: give back the E-coins spent on the order (once). */
+/* Reject: give back the E-coins spent on the order (once). */
 export async function coinRefundUpdates(o, reason, now = Date.now()) {
   const coins = Math.round(num(o && o.coins));
   if (!coins || o.coinsReturned) return {};
@@ -128,18 +162,45 @@ export async function coinRefundUpdates(o, reason, now = Date.now()) {
   return updates;
 }
 
-/* Refund of the order that earned a referral reward: take the coins back. */
-export async function referralClawbackUpdates(o, now = Date.now()) {
+/* The referral this order paid out, if any (to ask the admin before taking it back). */
+export async function referralOfOrder(o) {
   const ref = val(await dbGet(`${PATH.referrals}/${o.uid}`).catch(() => null));
-  if (!ref || ref.status !== "rewarded" || ref.orderId !== o.id) return null;
+  return ref && ref.status === "rewarded" && ref.orderId === o.id ? ref : null;
+}
+
+/* Refund: in ONE wallet write, return the coins the student spent, take back the
+   purchase reward and (optionally) the referral reward this order earned. */
+export async function orderReversalUpdates(o, { reason = "", clawReferral = null, clawPurchase = true } = {}, now = Date.now()) {
   const entries = [];
-  if (num(ref.referrerCoins)) entries.push({ uid: ref.by, coins: -num(ref.referrerCoins), type: "debit", note: `Referral reversed — ${o.orderNo} refunded`, ref: o.uid });
-  if (num(ref.refereeCoins)) entries.push({ uid: o.uid, coins: -num(ref.refereeCoins), type: "debit", note: `Welcome bonus reversed — ${o.orderNo} refunded`, ref: ref.by });
-  const updates = await walletUpdates(entries, now);
-  updates[`${PATH.referrals}/${o.uid}/status`] = "void";
-  updates[`${PATH.referrals}/${o.uid}/note`] = `Reversed: ${o.orderNo} refunded`;
-  updates[`${PATH.referredBy}/${ref.by}/${o.uid}/status`] = "void";
-  return { updates, ref };
+  const extra = {};
+  const base = `${PATH.orders}/${o.uid}/${o.id}`;
+  const spent = Math.round(num(o.coins));
+  if (spent && !o.coinsReturned) {
+    entries.push({ uid: o.uid, coins: spent, type: "refund", key: `refund-${o.id}`, note: reason || `Returned from ${o.orderNo}`, orderId: o.id, orderNo: o.orderNo });
+    extra[`${base}/coinsReturned`] = true;
+  }
+  const earned = Math.round(num(o.coinsEarned));
+  if (clawPurchase && earned && !o.coinsEarnedReversed) {
+    entries.push({ uid: o.uid, coins: -earned, type: "debit", key: `unbuy-${o.id}`, note: `Course reward reversed — ${o.orderNo} refunded`, orderId: o.id, orderNo: o.orderNo });
+    extra[`${base}/coinsEarnedReversed`] = true;
+  }
+  const ref = clawReferral;
+  if (ref) {
+    if (num(ref.referrerCoins)) entries.push({ uid: ref.by, coins: -num(ref.referrerCoins), type: "debit", note: `Referral reversed — ${o.orderNo} refunded`, ref: o.uid });
+    if (num(ref.refereeCoins)) entries.push({ uid: o.uid, coins: -num(ref.refereeCoins), type: "debit", note: `Welcome bonus reversed — ${o.orderNo} refunded`, ref: ref.by });
+    extra[`${PATH.referrals}/${o.uid}/status`] = "void";
+    extra[`${PATH.referrals}/${o.uid}/note`] = `Reversed: ${o.orderNo} refunded`;
+    extra[`${PATH.referredBy}/${ref.by}/${o.uid}/status`] = "void";
+  }
+  if (!entries.length) return extra;
+  return Object.assign(await walletUpdates(entries, now), extra);
+}
+
+/* kept for older call sites */
+export async function referralClawbackUpdates(o, now = Date.now()) {
+  const ref = await referralOfOrder(o);
+  if (!ref) return null;
+  return { updates: await orderReversalUpdates(o, { clawReferral: ref, clawPurchase: false }, now), ref };
 }
 
 /* ------------------------------------------------------------
@@ -171,12 +232,39 @@ function fillForm() {
   f.refereeCoins.value = r.refereeCoins;
   f.maxRedeemPct.value = r.maxRedeemPct;
   f.minOrder.value = r.minOrder;
+  f.buyOn.checked = r.buyOn;
+  f.buyPct.value = r.buyPct;
+  f.buyMax.value = r.buyMax || "";
   f.note.value = r.note || "";
+  previewRules();
   const st = $("#arLive");
   if (st) {
     st.textContent = r.enabled ? "Live" : "Off";
     st.className = `as-pill ${r.enabled ? "as-pill--ok" : "as-pill--muted"}`;
   }
+}
+
+/* Live "what students get" summary next to the settings */
+function previewRules() {
+  const f = $("#arForm");
+  const box = $("#arPreview");
+  if (!f || !box) return;
+  const n = (k) => Math.max(0, Math.round(num(f[k].value)));
+  const on = f.enabled.checked;
+  const buy = f.buyOn.checked && n("buyPct") > 0;
+  const ex = 1499;
+  const exCoins = buy ? (n("buyMax") ? Math.min(n("buyMax"), Math.floor((ex * n("buyPct")) / 100)) : Math.floor((ex * n("buyPct")) / 100)) : 0;
+  const row = (ic, t, d) => `<li><span class="ar-pv-ic">${icon(ic)}</span><div><b>${t}</b><small>${d}</small></div></li>`;
+  box.innerHTML =
+    `<span class="ar-pv-k">What students see</span>` +
+    (on
+      ? `<ul class="ar-pv">` +
+        row("i-users", `Refer a friend → <em>${fmt(n("referrerCoins"))}</em> E-coins`, `When a friend joins with their link or invite code and their first order is confirmed. Courses can offer more.`) +
+        row("i-gift", `Friend gets <em>${fmt(n("refereeCoins"))}</em> E-coins`, "Welcome bonus, added with that first order.") +
+        row("i-cart", buy ? `Buy a course → <em>${n("buyPct")}%</em> back in E-coins` : "Purchase rewards are off", buy ? `A ₹${ex.toLocaleString("en-IN")} course earns ${fmt(exCoins)} E-coins${n("buyMax") ? ` (max ${fmt(n("buyMax"))} per order)` : ""}. Courses with fixed coins override this.` : "Turn on to give E-coins back on every paid order, or set fixed coins on individual courses.") +
+        row("i-coin", `Pay up to <em>${Math.min(90, n("maxRedeemPct"))}%</em> with E-coins`, "1 E-coin = ₹1 at checkout.") +
+        `</ul>`
+      : `<p class="ar-pv-off">${icon("i-info")}<span>The program is off — students don’t see E-coins, invite links or rewards.</span></p>`);
 }
 
 function paintStats() {
@@ -189,6 +277,8 @@ function paintStats() {
     stat(String(refs.length), "Referrals") +
     stat(String(refs.filter((r) => r.status === "pending").length), "Waiting for first order") +
     stat(String(refs.filter((r) => r.status === "rewarded").length), "Rewarded") +
+    stat(fmt(R.orders.reduce((t, o) => t + (o.coinsEarnedReversed ? 0 : num(o.coinsEarned)), 0)), "Course rewards paid") +
+    stat(String(R.orders.filter((o) => num(o.coinsEarned) > 0 && !o.coinsEarnedReversed).length), "Orders that earned coins") +
     stat(fmt(ws.reduce((t, w) => t + num(w.earned), 0)), "E-coins issued") +
     stat(fmt(ws.reduce((t, w) => t + num(w.spent), 0)), "E-coins redeemed (₹)") +
     stat(fmt(ws.reduce((t, w) => t + num(w.balance), 0)), "Outstanding balance");
@@ -351,6 +441,8 @@ function bind() {
   const panel = $('[data-crm-panel="rewards"]');
   if (!panel) return false;
   const f = $("#arForm", panel);
+  f.addEventListener("input", previewRules);
+  f.addEventListener("change", previewRules);
   f.addEventListener("submit", (e) => {
     e.preventDefault();
     const n = (k, lo, hi) => Math.min(hi, Math.max(lo, Math.round(num(f[k].value))));
@@ -360,6 +452,9 @@ function bind() {
       refereeCoins: n("refereeCoins", 0, 100000),
       maxRedeemPct: n("maxRedeemPct", 0, 90),
       minOrder: n("minOrder", 0, 10000000),
+      buyOn: f.buyOn.checked,
+      buyPct: n("buyPct", 0, 50),
+      buyMax: n("buyMax", 0, 100000),
       note: String(f.note.value || "").trim().slice(0, 300),
       updatedAt: Date.now()
     };
@@ -409,9 +504,13 @@ export function initRewards(ctx) {
     R.referrals = v && typeof v === "object" ? v : {};
     paintStats();
     paintReferrals();
-    const badge = $('[data-crm-tab="rewards"] span');
+    const badge = $('[data-crm-tab="rewards"] .crm-badge');
     const pending = Object.values(R.referrals).filter((r) => r && r.status === "pending").length;
-    if (badge) badge.textContent = pending ? `${pending} new` : "15";
+    if (badge) badge.textContent = pending ? `${pending} new` : "";
+  });
+  dbWatch(PATH.orders, (v) => {
+    R.orders = flattenOrders(v);
+    paintStats();
   });
   dbWatch(PATH.wallets, (v) => {
     R.wallets = v && typeof v === "object" ? v : {};

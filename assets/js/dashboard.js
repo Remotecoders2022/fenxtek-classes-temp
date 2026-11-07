@@ -84,9 +84,12 @@ import {
   makeRefCode,
   coinsLabel,
   TX_LABEL,
-  orderBreakdown
-} from "./commerce.js?v=3";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=3";
+  orderBreakdown,
+  courseEarnCoins,
+  courseReferCoins,
+  orderEarnCoins
+} from "./commerce.js?v=4";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=4";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -220,23 +223,23 @@ const owns = (id) => {
 const ROUTES = [
   { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content", "wallet", "rewards", "refs"] },
   { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart", "cc", "progress"] },
-  { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member"] },
+  { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member", "rewards"] },
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
   { id: "notes", label: "Notes & PDFs", icon: "i-file", group: "Learn", soon: true, blurb: "Outlines, phrase lists and dictation passages, organised by course." },
-  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay", "rewards", "wallet"] },
+  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay", "rewards", "wallet", "refs", "orders"] },
   { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders"] },
   { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
-  { id: "rewards", label: "Refer & earn", icon: "i-coin", group: "Purchases", pill: "coins", view: vRewards, deps: ["rewards", "wallet", "refs", "orders", "profile"] },
+  { id: "rewards", label: "Refer & earn", icon: "i-coin", group: "Purchases", pill: "coins", view: vRewards, deps: ["rewards", "wallet", "refs", "orders", "profile", "courses"] },
   { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: ["wallet", "rewards"] },
   /* detail screens (not in the menu) */
-  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member"] },
+  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member", "rewards"] },
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll", "cart", "cc", "progress", "content"] },
   { id: "success", parent: "orders", view: vSuccess, deps: ["orders"] },
   { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] },
   { id: "join", parent: "membership", view: vJoin, deps: ["plans", "member", "cart"] },
   { id: "redeem", parent: "membership", view: vRedeem, deps: ["plans", "member"] },
-  { id: "ref", parent: "rewards", view: vRef, deps: ["rewards", "refs", "orders"] }
+  { id: "ref", parent: "rewards", view: vRef, deps: ["rewards", "refs", "orders", "courses", "profile"] }
 ];
 const routeById = (id) => ROUTES.find((r) => r.id === id);
 
@@ -662,6 +665,7 @@ function courseCard(c) {
     (c.subtitle ? `<p class="sc-sub">${esc(c.subtitle)}</p>` : "") +
     `<ul class="sc-specs">${specs.map(([ic, v, l]) => `<li title="${esc(l)}: ${esc(v)}">${icon(ic)}<b>${esc(v)}</b><small>${l}</small></li>`).join("")}</ul>` +
     (feats.length ? `<ul class="sc-feats">${feats.map((f) => `<li>${icon("i-check")}<span>${esc(f)}</span></li>`).join("")}</ul>` : "") +
+    rewardStrip(c, active) +
     `<div class="sc-foot">${foot}</div>` +
     `</div></article>`
   );
@@ -738,6 +742,7 @@ function skeletonGrid(n = 3) {
 }
 
 function bindAdd(root) {
+  bindShare(root);
   $$("[data-add]", root).forEach((b) =>
     b.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1519,6 +1524,7 @@ function vCourse(id) {
           : off
           ? `<p class="sp-buy-save">You save ${money(c.mrp - c.price)} on MRP</p>`
           : "") +
+        earnLine(c) +
         `<ul class="sp-buy-facts"><li>${icon("i-clock")}${esc(validityLabel(c.validityDays))}</li><li>${icon("i-headphones")}${esc(c.mode)} · ${esc(c.language)}</li><li>${icon("i-receipt")}Instant receipt (PNG)</li></ul>` +
         (S.cart[c.id]
           ? `<a class="p-btn p-btn--lime p-btn--block" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
@@ -1530,7 +1536,9 @@ function vCourse(id) {
           .join("")}</div>`
       : "") +
     `<p class="sp-buy-trust">${icon("i-shield")}Secure payment · Prices include all taxes</p>` +
-    `</div></aside>`;
+    `</div>` +
+    shareCard(c) +
+    `</aside>`;
 
   const html =
     `<a class="sp-back" href="#store">${icon("i-chev-l")}All courses</a>` +
@@ -1693,6 +1701,7 @@ function vCart() {
       : rw.enabled
       ? `<a class="sp-coins-promo" href="#rewards">${icon("i-coin")}<span><b>Refer friends, earn E-coins</b><small>Get ${esc(coinsLabel(rw.referrerCoins))} for every friend who joins</small></span>${icon("i-arr")}</a>`
       : "") +
+    cartInvite() +
     `<section class="sp-panel sp-summary"><span class="sp-k">Order summary</span>` +
     `<dl>` +
     `<div><dt>MRP total</dt><dd>${money(p.mrpTotal)}</dd></div>` +
@@ -1703,6 +1712,7 @@ function vCart() {
     `<div class="is-total"><dt>To pay</dt><dd>${money(p.total)}</dd></div>` +
     `</dl>` +
     (p.savings ? `<p class="sp-savebar">${icon("i-gift")}You’re saving ${money(p.savings)} on this order</p>` : "") +
+    cartEarnBar(items, p) +
     `<button class="p-btn p-btn--lime p-btn--block sp-paybtn" type="button" id="spCheckout">${icon("i-shield")}<span>${p.total ? `Proceed to pay ${money(p.total)}` : "Get it free"}</span></button>` +
     `<p class="sp-pay-note">${icon("i-lock")}Inclusive of all taxes · Receipt generated instantly</p>` +
     `</section></aside></div>` +
@@ -1730,6 +1740,12 @@ function vCart() {
         });
       const up = $(".sp-upsell", root);
       if (up) bindAdd(up);
+      const inv = $("#spInvite", root);
+      if (inv)
+        inv.addEventListener("submit", (e) => {
+          e.preventDefault();
+          applyReferral(inv.code.value, inv.querySelector("button"));
+        });
       const rm = $("#spCouponRm", root);
       if (rm)
         rm.addEventListener("click", () => {
@@ -1810,7 +1826,7 @@ function vOrders() {
           `<article class="sp-order">` +
           `<div class="sp-order-top"><div><span class="sp-k">${esc(o.orderNo)}</span><b>${esc(items.map((i) => i.title).join(", ") || "Order")}</b>` +
           `<small>${esc(formatDate(o.createdAt, true))} · ${esc(methodLabel(o.method))}</small></div>${statusPill(o)}</div>` +
-          `<div class="sp-order-foot"><div class="sp-order-amt"><b>${money(o.total)}</b>${orderSaveNote(o)}</div>` +
+          `<div class="sp-order-foot"><div class="sp-order-amt"><b>${money(o.total)}</b>${orderSaveNote(o)}${orderCoinNote(o)}</div>` +
           `<div class="sp-order-acts">` +
           (canReceipt
             ? `<a class="p-btn p-btn--ghost p-btn--sm" href="#receipt/${esc(o.id)}">${icon("i-eye")}<span>View</span></a><button class="p-btn p-btn--sm" type="button" data-dl="${esc(o.id)}">${icon("i-download")}<span>Receipt</span></button>`
@@ -3209,9 +3225,9 @@ function countUpCoins(root) {
 /* ============================================================
    Refer & earn — E-coins wallet (1 E-coin = ₹1 off courses)
    ============================================================ */
-function refLink(code) {
+function refLink(code, courseId) {
   const u = new URL("auth.html", location.href);
-  u.search = `?mode=signup&next=${encodeURIComponent(`dashboard.html#ref/${code}`)}`;
+  u.search = `?mode=signup&ref=${encodeURIComponent(code)}&next=${encodeURIComponent(`dashboard.html#ref/${code}${courseId ? `/${courseId}` : ""}`)}`;
   u.hash = "";
   return u.href;
 }
@@ -3259,10 +3275,10 @@ async function ensureRefCode() {
   }
 }
 
-async function applyReferral(raw, btn) {
+async function applyReferral(raw, btn, { auto = false } = {}) {
   const code = cleanRefCode(raw);
   if (code.length < 4) {
-    toast("Enter your friend’s referral code.", "err");
+    if (!auto) toast("Enter your friend’s invite code.", "err");
     return false;
   }
   return busy(btn, "Applying", async () => {
@@ -3281,11 +3297,14 @@ async function applyReferral(raw, btn) {
         [`${PATH.referredBy}/${by}/${S.user.uid}`]: { name, at: now, status: "pending" }
       });
       S.referral = { by, code, status: "pending", at: now, name };
+      clearPendingInvite();
       changed("refs");
-      toast(rw.refereeCoins ? `Invite accepted — ${coinsLabel(rw.refereeCoins)} will be added after your first purchase.` : "Invite accepted.");
+      changed("cart");
+      toast(rw.refereeCoins ? `Invite code ${code} applied — you’ll get ${coinsLabel(rw.refereeCoins)} with your first course.` : `Invite code ${code} applied.`);
       return true;
     } catch (err) {
-      toast(err.userFacing ? err.message : friendlyError(err), "err");
+      if (auto) clearPendingInvite();
+      else toast(err.userFacing ? err.message : friendlyError(err), "err");
       return false;
     }
   });
@@ -3359,8 +3378,12 @@ function vRewards() {
         ["i-share", "Share your code", "Send your link or code to friends on WhatsApp or Telegram."],
         ["i-user", "Friend joins", "They sign up with your link — or enter your code — before their first purchase."],
         ["i-coin", "You both earn", `You get ${coinsLabel(rw.referrerCoins)}${rw.refereeCoins ? `, they get ${coinsLabel(rw.refereeCoins)}` : ""} once their first payment is confirmed.`],
+        rw.buyOn && rw.buyPct
+          ? ["i-gift", "Earn on every course", `Get ${rw.buyPct}% back in E-coins on everything you buy${rw.buyMax ? ` (up to ${coinsLabel(rw.buyMax)} per order)` : ""}.`]
+          : null,
         ["i-cart", "Spend like cash", `Use E-coins at checkout — up to ${rw.maxRedeemPct}% of any order.`]
       ]
+        .filter(Boolean)
         .map(([ic, t, d], i) => `<li><span class="rw-step-ic">${icon(ic)}<i>${i + 1}</i></span><b>${t}</b><small>${esc(d)}</small></li>`)
         .join("") +
       `</ol></section>`
@@ -3406,6 +3429,7 @@ function vRewards() {
     joined +
     enter +
     steps +
+    shareCourses() +
     `<div class="rw-grid">${refList}${hist}</div>` +
     `<p class="rw-terms">${icon("i-info")}<span>E-coins have no cash value, can’t be transferred and can only be used on FenxTek courses and memberships. Referral rewards are added after the academy confirms the payment; refunded orders don’t qualify.${rw.note ? ` ${esc(rw.note)}` : ""}</span></p>`;
 
@@ -3429,45 +3453,289 @@ function vRewards() {
           e.preventDefault();
           applyReferral(f.code.value, f.querySelector("button"));
         });
+      bindShare(root);
     }
   };
 }
 
-/* #ref/<CODE> — landing for a friend's invite link */
+/* #ref/<CODE>[/<courseId>] — landing for a friend's invite link */
 function vRef(arg) {
-  const code = cleanRefCode(arg);
+  const [rawCode, courseId] = String(arg || "").split("/");
+  const code = cleanRefCode(rawCode);
   const rw = S.rewards;
+  const c = courseId ? courseById(courseId) : null;
+  const courseBox = c
+    ? `<a class="rw-inv-course" href="#course/${esc(c.id)}">${cover(c, "xs")}<div><small>Course your friend shared</small><b>${esc(c.title)}</b><span>${priceShort(c)}</span></div>${icon("i-chev-r")}</a>`
+    : "";
+  const next = c ? `#course/${c.id}` : "#store";
+  const nextBtn = c
+    ? `<a class="p-btn p-btn--lime p-btn--block" href="${next}">${icon("i-arr")}<span>View the course</span></a>`
+    : `<a class="p-btn p-btn--lime p-btn--block" href="#store">${icon("i-bolt")}<span>Browse courses</span></a>`;
   const card = (ic, title, text, cta) => ({
     title: "Invitation",
     crumb: "Refer & earn",
-    html: `<div class="rw-invite"><div class="rw-inv-card is-plain"><span class="rw-inv-coin">${icon(ic)}</span><h2>${title}</h2><p>${text}</p>${cta}</div></div>`
+    html: `<div class="rw-invite"><div class="rw-inv-card is-plain"><span class="rw-inv-coin">${icon(ic)}</span><h2>${title}</h2><p>${text}</p>${courseBox}${cta}</div></div>`
   });
-  const toStore = `<a class="p-btn p-btn--lime" href="#store">${icon("i-bolt")}<span>Browse courses</span></a>`;
-  const toRewards = `<a class="p-btn p-btn--lime" href="#rewards">${icon("i-coin")}<span>Refer &amp; earn</span></a>`;
+  const toRewards = `<a class="sp-link" href="#rewards">Go to Refer &amp; earn</a>`;
   if (!S.ordersReady || !S.referralReady) return { title: "Invitation", crumb: "Refer & earn", html: skeletonGrid(1) };
-  if (!rw.enabled) return card("i-coin", "Referral rewards are paused", "You can still explore courses and memberships — welcome to FenxTek!", toStore);
-  if (code.length < 4) return card("i-info", "This invite link looks incomplete", "Ask your friend for their referral code and enter it under Refer &amp; earn.", toRewards);
-  if (S.referral) return card("i-check", "You’ve already joined with a referral code", `Code <b>${esc(S.referral.code || "")}</b> is linked to your account.`, toRewards);
-  if (code === cleanRefCode(S.profile.refCode)) return card("i-share", "That’s your own invite link", "Share it with friends — you earn E-coins when they buy their first course.", toRewards);
-  if (S.orders.length) return card("i-info", "Invites are for new students", "Referral codes apply before the first purchase. Invite your own friends and earn E-coins instead.", toRewards);
+  if (!rw.enabled) return card("i-coin", "Welcome to FenxTek", "Referral rewards are paused right now, but you can still explore courses and memberships.", nextBtn);
+  if (code.length < 4) return card("i-info", "This invite link looks incomplete", "Ask your friend for their invite code and enter it under Refer &amp; earn.", nextBtn + toRewards);
+  if (S.referral && S.referral.code === code && S.referral.status === "pending")
+    return {
+      title: "Invitation",
+      crumb: "Refer & earn",
+      html:
+        `<div class="rw-invite"><div class="rw-inv-card is-done">` +
+        `<span class="rw-inv-art">${coin3d("md")}</span><span class="sp-k">Invite accepted</span>` +
+        `<h2>${rw.refereeCoins ? `${esc(coinsLabel(rw.refereeCoins))} are waiting for you` : "You’re in — welcome to FenxTek"}</h2>` +
+        `<p>${rw.refereeCoins ? `Buy your first course and <b>${esc(coinsLabel(rw.refereeCoins))}</b> (worth ${money(rw.refereeCoins)}) land in your wallet as soon as the payment is confirmed.` : "Your friend’s code is linked to your account."}</p>` +
+        `<div class="rw-code rw-code--center"><div><small>Invite code</small><b>${esc(code)}</b></div><em class="rw-code-ok">${icon("i-check")}Applied</em></div>` +
+        courseBox +
+        nextBtn +
+        (c ? `<a class="sp-link" href="#store">Browse all courses</a>` : "") +
+        `</div></div>`
+    };
+  if (S.referral) return card("i-check", "You’ve already joined with an invite code", `Code <b>${esc(S.referral.code || "")}</b> is linked to your account.`, nextBtn + toRewards);
+  if (code === cleanRefCode(S.profile.refCode)) return card("i-share", "That’s your own invite link", "Share it with friends — you earn E-coins when they buy their first course.", nextBtn + toRewards);
+  if (S.orders.length) return card("i-info", "Invites are for new students", "Invite codes apply before the first purchase. Share your own link and earn E-coins instead.", nextBtn + toRewards);
   return {
     title: "Invitation",
     crumb: "Refer & earn",
     html:
       `<div class="rw-invite"><div class="rw-inv-card">` +
-      `<span class="rw-inv-coin">${icon("i-coin")}</span><span class="sp-k">You’re invited</span>` +
+      `<span class="rw-inv-art">${coin3d("md")}</span><span class="sp-k">You’re invited</span>` +
       `<h2>A friend invited you to FenxTek</h2>` +
       `<p>${rw.refereeCoins ? `Accept to get <b>${esc(coinsLabel(rw.refereeCoins))}</b> — that’s ${money(rw.refereeCoins)} off your first course.` : "Accept the invite to join your friend on FenxTek."}</p>` +
       `<div class="rw-code rw-code--center"><div><small>Invite code</small><b>${esc(code)}</b></div></div>` +
+      courseBox +
       `<button class="p-btn p-btn--lime p-btn--block" type="button" id="rwAccept">${icon("i-gift")}<span>Accept invite</span></button>` +
-      `<a class="sp-link" href="#store">Skip for now</a>` +
+      `<a class="sp-link" href="${next}">Skip for now</a>` +
       `</div></div>`,
     mount(root) {
-      $("#rwAccept", root).addEventListener("click", async (e) => {
-        if (await applyReferral(code, e.currentTarget)) go("#store");
-      });
+      $("#rwAccept", root).addEventListener("click", (e) => applyReferral(code, e.currentTarget));
     }
   };
+}
+
+/* ============================================================
+   Share & earn — per-course share links and E-coin hints
+   ============================================================ */
+const rwOn = () => Boolean(S.rewards && S.rewards.enabled);
+const fmtN = (n) => Math.round(num(n)).toLocaleString("en-IN");
+function priceShort(c) {
+  const mp = memberPriceFor(c);
+  const shown = mp != null ? mp : c.price;
+  const was = Math.max(c.mrp, c.price);
+  return shown ? `${money(shown)}${was > shown ? ` <s>${money(was)}</s>` : ""}` : "Free";
+}
+/* E-coins the student earns buying this course at the price they'd pay */
+function earnFor(c) {
+  if (!rwOn() || !c) return 0;
+  const mp = memberPriceFor(c);
+  return courseEarnCoins(c, S.rewards, mp != null ? mp : c.price);
+}
+const referFor = (c) => (rwOn() ? courseReferCoins(c, S.rewards) : 0);
+
+/* course card: "Earn 74 E-coins" + "Share · earn 200" */
+function rewardStrip(c, owned) {
+  const earn = owned ? 0 : earnFor(c);
+  const refer = referFor(c);
+  return (
+    `<div class="sc-reward${earn ? "" : " is-share-only"}">` +
+    (earn ? `<span class="sc-earn" title="Added to your wallet after the payment is confirmed">${coinFace("sc-coin")}<span>Earn <b>${fmtN(earn)}</b> E-coins</span></span>` : "") +
+    `<button class="sc-share" type="button" data-share-course="${esc(c.id)}" aria-label="Share ${esc(c.title)}${refer ? ` and earn ${fmtN(refer)} E-coins` : ""}">${icon("i-share")}<span>${refer ? `Share · earn ${fmtN(refer)}` : "Share"}</span></button>` +
+    `</div>`
+  );
+}
+
+function earnLine(c) {
+  const earn = earnFor(c);
+  if (!earn) return "";
+  return `<p class="sp-buy-earn">${coinFace("sp-buy-coin")}<span>Earn <b>${esc(coinsLabel(earn))}</b> on this purchase<small>Added to your wallet once the payment is confirmed · 1 E-coin = ₹1</small></span></p>`;
+}
+
+function shareCard(c) {
+  const refer = referFor(c);
+  const rw = S.rewards;
+  return (
+    `<div class="sp-share-card">` +
+    `<div class="sp-share-top"><span class="sp-share-art">${rwOn() ? coin3d("sm") : `<span class="sp-share-ic">${icon("i-share")}</span>`}</span>` +
+    `<div><b>${refer ? `Share &amp; earn ${esc(coinsLabel(refer))}` : "Know someone preparing?"}</b>` +
+    `<small>${refer ? `When a friend joins with your link and buys their first course.${rw.refereeCoins ? ` They get ${esc(coinsLabel(rw.refereeCoins))} too.` : ""}` : "Send this course to a friend on WhatsApp or Telegram."}</small></div></div>` +
+    `<button class="p-btn p-btn--block p-btn--sm sp-share-btn" type="button" data-share-course="${esc(c.id)}">${icon("i-share")}<span>Share this course</span></button>` +
+    `</div>`
+  );
+}
+
+function bindShare(root) {
+  $$("[data-share-course]", root).forEach((b) => {
+    if (b.dataset.shareBound) return;
+    b.dataset.shareBound = "1";
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openShareCourse(b.dataset.shareCourse, b);
+    });
+  });
+}
+
+function plainCourseLink(id) {
+  const u = new URL("auth.html", location.href);
+  u.search = `?next=${encodeURIComponent(`dashboard.html#course/${id}`)}`;
+  u.hash = "";
+  return u.href;
+}
+
+function courseShareText(c, code) {
+  const rw = S.rewards;
+  return (
+    `I’m preparing with FenxTek Shorthand Classes — check out “${c.title}”.` +
+    (code ? ` Sign up with my invite code ${code}${rw.refereeCoins ? ` and get ${coinsLabel(rw.refereeCoins)} (₹${rw.refereeCoins} off) on your first course` : ""}.` : "")
+  );
+}
+
+async function openShareCourse(id, btn) {
+  const c = courseById(id);
+  if (!c) return;
+  const rw = S.rewards;
+  let code = cleanRefCode(S.profile.refCode);
+  if (rwOn() && !code) {
+    await busy(btn, "…", () => ensureRefCode());
+    code = cleanRefCode(S.profile.refCode);
+  }
+  const withRef = Boolean(rwOn() && code);
+  const link = withRef ? refLink(code, c.id) : plainCourseLink(c.id);
+  const text = courseShareText(c, withRef ? code : "");
+  const refer = referFor(c);
+  const enc = encodeURIComponent;
+  openModal(
+    `<div class="sh">` +
+    `<div class="sh-course">${cover(c, "xs")}<div><span class="sp-k">Share this course</span><b>${esc(c.title)}</b><small>${priceShort(c)} · ${esc(validityLabel(c.validityDays))}</small></div></div>` +
+    (withRef
+      ? `<div class="sh-earn"><span class="sh-earn-art">${coin3d("sm")}</span><div><b>Earn ${esc(coinsLabel(refer))}</b><small>for every friend who signs up with your link and buys their first course${rw.refereeCoins ? ` — they get ${esc(coinsLabel(rw.refereeCoins))} too` : ""}.</small></div></div>`
+      : "") +
+    `<span class="p-label">${withRef ? "Your personal invite link" : "Course link"}</span>` +
+    `<div class="sh-link"><input class="p-input" id="shLink" readonly value="${esc(link)}" aria-label="Share link"><button class="p-btn p-btn--sm" type="button" id="shCopy">${icon("i-copy")}<span>Copy</span></button></div>` +
+    (withRef ? `<p class="sh-code">${icon("i-gift")}<span>Invite code <b>${esc(code)}</b> is applied automatically. Friends can also type it when they sign up.</span></p>` : "") +
+    `<div class="sh-btns">` +
+    `<a class="sh-btn sh-btn--wa" href="https://wa.me/?text=${enc(`${text} ${link}`)}" target="_blank" rel="noopener">${icon("i-wa")}<span>WhatsApp</span></a>` +
+    `<a class="sh-btn sh-btn--tg" href="https://t.me/share/url?url=${enc(link)}&amp;text=${enc(text)}" target="_blank" rel="noopener">${icon("i-send")}<span>Telegram</span></a>` +
+    `<a class="sh-btn sh-btn--mail" href="mailto:?subject=${enc(`${c.title} — FenxTek`)}&amp;body=${enc(`${text}\n\n${link}`)}">${icon("i-mail")}<span>Email</span></a>` +
+    `<button class="sh-btn" type="button" id="shMore" hidden>${icon("i-share")}<span>More</span></button>` +
+    `</div>` +
+    (withRef
+      ? `<ol class="sh-steps"><li><b>1</b><span>Friend opens your link</span></li><li><b>2</b><span>Signs up — your code is applied</span></li><li><b>3</b><span>Buys a course — you both earn</span></li></ol>`
+      : "") +
+    `</div>`,
+    {
+      onMount(m) {
+        $("#shCopy", m).addEventListener("click", () => {
+          copyText(link);
+          $("#shLink", m).select();
+        });
+        const more = $("#shMore", m);
+        if (navigator.share) {
+          more.hidden = false;
+          more.addEventListener("click", () => navigator.share({ title: c.title, text, url: link }).catch(() => {}));
+        }
+      }
+    }
+  );
+}
+
+/* Refer & earn: "Share a course" list */
+function shareCourses() {
+  if (!rwOn() || !S.courses.length) return "";
+  const list = S.courses
+    .slice()
+    .sort((a, b) => referFor(b) - referFor(a))
+    .slice(0, 6);
+  return (
+    `<section class="sp-panel rw-share-courses"><div class="rw-head"><div><span class="sp-k">Share a course</span><h3>Send friends the course they need</h3></div></div>` +
+    `<ul class="rw-sc">${list
+      .map(
+        (c) =>
+          `<li><a class="rw-sc-cover" href="#course/${esc(c.id)}">${cover(c, "xs")}</a><div class="rw-sc-txt"><b>${esc(c.title)}</b><small>${priceShort(c)}</small></div>` +
+          `<span class="rw-sc-earn" title="You earn when a friend's first order includes this course">${coinFace("rw-sc-coin")}+${fmtN(referFor(c))}</span>` +
+          `<button class="p-btn p-btn--sm p-btn--ghost" type="button" data-share-course="${esc(c.id)}">${icon("i-share")}<span>Share</span></button></li>`
+      )
+      .join("")}</ul></section>`
+  );
+}
+
+/* Cart: "You'll earn N E-coins" */
+function cartEarnBar(items, p) {
+  if (!rwOn() || !p.total) return "";
+  const courses = {};
+  S.courses.forEach((c) => (courses[c.id] = c));
+  const order = {
+    total: p.total,
+    items: items.map((c) => {
+      const plan = isPlanItem(c);
+      const mp = plan ? null : memberPriceFor(c);
+      return { id: c.id, kind: plan ? "plan" : "course", price: mp != null ? mp : c.price };
+    })
+  };
+  const earn = orderEarnCoins(order, S.rewards, courses);
+  const welcome = S.referral && S.referral.status === "pending" && !S.orders.length ? num(S.rewards.refereeCoins) : 0;
+  if (!earn && !welcome) return "";
+  return (
+    `<p class="sp-earnbar">${coinFace("sp-earn-coin")}<span>You’ll earn <b>${esc(coinsLabel(earn + welcome))}</b>` +
+    `<small>${[earn ? `${fmtN(earn)} course reward` : "", welcome ? `${fmtN(welcome)} welcome bonus` : ""].filter(Boolean).join(" + ")} · added once the payment is confirmed</small></span></p>`
+  );
+}
+
+/* Cart: "Have an invite code?" for brand-new students */
+function cartInvite() {
+  const rw = S.rewards;
+  if (!rwOn() || !S.referralReady || !S.ordersReady || S.orders.length) return "";
+  if (S.referral) {
+    return S.referral.status === "pending"
+      ? `<div class="sp-invite-ok">${icon("i-gift")}<span><b>Invite code ${esc(S.referral.code || "")} applied</b><small>${rw.refereeCoins ? `${esc(coinsLabel(rw.refereeCoins))} welcome bonus with this order` : "Thanks for joining with a friend"}</small></span></div>`
+      : "";
+  }
+  return (
+    `<section class="sp-panel sp-invite"><span class="sp-k">Have an invite code?</span>` +
+    `<p class="sp-muted sp-small">${rw.refereeCoins ? `Got a code from a friend? Apply it to get <b>${esc(coinsLabel(rw.refereeCoins))}</b> with your first order.` : "Got a code from a friend? Apply it before your first order."}</p>` +
+    `<form class="sp-coupon" id="spInvite" data-sp-keep novalidate><input class="p-input" name="code" placeholder="Friend’s invite code" autocomplete="off" autocapitalize="characters" maxlength="12"><button class="p-btn p-btn--sm" type="submit"><span>Apply</span></button></form></section>`
+  );
+}
+
+function orderCoinNote(o) {
+  const n = num(o.coinsEarned);
+  if (!n) return "";
+  return `<small class="sp-order-coins">${coinFace("sp-oc-coin")}+${fmtN(n)} E-coins earned${o.coinsEarnedReversed ? " · reversed" : ""}</small>`;
+}
+
+/* ---------- invite codes carried over from the sign-up page ----------
+   auth.html stores { code, course, at } in localStorage (from ?ref=CODE or
+   the "Invite code" field). Once the portal knows the student is eligible
+   (rewards on, no referral yet, no orders) the code is applied for them. */
+const INVITE_KEY = "fx:invite";
+function pendingInvite() {
+  try {
+    const v = JSON.parse(localStorage.getItem(INVITE_KEY) || "null");
+    if (!v || !v.code || Date.now() - num(v.at) > 30 * 864e5) return null;
+    return { code: cleanRefCode(v.code), course: String(v.course || "") };
+  } catch (e) {
+    return null;
+  }
+}
+function clearPendingInvite() {
+  try {
+    localStorage.removeItem(INVITE_KEY);
+  } catch (e) {
+    /* ignore */
+  }
+}
+let inviteTried = false;
+function maybeApplyInvite() {
+  if (inviteTried || !S.ordersReady || !S.referralReady || !S.rewardsReady) return;
+  const inv = pendingInvite();
+  if (!inv) return;
+  inviteTried = true;
+  if (!rwOn() || S.referral || S.orders.length || inv.code === cleanRefCode(S.profile.refCode)) return void clearPendingInvite();
+  applyReferral(inv.code, null, { auto: true });
 }
 
 function initials(name, email) {
@@ -3583,6 +3851,7 @@ async function init() {
   dbWatch(`${PATH.orders}/${user.uid}`, (v) => {
     S.orders = ordersOf(v);
     S.ordersReady = true;
+    maybeApplyInvite();
     changed("orders");
   });
   dbWatch(`${PATH.enrollments}/${user.uid}`, (v) => {
@@ -3602,6 +3871,8 @@ async function init() {
   });
   dbWatch(PATH.rewards, (v) => {
     S.rewards = rewardsFrom(v);
+    S.rewardsReady = true;
+    maybeApplyInvite();
     changed("rewards");
     changed("cart");
   });
@@ -3618,12 +3889,14 @@ async function init() {
   dbWatch(`${PATH.referrals}/${user.uid}`, (v) => {
     S.referral = v && typeof v === "object" ? v : null;
     S.referralReady = true;
+    maybeApplyInvite();
     changed("refs");
   });
   /* if the rules aren't published yet the watch never answers — don't wait forever */
   setTimeout(() => {
     if (S.referralReady) return;
     S.referralReady = true;
+    maybeApplyInvite();
     changed("refs");
   }, 4000);
   dbWatch(`${PATH.referredBy}/${user.uid}`, (v) => {
