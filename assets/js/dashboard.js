@@ -1149,8 +1149,11 @@ function openCheckout() {
 
   if (pricing.total === 0) {
     openModal(
-      payHeader(pricing) +
-        `<div class="sp-pay-free">${icon("i-gift")}<p>Your coupon covers the full amount. Confirm to unlock it instantly — a receipt is generated for your records.</p></div>` +
+      (pricing.subtotal === 0
+        ? `<div class="sp-pay-head"><span class="sp-k">Free enrolment</span><h3>Enrol for free</h3><p>${esc(countLabel(items))} · no payment needed</p></div>` +
+          `<div class="sp-pay-free">${icon("i-gift")}<p>${items.length === 1 ? "This course is" : "These courses are"} free. Confirm to unlock instantly — a receipt is added to your orders for your records.</p></div>`
+        : payHeader(pricing) +
+          `<div class="sp-pay-free">${icon("i-gift")}<p>Your coupon covers the full amount. Confirm to unlock it instantly — a receipt is generated for your records.</p></div>`) +
         `<button class="p-btn p-btn--lime p-btn--block" type="button" id="spFreeGo">${icon("i-check")}<span>Confirm &amp; enrol</span></button>`,
       {
         onMount: (m) => {
