@@ -18,6 +18,8 @@ Static multi-page website with a student portal and an admin CRM. Pages are plai
 | `dashboard.html` | Student portal app: home, My courses + classroom, Course store, course pages, cart with coupons, checkout, orders and PNG receipts, **membership plans bought through the same cart and checkout**, profile |
 | `admin.html` | Admin CRM (content, collections, membership plans, student memberships, achievements, students, leads) plus the **Store**: orders & receipts, courses, coupons, payment settings |
 | `forgot.html` / `404.html` | Password reset / not-found page |
+| `design.html` | Internal design system (colour, typography, layout, motion, components, icons, keyboard wordmark). `noindex`, not linked from the site |
+| `llms.txt` | Plain-text summary of the academy and its pages for AI assistants ([llmstxt.org](https://llmstxt.org)). Not linked from the site |
 
 ### Page map — which page reads which RTDB node
 

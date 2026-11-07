@@ -163,13 +163,19 @@
       '<svg class="fx-arr"><use href="#i-arr-ur"/></svg></a>';
   }
 
-  /* one span per letter so the wordmark can rise in and react to the cursor */
-  function fwLetters(word, cls, start) {
-    var out = "";
-    for (var i = 0; i < word.length; i++) {
-      out += '<span class="fw-c' + (cls ? " " + cls : "") + '" style="--i:' + (start + i) + '"><i>' + word.charAt(i) + "</i></span>";
-    }
-    return out;
+  /* 3D keyboard: one keycap per letter of F-E-N-X-T-E-K (cream caps + lime accent caps) */
+  function keyboard(id) {
+    var KEYS = [["F", 0], ["E", 0], ["N", 0], ["X", 0], ["T", 1], ["E", 1], ["K", 1]];
+    var caps = KEYS.map(function (k, i) {
+      return '<span class="kk' + (k[1] ? " kk--lime" : "") + '" data-k="' + k[0].toLowerCase() + '" style="--i:' + i + '">' +
+        '<span class="kk-cap"><span class="kk-top"><b>' + k[0] + "</b><small>0" + (i + 1) + "</small></span></span></span>";
+    }).join("");
+    return '<div class="kb"' + (id ? ' id="' + id + '"' : "") + ' role="img" aria-label="FenxTek">' +
+      '<div class="kb-plate"><div class="kb-bar" aria-hidden="true">' +
+      '<span class="kb-brand"><i class="kb-led"></i>FenxTek<em>MK—07</em></span>' +
+      '<span class="kb-out"><span class="kb-txt"></span><i class="kb-caret"></i></span>' +
+      '<span class="kb-hint">Hover to type</span></div>' +
+      '<div class="kb-keys" aria-hidden="true">' + caps + "</div></div></div>";
   }
 
   var footer =
@@ -205,13 +211,10 @@
     flink("auth.html", "Student portal") + flink("dashboard.html", "My dashboard") + flink("membership.html", "Membership plans") +
     flink("contact.html", "Book a free demo") + flink("index.html#practice", "Practice dictation") + "</nav>" +
     "</div>" +
-    /* 3 — wordmark: Fenx (grotesk) + Tek. (italic serif), fitted edge to edge */
+    /* 3 — wordmark: FenxTek typed out on 3D keycaps */
     '<div class="f-index" aria-hidden="true"><span><i>(01)</i>Better skills</span><span><i>(02)</i>Higher confidence</span>' +
     '<span><i>(03)</i>Brighter future</span><span class="f-index-geo">26.45° N — 80.33° E</span></div>' +
-    '<div class="f-word" id="fWord" role="img" aria-label="FenxTek"><div class="fw-line">' +
-    '<span class="fw-word">' + fwLetters("Fenx", "", 0) + '<span class="fw-tek">' + fwLetters("Tek", "fw-c--s", 4) + "</span>" +
-    '<span class="fw-c fw-c--dot" style="--i:7"><i></i></span></span>' +
-    "</div></div>" +
+    keyboard("fKb") +
     /* 4 — legal */
     '<div class="fx-bottom"><span>© <span id="year">' + yearNow + "</span> FenxTek Shorthand Classes · Kanpur, Uttar Pradesh</span>" +
     "<span>Designed by Tanmay and Aditya</span>" +
@@ -229,6 +232,8 @@
       header + menu
   );
   document.body.insertAdjacentHTML("beforeend", footer);
+  /* extra live keyboards (used by the design-system page) */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-kb-mount]"), function (m) { m.innerHTML = keyboard(""); });
 
   /* footer: live Kanpur time + back-to-top button */
   var fxTime = document.getElementById("fxTime") || document.getElementById("ctTime");

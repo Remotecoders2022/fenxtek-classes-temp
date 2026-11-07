@@ -1,0 +1,48 @@
+# FenxTek Shorthand Classes
+
+> FenxTek Shorthand Classes is a shorthand, typing and government-exam coaching academy in Kanpur, Uttar Pradesh, India, directed by Mohd. Kaif. It trains Hindi and English stenography aspirants with exam-accurate dictations from 50 to 160 WPM, typing practice (Mangal, KrutiDev, Remington Gail) and structured preparation for SSC, UPSSSC, Allahabad High Court and 50+ central and state stenographer exam patterns, through classroom batches in Kanpur and live online classes across India.
+
+Promise: "Your Success, Our Priority." Taglines: "Better Skills | Higher Confidence | Brighter Future" and "Skills | Practice | Success".
+
+Key facts:
+- Name: FenxTek Shorthand Classes (written "FenxTek": one word, capital F and capital T)
+- Director: Mohd. Kaif
+- Location: Kanpur, Uttar Pradesh, India
+- Languages taught: Hindi shorthand, English shorthand, Hindi typing, English typing
+- Dictation speeds: 50–160 WPM
+- Membership plans start at ₹549 (current prices are managed by the academy and shown live on the site)
+- Phone / WhatsApp: +91 73090 82749 (https://wa.me/917309082749)
+- Email: fenxtekshorthandclasses20@gmail.com
+- Telegram: @fenxtekshorthand_classes (https://t.me/fenxtekshorthand_classes)
+- Instagram: @fenxtek_shorthand_classes (https://www.instagram.com/fenxtek_shorthand_classes/)
+
+Exams prepared for:
+- Parliamentary Reporter: Lok Sabha, Rajya Sabha, Vidhan Sabha and Vidhan Parishad Reporter
+- High Court & Judicial: Allahabad High Court Private Secretary Grade-I (AHC PS-I) and Stenographer / APS, Rajasthan High Court Stenographer, other High Court Stenographer & PA posts, Court Reporter / Judgment Writer
+- Central Government: SSC Stenographer Grade C & D, EPFO Stenographer, NHAI Stenographer, DSSSB Stenographer, other central Stenographer & PA posts
+- State recruitments: UPSSSC Stenographer, UPSSSC APS, UP Police SI Stenographer, UPPCL, UPPSC APS, BSSC Stenographer, BPSSC ASI Stenographer, RSMSSB Stenographer, SGPGI Stenographer
+- Other special posts: Personal Assistant (PA), Senior Personal Assistant (SPA), Private Secretary (PS), Court Master, Confidential Assistant, Steno-Typist
+
+Why students choose FenxTek: expert guidance and exam strategy, structured daily practice sessions, personalised attention, special exam-oriented practice batches, and personal mentorship with progress monitoring.
+
+Course details, batch timings, fees and membership prices change over time and are loaded live from the academy's database; treat the pages below as the source of truth and contact the academy to confirm before quoting a price.
+
+## Pages
+
+- [Home](/index.html): Overview of the academy, practice formats (exam-pattern dictation, typing, mock tests, progress tracking), exams covered, director's note, student voices, pricing summary and FAQ
+- [Courses & fees](/courses.html): Live exam-focused shorthand batches (SSC, UPSSSC, AHC, UPPCL, UPPSC and more), what every batch includes, fee cards and the admission timeline
+- [Exams](/exams.html): Searchable explorer of parliamentary, high court, central and state stenographer exam patterns, the speed ladder and exam-day rules
+- [Method](/method.html): The three-step daily loop — choose your exam, practise at target speed, track improvement — with a sample week
+- [About & Director](/about.html): Mohd. Kaif, Director of FenxTek, the academy's values and student testimonials
+- [Achievements](/achievements.html): Results, selections and milestones of FenxTek students, posted by the academy
+- [Membership plans](/membership.html): Membership plans with access to courses, dictations and mock tests, starting at ₹549, plus a membership FAQ
+- [Contact & admissions](/contact.html): Enquiry form (name, phone, email, course of interest) for a call back and a free demo dictation; call, WhatsApp, email or Telegram
+
+## Student portal
+
+- [Sign in / sign up](/auth.html): Student login with email or Google
+- [Student dashboard](/dashboard.html): Course store, my courses and classroom, cart with coupons, checkout, orders and receipts, membership, Refer & earn wallet (requires sign-in)
+
+## Optional
+
+- [Reset password](/forgot.html): Password reset by email
