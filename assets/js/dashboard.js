@@ -937,19 +937,109 @@ async function applyCoupon(raw, btn) {
       const { p: pricing, check } = cartPricing();
       if (!check.ok) {
         S.coupon = prev;
+        couponShake();
         toast(check.reason, "err");
         return false;
       }
-      toast(`Coupon ${code} applied — you save ${money(pricing.couponDiscount)}`);
+      const onCart = current.route && current.route.id === "cart";
+      /* the cart plays the celebration; elsewhere a toast is enough */
+      if (onCart) S.couponFx = { code, save: pricing.couponDiscount, label: couponLabel(info.coupon), members: Boolean(info.coupon && info.coupon.members), at: Date.now() };
+      else toast(`Coupon ${code} applied — you save ${money(pricing.couponDiscount)}`);
       /* re-render now: the coupon input still has focus, which would hold back a live refresh */
-      if (current.route && current.route.id === "cart") render({ quiet: true });
+      if (onCart) render({ quiet: true });
       else changed("cart");
       return true;
     } catch (err) {
+      couponShake();
       toast(friendlyError(err), "err");
       return false;
     }
   });
+}
+
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* wrong / expired code → the field shakes */
+function couponShake() {
+  const f = $("#spCoupon");
+  if (!f) return;
+  f.classList.remove("is-err");
+  void f.offsetWidth;
+  f.classList.add("is-err");
+  const input = f.querySelector("input");
+  if (input) input.setAttribute("aria-invalid", "true");
+}
+
+/* roll a money figure up from 0 */
+function countUp(el, to, ms = 900) {
+  if (!el) return;
+  if (!to || reducedMotion()) {
+    el.textContent = money(to);
+    return;
+  }
+  const t0 = performance.now();
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / ms);
+    const e = 1 - Math.pow(1 - k, 3);
+    el.textContent = money(Math.round(to * e));
+    if (k < 1 && el.isConnected) requestAnimationFrame(step);
+  };
+  el.textContent = money(0);
+  requestAnimationFrame(step);
+}
+
+/* "Coupon applied" celebration — a centred card with a burst, confetti and
+   a rolling savings figure (Swiggy / Zomato style); closes by itself */
+function couponCelebrate(fx) {
+  const old = $(".sp-cfx");
+  if (old) old.remove();
+  const calm = reducedMotion();
+  const colors = ["#5A4BFF", "#D9FF57", "#FF7A59", "#22C493", "#FFD23F", "#FF5FA2"];
+  const bits = calm
+    ? ""
+    : Array.from({ length: 48 }, (_, i) => {
+        const a = (i / 48) * Math.PI * 2 + Math.random() * 0.35;
+        const d = 170 + Math.random() * 210;
+        const x = Math.round(Math.cos(a) * d);
+        const y = Math.round(Math.sin(a) * d * 0.85 - 60);
+        const r = Math.round(Math.random() * 720 - 360);
+        const w = 8 + Math.round(Math.random() * 7);
+        return `<i style="--x:${x}px;--y:${y}px;--r:${r}deg;--c:${colors[i % colors.length]};--w:${w}px;--d:${(Math.random() * 0.15).toFixed(2)}s"${i % 3 === 0 ? ' class="is-dot"' : ""}></i>`;
+      }).join("");
+  const el = document.createElement("div");
+  el.className = "sp-cfx" + (fx.members ? " is-member" : "");
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-modal", "false");
+  el.setAttribute("aria-label", `Coupon ${fx.code} applied`);
+  el.innerHTML =
+    `<div class="sp-cfx-card">` +
+    `<div class="sp-cfx-badge" aria-hidden="true"><span class="sp-cfx-ring"></span><span class="sp-cfx-ring sp-cfx-ring--2"></span>${icon(fx.members ? "i-crown" : "i-check")}</div>` +
+    `<span class="sp-cfx-k">${icon("i-tag")}<code>${esc(fx.code)}</code> applied</span>` +
+    `<b class="sp-cfx-amt" aria-live="polite">${money(fx.save)}</b>` +
+    `<p class="sp-cfx-sub">saved on this order</p>` +
+    (fx.label ? `<small class="sp-cfx-label">${esc(fx.label)}</small>` : "") +
+    `<button type="button" class="p-btn p-btn--lime p-btn--block sp-cfx-ok">${icon("i-zap")}<span>Woohoo! Thanks</span></button>` +
+    `</div>` +
+    `<div class="sp-cfx-confetti" aria-hidden="true">${bits}</div>`;
+  document.body.appendChild(el);
+  let timer = 0;
+  const close = () => {
+    clearTimeout(timer);
+    document.removeEventListener("keydown", onKey);
+    if (!el.isConnected) return;
+    el.classList.add("is-out");
+    setTimeout(() => el.remove(), calm ? 0 : 260);
+  };
+  const onKey = (e) => e.key === "Escape" && close();
+  document.addEventListener("keydown", onKey);
+  el.addEventListener("click", (e) => {
+    if (e.target === el || e.target.closest(".sp-cfx-ok")) close();
+  });
+  requestAnimationFrame(() => el.classList.add("is-in"));
+  setTimeout(() => countUp($(".sp-cfx-amt", el), fx.save, 1000), calm ? 0 : 220);
+  timer = setTimeout(close, 3600);
+  const ok = $(".sp-cfx-ok", el);
+  if (ok) ok.focus({ preventScroll: true });
 }
 
 /* ============================================================
@@ -1117,6 +1207,15 @@ function emiStartCtx(c) {
   const cfg = emiConfig(c);
   if (!cfg) return null;
   return { courseId: c.id, title: c.title, n: 1, of: cfg.parts, gap: cfg.gapDays, total: cfg.total, plan: cfg.plan, amount: cfg.first };
+}
+/* part-1 context when this student can pay a cart line in parts right now:
+   a course (not a membership) with a live plan, not owned yet (EMI can't be
+   used for renewals) and with no instalment plan already running */
+function emiChoiceFor(c) {
+  if (!c || isPlanItem(c) || owns(c.id)) return null;
+  const running = myPlanFor(c.id);
+  if (running && !running.done) return null;
+  return emiStartCtx(c);
 }
 /* checkout context for the next part of a running plan */
 function emiNextCtx(plan) {
@@ -1356,7 +1455,55 @@ function openCheckout() {
   const items = cartItems();
   if (!items.length) return;
   const { p: pricing } = cartPricing(items);
+  S.payMode = "full";
   openPaySheet(pricing, items);
+}
+
+const payGoLabel = (pr) => (pr.emi ? `Pay part ${pr.emi.n} · ${money(pr.total)}` : `Continue to pay ${money(pr.total)}`);
+
+/* "Pay in full" vs "Pay in N parts" for a single-course checkout */
+function payModePicker(pricing, ctx) {
+  const c = courseById(ctx.courseId);
+  const cfg = c && emiConfig(c);
+  if (!cfg) return "";
+  const emiOn = S.payMode === "emi";
+  const perks = [];
+  if (pricing.couponDiscount) perks.push(`coupon ${S.coupon ? S.coupon.code : ""}`.trim());
+  if (pricing.memberDiscount) perks.push("member price");
+  if (pricing.coins) perks.push("E-coins");
+  const lost = pricing.total < cfg.total ? cfg.total - pricing.total : 0;
+  return (
+    `<div class="sp-pm" role="radiogroup" aria-label="How would you like to pay?">` +
+    `<label class="sp-pm-opt"><input type="radio" name="spPayMode" value="full"${emiOn ? "" : " checked"}>` +
+    `<span class="sp-pm-dot" aria-hidden="true"></span>` +
+    `<span class="sp-pm-txt"><b>Pay in full</b><small>${perks.length ? `With ${esc(perks.join(" + "))}` : "One-time payment · full access today"}</small></span>` +
+    `<span class="sp-pm-amt"><b>${money(pricing.total)}</b>${lost ? `<small class="is-save">Save ${money(lost)}</small>` : "<small>once</small>"}</span></label>` +
+    `<label class="sp-pm-opt sp-pm-opt--emi"><input type="radio" name="spPayMode" value="emi"${emiOn ? " checked" : ""}>` +
+    `<span class="sp-pm-dot" aria-hidden="true"></span>` +
+    `<span class="sp-pm-txt"><b>Pay in ${cfg.parts} parts <i class="sp-pm-tag">No-cost EMI</i></b><small>${esc(emiSummary(cfg, money))}</small></span>` +
+    `<span class="sp-pm-amt"><b>${money(cfg.first)}</b><small>today</small></span></label>` +
+    `<div class="sp-pm-plan"${emiOn ? "" : " hidden"}>` +
+    `<div class="sp-emi-steps">${cfg.amounts.map((a, i) => `<span class="${i === 0 ? "is-now" : ""}"><b>${money(a)}</b><small>${i === 0 ? "Today" : `Day ${i * cfg.gapDays}`}</small></span>`).join("")}</div>` +
+    `<p class="sp-pm-fine">${icon("i-info")}<span>Total ${money(cfg.total)} · zero interest, zero fees. The course unlocks after part 1 and stays open while you pay on time (${EMI_GRACE_DAYS}-day grace).${lost ? ` <b>Your ${esc(perks.join(" & ") || "discount")} won’t apply to EMI — pay in full to keep saving ${money(lost)}.</b>` : " Coupons &amp; E-coins don’t apply to EMI."}</span></p>` +
+    `</div></div>`
+  );
+}
+
+/* bigger cart: pay one eligible course in parts on its own */
+function emiSideOffer(opts) {
+  return (
+    `<div class="sp-pm-side">` +
+    `<div class="sp-pm-side-top"><span class="sp-pm-side-ic">${icon("i-clock")}</span>` +
+    `<div><b>Prefer instalments?</b><small>${opts.length > 1 ? "These courses" : "This course"} can be paid in parts at no extra cost — checked out on ${opts.length > 1 ? "their" : "its"} own. The rest of your cart stays saved.</small></div></div>` +
+    opts
+      .map(
+        ({ c, ctx }) =>
+          `<div class="sp-pm-side-row"><span><b>${esc(c.title)}</b><small>${money(ctx.amount)} today · ${ctx.of} parts · total ${money(ctx.total)}</small></span>` +
+          `<button type="button" class="p-btn p-btn--sm sp-pm-side-go" data-emi-solo="${esc(c.id)}"><span>Pay in parts</span>${icon("i-arr")}</button></div>`
+      )
+      .join("") +
+    `</div>`
+  );
 }
 
 /* the payment sheet — cart checkout and EMI instalments share it */
@@ -1407,8 +1554,17 @@ function openPaySheet(pricing, items = []) {
     return;
   }
 
+  /* pay-in-parts choice: one eligible course → full / parts switch;
+     a bigger cart → offer to pay an eligible course on its own */
+  const emiOpts = pricing.emi ? [] : items.map((c) => ({ c, ctx: emiChoiceFor(c) })).filter((x) => x.ctx);
+  const emiSolo = items.length === 1 && emiOpts.length === 1 ? emiOpts[0].ctx : null;
+  const emiSide = !emiSolo && emiOpts.length ? emiOpts.sort((a, b) => b.c.price - a.c.price).slice(0, 3) : null;
+  const chosen = () => (emiSolo && S.payMode === "emi" ? emiPricing(emiSolo) : pricing);
+
   openModal(
-    payHeader(pricing) +
+    `<div id="spPayHead">${payHeader(emiSolo && S.payMode === "emi" ? emiPricing(emiSolo) : pricing)}</div>` +
+      (emiSolo ? payModePicker(pricing, emiSolo) : "") +
+      (emiSide ? emiSideOffer(emiSide) : "") +
       `<div class="sp-methods" role="radiogroup" aria-label="Payment method">` +
       methods
         .map(
@@ -1421,15 +1577,39 @@ function openPaySheet(pricing, items = []) {
         )
         .join("") +
       `</div>` +
-      `<button class="p-btn p-btn--lime p-btn--block" type="button" id="spPayGo">${icon("i-shield")}<span>Continue to pay ${money(pricing.total)}</span></button>` +
+      `<button class="p-btn p-btn--lime p-btn--block" type="button" id="spPayGo">${icon("i-shield")}<span>${payGoLabel(chosen())}</span></button>` +
       `<p class="sp-pay-note">${icon("i-lock")}Prices include all taxes. A receipt is generated as soon as your payment is confirmed.</p>`,
     {
       onMount: (m) => {
         $("#spPayGo", m).addEventListener("click", (e) => {
           const method = ($('input[name="spMethod"]:checked', m) || {}).value;
-          if (method === "razorpay") payRazorpay(pricing, e.currentTarget);
-          else payUPI(pricing);
+          const pr = chosen();
+          if (method === "razorpay") payRazorpay(pr, e.currentTarget);
+          else payUPI(pr);
         });
+        $$('input[name="spPayMode"]', m).forEach((r) =>
+          r.addEventListener("change", () => {
+            S.payMode = r.value;
+            const pr = chosen();
+            $("#spPayHead", m).innerHTML = payHeader(pr);
+            const go = $("#spPayGo span", m);
+            if (go) go.textContent = payGoLabel(pr);
+            const sched = $(".sp-pm-plan", m);
+            if (sched) sched.hidden = S.payMode !== "emi";
+            m.classList.toggle("is-emi", S.payMode === "emi");
+          })
+        );
+        if (emiSolo) m.classList.toggle("is-emi", S.payMode === "emi");
+        $$("[data-emi-solo]", m).forEach((b) =>
+          b.addEventListener("click", () => {
+            const c = courseById(b.dataset.emiSolo);
+            const ctx = c && emiChoiceFor(c);
+            if (ctx) {
+              S.payMode = "full";
+              openEmiCheckout(ctx);
+            }
+          })
+        );
       }
     }
   );
@@ -1468,7 +1648,7 @@ async function payRazorpay(pricing, btn) {
       ).slice(0, 250),
       image: new URL("fenxtek-logo.png", location.href).href,
       prefill: { name: S.profile.name || "", email: S.user.email || "", contact: S.profile.phone || "" },
-      notes: { uid: S.user.uid, coupon: S.coupon ? S.coupon.code : "", coins: String(pricing.coins || 0) },
+      notes: { uid: S.user.uid, coupon: S.coupon && !pricing.emi ? S.coupon.code : "", coins: String(pricing.coins || 0) },
       theme: { color: "#5A4BFF" },
       handler: async (resp) => {
         openModal(`<div class="sp-processing"><span class="sp-spin sp-spin--lg"></span><h3>Confirming your payment…</h3><p>Please don’t close this window.</p></div>`, { locked: true });
@@ -1993,6 +2173,9 @@ function vCart() {
     return `<div class="sp-price is-member"><b>${money(lp)}</b><s>${money(Math.max(c.mrp, c.price))}</s><em class="sp-mtag">${icon("i-crown")}Member</em></div>`;
   };
   const phoneOk = /\d{10}/.test(String(S.profile.phone || "").replace(/\D/g, ""));
+  const fx = applied && S.couponFx && S.couponFx.code === S.coupon.code && Date.now() - S.couponFx.at < 4000 ? S.couponFx : null;
+  const isMemberCoupon = Boolean(applied && S.coupon.coupon && S.coupon.coupon.members);
+  const emiAny = items.some((c) => emiChoiceFor(c));
 
   const html =
     `<div class="sp-cart">` +
@@ -2011,6 +2194,10 @@ function vCart() {
           `<div class="sp-line-body"><a href="${href}" class="sp-line-title">${plan ? `<span class="sp-line-kind">${icon("i-crown")}Membership</span>` : ""}${esc(c.title)}</a>` +
           `<span class="sp-line-meta">${esc(validityLabel(c.validityDays))}${plan ? "" : ` · ${esc(c.mode)}`}${note}</span>` +
           (disc ? `<span class="sp-line-coupon">${icon("i-tag")}Coupon applied</span>` : "") +
+          (() => {
+            const ctx = emiChoiceFor(c);
+            return ctx ? `<span class="sp-line-emi">${icon("i-clock")}Or ${ctx.of} parts · ${money(ctx.amount)} today</span>` : "";
+          })() +
           `</div>` +
           `<div class="sp-line-price">${linePrice(c)}<button type="button" class="sp-line-rm" data-rm="${esc(c.id)}" aria-label="Remove ${esc(c.title)}">${icon("i-trash")}<span>Remove</span></button></div>` +
           `</li>`
@@ -2036,10 +2223,15 @@ function vCart() {
       ? `<button type="button" class="sp-fest-coupon" style="${themeVars(S.fest)}" data-apply="${esc(S.fest.coupon)}">${icon("i-gift")}<span><b>${esc(S.fest.badge)}</b><small>Festive code <code>${esc(S.fest.coupon)}</code></small></span><em>Apply</em></button>`
       : "") +
     (applied
-      ? `<div class="sp-applied${S.coupon.coupon && S.coupon.coupon.members ? " is-member" : ""}">${icon(S.coupon.coupon && S.coupon.coupon.members ? "i-crown" : "i-tag")}<div><b>${esc(S.coupon.code)}</b><span>${esc(couponLabel(S.coupon.coupon))}${S.coupon.coupon && S.coupon.coupon.members ? " · members" : ""} · saving ${money(p.couponDiscount)}</span></div><button type="button" class="sp-icon-btn" id="spCouponRm" aria-label="Remove coupon">${icon("i-x")}</button></div>`
-      : `<form class="sp-coupon" id="spCoupon" data-sp-keep novalidate><input class="p-input" name="code" placeholder="Enter coupon code" autocomplete="off" autocapitalize="characters" maxlength="24"><button class="p-btn p-btn--sm" type="submit"><span>Apply</span></button></form>` +
+      ? `<div class="sp-ticket${isMemberCoupon ? " is-member" : ""}${fx ? " is-fresh" : ""}">` +
+        `<div class="sp-ticket-main"><span class="sp-ticket-ic">${icon(isMemberCoupon ? "i-crown" : "i-check")}</span>` +
+        `<div class="sp-ticket-txt"><span class="sp-ticket-k">${isMemberCoupon ? "Member coupon applied" : "Coupon applied"}</span><b class="sp-ticket-code">${esc(S.coupon.code)}</b><small>${esc(couponLabel(S.coupon.coupon))}</small></div></div>` +
+        `<div class="sp-ticket-stub"><small>You save</small><b data-count="${p.couponDiscount}">${money(p.couponDiscount)}</b>` +
+        `<button type="button" class="sp-ticket-rm" id="spCouponRm" aria-label="Remove coupon ${esc(S.coupon.code)}">Remove</button></div>` +
+        `</div>`
+      : `<form class="sp-coupon" id="spCoupon" data-sp-keep novalidate><span class="sp-coupon-ic" aria-hidden="true">${icon("i-tag")}</span><input class="sp-coupon-in" name="code" placeholder="Have a coupon code?" aria-label="Coupon code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="24"><button class="sp-coupon-go" type="submit"><span>Apply</span></button></form>` +
         (offers.length
-          ? `<div class="sp-offers">${offers
+          ? `<p class="sp-offers-k">${icon("i-gift")}Available offers</p><div class="sp-offers">${offers
               .slice(0, 4)
               .map((o) => offerTile(o, "apply"))
               .join("")}</div>`
@@ -2061,13 +2253,14 @@ function vCart() {
     `<div><dt>MRP total</dt><dd>${money(p.mrpTotal)}</dd></div>` +
     (p.courseSavings ? `<div class="is-save"><dt>Discount on MRP</dt><dd>− ${money(p.courseSavings)}</dd></div>` : "") +
     (p.memberDiscount ? `<div class="is-save is-member"><dt>${icon("i-crown")}Member price${perk ? ` (${esc(perk.title)})` : ""}</dt><dd>− ${money(p.memberDiscount)}</dd></div>` : "") +
-    (p.couponDiscount ? `<div class="is-save"><dt>Coupon (${esc(S.coupon.code)})</dt><dd>− ${money(p.couponDiscount)}</dd></div>` : "") +
+    (p.couponDiscount ? `<div class="is-save is-coupon${fx ? " is-fresh" : ""}"><dt>${icon("i-tag")}Coupon <code>${esc(S.coupon.code)}</code></dt><dd>− ${money(p.couponDiscount)}</dd></div>` : "") +
     (p.coins ? `<div class="is-save is-coins"><dt>${icon("i-coin")}E-coins</dt><dd>− ${money(p.coins)}</dd></div>` : "") +
     `<div class="is-total"><dt>To pay</dt><dd>${money(p.total)}</dd></div>` +
     `</dl>` +
-    (p.savings ? `<p class="sp-savebar">${icon("i-gift")}You’re saving ${money(p.savings)} on this order</p>` : "") +
+    (p.savings ? `<p class="sp-savebar${fx ? " is-fresh" : ""}"><span class="sp-savebar-ic">${icon("i-gift")}</span><span>Yay! You’re saving <b data-count="${p.savings}">${money(p.savings)}</b> on this order</span></p>` : "") +
     cartEarnBar(items, p) +
     `<button class="p-btn p-btn--lime p-btn--block sp-paybtn" type="button" id="spCheckout">${icon("i-shield")}<span>${p.total ? `Proceed to pay ${money(p.total)}` : "Get it free"}</span></button>` +
+    (emiAny ? `<p class="sp-emi-hint">${icon("i-clock")}<span><b>No-cost EMI</b> available — choose “Pay in parts” at payment</span></p>` : "") +
     `<p class="sp-pay-note">${icon("i-lock")}Inclusive of all taxes · Receipt generated instantly</p>` +
     `</section></aside></div>` +
     `<div class="sp-mpay"><div><span>To pay</span><b>${money(p.total)}</b>${p.savings ? `<small>Saving ${money(p.savings)}</small>` : ""}</div>` +
@@ -2086,6 +2279,12 @@ function vCart() {
           applyCoupon(cf.code.value, cf.querySelector("button"));
         });
       $$("[data-apply]", root).forEach((b) => b.addEventListener("click", () => applyCoupon(b.dataset.apply, b)));
+      if (cf) cf.code.addEventListener("input", () => (cf.classList.remove("is-err"), cf.code.removeAttribute("aria-invalid")));
+      if (fx) {
+        S.couponFx = null;
+        $$(".is-fresh [data-count]", root).forEach((el) => countUp(el, num(el.dataset.count), 1000));
+        couponCelebrate(fx);
+      }
       /* code picked from the festive banner → apply it once the cart has items */
       if (S.festPick && !S.coupon && cartItems().length) {
         const code = S.festPick;
