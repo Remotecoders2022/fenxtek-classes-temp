@@ -76,6 +76,9 @@ if (altBtn) {
   altBtn.addEventListener("click", () => setTab(currentTab === "signin" ? "signup" : "signin"));
 }
 
+/* invite links (?mode=signup, or a referral next=dashboard.html#ref/CODE) open on "Create account" */
+if (signupForm && (new URLSearchParams(location.search).get("mode") === "signup" || /#ref\//i.test(safeNext()))) setTab("signup");
+
 /* ---------------- profile ---------------- */
 
 async function ensureProfile(user, extra) {

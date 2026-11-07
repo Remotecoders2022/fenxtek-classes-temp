@@ -4,7 +4,7 @@
    crisp at 2x and looks identical in the student portal and CRM.
    ============================================================ */
 
-import { money, num, formatDate, methodLabel, validityLabel } from "./commerce.js?v=2";
+import { money, num, formatDate, methodLabel, validityLabel, orderBreakdown } from "./commerce.js?v=3";
 
 const W = 1200; // css px — exported at 2x = 2400 px wide
 const PAD = 72;
@@ -158,7 +158,8 @@ export async function renderReceipt(order, settings = {}) {
   const tableH = 56 + rowHeights.reduce((a, b) => a + b, 0);
   const mrpSum = items.reduce((s, it) => s + Math.max(num(it.mrp), num(it.price)), 0);
   const subSum = num(order.subtotal) || items.reduce((s, it) => s + num(it.price), 0);
-  const totalRows = 2 + (mrpSum > subSum ? 1 : 0) + (num(order.discount) > 0 ? 1 : 0);
+  const bd = orderBreakdown(order);
+  const totalRows = 2 + (mrpSum > subSum ? 1 : 0) + (bd.member ? 1 : 0) + (bd.coupon ? 1 : 0) + (bd.coins ? 1 : 0);
   const totalsH = Math.max(totalRows * 34 + 6 + 86, 190);
   const H = 300 + 250 + tableH + 40 + totalsH + 70 + 230;
 
@@ -348,9 +349,9 @@ export async function renderReceipt(order, settings = {}) {
   const rows = [["MRP total", money(mrpTotal), C.ink]];
   if (mrpTotal > subtotal) rows.push(["Discount on MRP", "− " + money(mrpTotal - subtotal), C.ok]);
   rows.push(["Subtotal", money(subtotal), C.ink]);
-  if (num(order.discount) > 0) {
-    rows.push([`Coupon${order.coupon && order.coupon.code ? " · " + order.coupon.code : ""}`, "− " + money(order.discount), C.ok]);
-  }
+  if (bd.member) rows.push([`Member price${order.memberPlan ? " · " + order.memberPlan : ""}`, "− " + money(bd.member), C.ok]);
+  if (bd.coupon) rows.push([order.coupon && order.coupon.code ? `Coupon · ${order.coupon.code}` : "Discount", "− " + money(bd.coupon), C.ok]);
+  if (bd.coins) rows.push([`E-coins redeemed${order.coinsReturned ? " (returned)" : ""}`, "− " + money(bd.coins), C.ok]);
   rows.forEach((r, i) => {
     const yy = y + i * 34;
     text(ctx, r[0], totX, yy, `400 16px ${SANS}`, C.muted);

@@ -304,6 +304,40 @@ in WhatsApp groups), **Copy link**, **Pause/Resume** and delete.
 - Same plan still active → the days are added to the current end date (start date kept), exactly like a renewal.
 - QR codes are drawn by a vendored copy of `qrcode-generator` 1.4.4 (MIT) in `assets/vendor/`, via `assets/js/qr.js`.
 
+### Member pricing and member-only coupons
+
+**Extra member discount on courses.** Each membership plan has **Member discount on courses (%)** (Memberships →
+plan editor, 0–90, saved as `site/memberships/<plan>/courseOff`). A student with an active plan pays that much less
+on every course. To fix an exact price for a course, set **Member price** on the course (Courses → `memberPrice`); the
+lower of the two wins. Non-members see "Members pay ₹X" on store cards and course pages, and the cart shows how much
+they would save with a membership. Orders store `memberDiscount` and `memberPlan`. Receipts, the orders table and
+the CSV export show it as its own line.
+
+**Member-only coupons.** Coupons → **Who can use it**: *Everyone*, *Members only* or *Members of selected plans*
+(saved as `coupons/<CODE>/members: true` plus an optional `memberPlans: { planId: true }`). A member-only coupon is
+applied after the member price. Non-members see it locked in the cart with a **Join** link. The rules check the
+student's `members/<uid>` record (active, not expired, right plan) when the order is created, so it can't be bypassed.
+
+### Refer & earn (E-coins)
+
+Admin → **Refer & earn** controls `site/rewards`: on/off, coins for the referrer, coins for the new student, the
+maximum % of an order payable with coins, and an optional minimum first order. **1 E-coin = ₹1.**
+
+- Every student gets a code (`users/<uid>/refCode`, reserved in `refCodes/<CODE>`) and an invite link
+  `dashboard.html#ref/<CODE>` on the portal's **Refer & earn** page (WhatsApp, Telegram and copy).
+- A new student who opens the link (or enters the code) before their first order is linked in
+  `referrals/<uid>` and `referredBy/<referrer>/<uid>` as *pending*.
+- When that student's first paid order is confirmed (UPI approved, Razorpay verified or an offline sale), both wallets
+  are credited in the same update and the referral turns *rewarded*. Free (100% coupon) orders never qualify.
+- At checkout students turn **Use E-coins** on and off. Coins are capped at the configured % of the payable amount,
+  and at least ₹1 is always paid by UPI or Razorpay. The order (`coins`), the wallet debit (`wallets/<uid>`) and the
+  history entry (`walletTx/<uid>/<orderId>`) are written together. The rules make sure the balance only goes down
+  by exactly the order's coins.
+- Rejecting or refunding an order returns the coins. Refunding a referral-qualifying order asks whether to take
+  back the referral coins too.
+- Admins can see every referral and wallet, add or remove coins manually (with a note), and open any student's coin
+  history.
+
 ## Using the CRM
 
 Open `admin.html` and sign in with the admin account.

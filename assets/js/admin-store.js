@@ -37,9 +37,13 @@ import {
   downloadText,
   plansFrom,
   isPlanItem,
-  memberRecordFor
-} from "./commerce.js?v=2";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=2";
+  memberRecordFor,
+  couponPlanIds,
+  orderBreakdown,
+  coinsLabel
+} from "./commerce.js?v=3";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=3";
+import { referralRewardUpdates, coinRefundUpdates, referralClawbackUpdates } from "./admin-rewards.js?v=1";
 import { openContentManager, watchContent, contentCount, contentDeleteUpdates } from "./admin-content.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -154,12 +158,22 @@ function paintOrderStats() {
     stat(String(pending), "Awaiting UPI check") +
     stat(String(unverified), "Razorpay to verify") +
     stat(paid.length ? money(revenue / paid.length) : "₹0", "Average order") +
-    stat(money(savings), "Coupon discounts given") +
+    stat(money(savings), "Discounts given (member + coupon)") +
     stat(String(new Set(paid.map((o) => o.uid)).size), "Paying students");
   const badge = $('[data-crm-tab="orders"] span');
   if (badge) badge.textContent = pending ? `${pending} new` : "11";
 }
 const stat = (b, s) => `<div class="crm-stat"><b>${esc(b)}</b><span>${esc(s)}</span></div>`;
+
+/* member price / coupon / E-coins under the order amount */
+function saveLines(o) {
+  const b = orderBreakdown(o);
+  const out = [];
+  if (b.member) out.push(`<div class="as-sub as-sub--mem">${icon("i-crown")}Member${o.memberPlan ? ` (${esc(o.memberPlan)})` : ""} −${money(b.member)}</div>`);
+  if (b.coupon) out.push(`<div class="as-sub">${esc((o.coupon && o.coupon.code) || "Discount")} −${money(b.coupon)}</div>`);
+  if (b.coins) out.push(`<div class="as-sub as-sub--coin">${icon("i-coin")}E-coins −${money(b.coins)}${o.coinsReturned ? " · returned" : ""}</div>`);
+  return out.join("");
+}
 
 function paintOrders() {
   const body = $("#asOrdersBody");
@@ -191,7 +205,7 @@ function paintOrders() {
         `<td><b class="as-code">${esc(o.orderNo || o.id)}</b><div class="as-sub">${esc(formatDate(o.createdAt, true))}</div></td>` +
         `<td><b>${esc(o.name || "—")}</b><div class="as-sub">${esc(o.email || "")}${o.phone ? " · " + esc(o.phone) : ""}</div></td>` +
         `<td>${items.map((i) => esc(i.title)).join("<br>")}</td>` +
-        `<td><span class="as-amount">${money(o.total)}</span>${num(o.discount) ? `<div class="as-sub">${esc((o.coupon && o.coupon.code) || "Discount")} −${money(o.discount)}</div>` : ""}</td>` +
+        `<td><span class="as-amount">${money(o.total)}</span>${saveLines(o)}</td>` +
         `<td>${esc(methodLabel(o.method))}${ref ? `<div class="as-sub as-code">${esc(ref)}</div>` : ""}</td>` +
         `<td>${pill(o)}${o.status === "paid" ? `<div class="as-sub">${o.verified ? "Verified" : o.method === "razorpay" ? "Not verified" : ""}</div>` : ""}${o.rejectReason ? `<div class="as-sub">${esc(o.rejectReason)}</div>` : ""}</td>` +
         `<td class="actions"><div class="as-row-acts">${acts.join("")}</div></td>` +
@@ -242,8 +256,10 @@ async function approveOrder(o, btn) {
       updates[`${base}/verified`] = true;
       updates[`${base}/verifiedBy`] = by;
       updates[`${base}/verifiedAt`] = now;
+      const reward = await referralRewardUpdates(o, now);
+      Object.assign(updates, reward);
       await dbUpdateRoot(updates);
-      alert("ok", `Approved ${o.orderNo} — ${o.name || "the student"} ${orderItems(o).some(isPlanItem) && orderItems(o).length === 1 ? "is now a member" : "is now enrolled"}.`);
+      alert("ok", `Approved ${o.orderNo} — ${o.name || "the student"} ${orderItems(o).some(isPlanItem) && orderItems(o).length === 1 ? "is now a member" : "is now enrolled"}.${Object.keys(reward).length ? " Referral reward credited." : ""}`);
     } catch (err) {
       alert("err", friendlyError(err));
     }
@@ -263,8 +279,10 @@ async function rejectOrder(o) {
       [`${base}/verifiedAt`]: Date.now()
     };
     if (release) Object.assign(updates, releaseCoupon(o));
+    const back = await coinRefundUpdates(o, `Returned — ${o.orderNo} was rejected`);
+    Object.assign(updates, back);
     await dbUpdateRoot(updates);
-    alert("ok", `Rejected ${o.orderNo}.`);
+    alert("ok", `Rejected ${o.orderNo}.${Object.keys(back).length ? ` ${coinsLabel(o.coins)} returned to the student’s wallet.` : ""}`);
   } catch (err) {
     alert("err", friendlyError(err));
   }
@@ -298,8 +316,12 @@ async function refundOrder(o) {
         updates[`${PATH.members}/${o.uid}/updatedAt`] = Date.now();
       }
     }
+    const back = await coinRefundUpdates(o, `Returned — ${o.orderNo} was refunded`);
+    Object.assign(updates, back);
+    const claw = await referralClawbackUpdates(o).catch(() => null);
+    if (claw && window.confirm(`This order earned a referral reward (${coinsLabel(claw.ref.referrerCoins)} to the referrer, ${coinsLabel(claw.ref.refereeCoins)} to this student). Take those E-coins back too?`)) Object.assign(updates, claw.updates);
     await dbUpdateRoot(updates);
-    alert("ok", `${o.orderNo} marked as refunded.`);
+    alert("ok", `${o.orderNo} marked as refunded.${Object.keys(back).length ? ` ${coinsLabel(o.coins)} returned to the wallet.` : ""}`);
   } catch (err) {
     alert("err", friendlyError(err));
   }
@@ -308,8 +330,13 @@ async function refundOrder(o) {
 async function verifyOrder(o, btn) {
   await busy(btn, "…", async () => {
     try {
-      await dbUpdate(`${PATH.orders}/${o.uid}/${o.id}`, { verified: true, verifiedBy: (A.ctx.user && A.ctx.user.email) || "admin", verifiedAt: Date.now() });
-      alert("ok", `${o.orderNo} marked as verified.`);
+      const now = Date.now();
+      const base = `${PATH.orders}/${o.uid}/${o.id}`;
+      const updates = { [`${base}/verified`]: true, [`${base}/verifiedBy`]: (A.ctx.user && A.ctx.user.email) || "admin", [`${base}/verifiedAt`]: now };
+      const reward = o.status === "paid" ? await referralRewardUpdates(o, now) : {};
+      Object.assign(updates, reward);
+      await dbUpdateRoot(updates);
+      alert("ok", `${o.orderNo} marked as verified.${Object.keys(reward).length ? " Referral reward credited." : ""}`);
     } catch (err) {
       alert("err", friendlyError(err));
     }
@@ -333,7 +360,7 @@ function viewReceipt(o) {
 }
 
 function exportOrders() {
-  const rows = [["Order no", "Date", "Status", "Name", "Email", "Phone", "Items", "MRP", "Subtotal", "Coupon", "Discount", "Total", "Method", "UTR / Payment ID", "Verified"]];
+  const rows = [["Order no", "Date", "Status", "Name", "Email", "Phone", "Items", "MRP", "Subtotal", "Member discount", "Coupon", "Coupon discount", "E-coins", "Total", "Method", "UTR / Payment ID", "Verified"]];
   filteredOrders().forEach((o) =>
     rows.push([
       o.orderNo,
@@ -347,8 +374,10 @@ function exportOrders() {
         .join(" | "),
       o.mrpTotal,
       o.subtotal,
+      orderBreakdown(o).member,
       (o.coupon && o.coupon.code) || "",
-      o.discount,
+      orderBreakdown(o).coupon,
+      orderBreakdown(o).coins,
       o.total,
       o.method,
       o.paymentId || o.utr || "",
@@ -453,8 +482,10 @@ async function offlineSale() {
             if (form.note.value.trim()) order.note = form.note.value.trim().slice(0, 200);
             const updates = await enrollmentUpdates({ ...order, id: oid }, now);
             updates[`${PATH.orders}/${uid}/${oid}`] = order;
+            const reward = await referralRewardUpdates({ ...order, id: oid }, now);
+            Object.assign(updates, reward);
             await dbUpdateRoot(updates);
-            alert("ok", `Recorded ${order.orderNo} — ${order.name} is enrolled.`);
+            alert("ok", `Recorded ${order.orderNo} — ${order.name} is enrolled.${Object.keys(reward).length ? " Referral reward credited." : ""}`);
             close();
           } catch (err) {
             alert("err", friendlyError(err));
@@ -569,6 +600,7 @@ function courseForm(c) {
     `<label class="p-field p-field--wide"><span class="p-label">Subtitle (one line)</span><input class="p-input" name="subtitle" maxlength="240" value="${esc(c.subtitle)}" placeholder="Daily dictations, weekly mock tests and transcription feedback"></label>` +
     `<label class="p-field"><span class="p-label">Selling price (₹)</span><input class="p-input" name="price" inputmode="numeric" value="${esc(c.price)}" required></label>` +
     `<label class="p-field"><span class="p-label">MRP (₹, shown struck-through)</span><input class="p-input" name="mrp" inputmode="numeric" value="${esc(c.mrp || "")}"></label>` +
+    `<label class="p-field"><span class="p-label">Member price (₹, optional)</span><input class="p-input" name="memberPrice" inputmode="numeric" value="${esc(c.memberPrice || "")}" placeholder="Uses the plan’s % off"><span class="p-hint">Members pay this or their plan’s “% off courses”, whichever is lower.</span></label>` +
     `<label class="p-field"><span class="p-label">Validity</span><select class="p-select" name="validityPreset">${presets
       .map(([d, l]) => `<option value="${d}"${isPreset && d === c.validityDays ? " selected" : ""}>${l}</option>`)
       .join("")}<option value="custom"${isPreset ? "" : " selected"}>Custom days…</option></select></label>` +
@@ -608,6 +640,7 @@ function readCourseForm(form) {
     subtitle: String(d.get("subtitle") || "").trim(),
     price: num(d.get("price")),
     mrp: num(d.get("mrp")),
+    memberPrice: num(d.get("memberPrice")),
     validityDays: validity,
     category: d.get("category"),
     mode: d.get("mode"),
@@ -631,6 +664,7 @@ function paintCoursePreview(form) {
     coverHTML(c, img, { size: "md" }) +
     `<div class="as-preview-card"><b>${esc(c.title)}</b>${c.subtitle ? `<span class="as-sub">${esc(c.subtitle)}</span>` : ""}` +
     `<span><b>${money(c.price)}</b>${c.mrp > c.price ? ` <s class="as-sub">${money(c.mrp)}</s> <span class="as-pill as-pill--ok">${offPercent(c.price, c.mrp)}% off</span>` : ""}</span>` +
+    (c.memberPrice > 0 && c.memberPrice < c.price ? `<span class="as-sub as-sub--mem">${icon("i-crown")}Members ${money(c.memberPrice)}</span>` : "") +
     `<span class="as-sub">${esc(validityLabel(c.validityDays))} · ${esc(c.mode)} · ${esc(c.language)}</span></div>`;
 }
 
@@ -699,6 +733,7 @@ async function saveCourse(form, btn) {
   if (!c.title || c.title === "Untitled course") return alert("err", "Give the course a title.");
   if (!(c.price >= 0)) return alert("err", "Enter a valid price.");
   if (c.mrp && c.mrp < c.price) return alert("err", "MRP should be higher than the selling price (or leave it blank).");
+  if (c.memberPrice && c.memberPrice >= c.price) return alert("err", "The member price should be lower than the selling price (or leave it blank).");
   if (c.thumb === "link" && !safeImageUrl(c.thumbUrl).startsWith("http")) return alert("err", "Paste a full image URL starting with https://");
   if (c.thumb === "upload" && !A.draft.image && !A.editing) return alert("err", "Choose an image to upload, or switch the cover to generated art.");
   await busy(btn, "Saving…", async () => {
@@ -713,6 +748,7 @@ async function saveCourse(form, btn) {
         mode: c.mode,
         price: c.price,
         mrp: Math.max(c.mrp, 0),
+        memberPrice: c.memberPrice > 0 && c.memberPrice < c.price ? Math.round(c.memberPrice) : 0,
         validityDays: c.validityDays,
         badge: c.badge,
         accent: c.accent,
@@ -889,6 +925,13 @@ function couponList() {
     .sort((a, b) => num(b.createdAt) - num(a.createdAt) || a.code.localeCompare(b.code));
 }
 
+function audLabel(c) {
+  const ids = couponPlanIds(c);
+  if (!ids) return "Members only";
+  const names = ids.map((id) => (A.plans.find((p) => p.planId === id) || {}).title || id);
+  return `Members: ${names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ")}`;
+}
+
 function scopeLabel(c) {
   const ids = couponScopeIds(c);
   if (!ids) return "All courses & plans";
@@ -908,7 +951,7 @@ function paintCoupons() {
       stat(String(all.length), "Coupon codes") +
       stat(String(active), "Active right now") +
       stat(String(all.reduce((s, c) => s + c.used, 0)), "Total redemptions") +
-      stat(money(paid.reduce((s, o) => s + num(o.discount), 0)), "Discount given (paid)") +
+      stat(money(paid.reduce((s, o) => s + orderBreakdown(o).coupon, 0)), "Coupon discount given (paid)") +
       stat(money(paid.reduce((s, o) => s + num(o.total), 0)), "Revenue with coupons") +
       stat(String(Object.keys(A.offers).length), "Shown as offers");
   }
@@ -945,7 +988,7 @@ function paintCoupons() {
           `<tr>` +
           `<td><button type="button" class="as-code" data-k-copy="${esc(c.code)}" title="Copy">${esc(c.code)} ${icon("i-copy")}</button>${c.batch ? `<div class="as-sub">Batch ${esc(c.batch)}</div>` : ""}${c.note ? `<div class="as-sub">${esc(c.note)}</div>` : ""}</td>` +
           `<td><b>${esc(couponLabel(c))}</b>${num(c.minAmount) ? `<div class="as-sub">Min ${money(c.minAmount)}</div>` : ""}</td>` +
-          `<td>${esc(scopeLabel(c))}</td>` +
+          `<td>${esc(scopeLabel(c))}${c.members ? `<div class="as-sub as-sub--mem">${icon("i-crown")}${esc(audLabel(c))}</div>` : ""}</td>` +
           `<td><b>${c.used}</b> / ${num(c.maxUses) ? num(c.maxUses) : "∞"}</td>` +
           `<td><div class="as-sub">${num(c.startsAt) ? "From " + esc(formatDate(c.startsAt)) : "Now"}</div><div class="as-sub">${num(c.expiresAt) ? "Till " + esc(formatDate(c.expiresAt)) : "No expiry"}</div></td>` +
           `<td><span class="as-pill as-pill--${tone}">${esc(st.label)}</span>${A.offers[c.code] ? ` <span class="as-pill as-pill--violet">Offer</span>` : ""}</td>` +
@@ -978,6 +1021,8 @@ function couponFormHTML() {
     `<label class="p-field"><span class="p-label">Expires on (optional)</span><input class="p-input" type="date" name="expiresAt"></label>` +
     `<label class="p-field"><span class="p-label">Internal note</span><input class="p-input" name="note" maxlength="120" placeholder="For Instagram followers"></label>` +
     `<div class="p-field p-field--wide"><span class="p-label">Applies to</span><div class="as-seg"><label><input type="radio" name="scope" value="all" checked>All courses &amp; plans</label><label><input type="radio" name="scope" value="some">Selected only</label></div><div class="as-scope" id="asScope" hidden style="margin-top:10px"></div></div>` +
+    `<div class="p-field p-field--wide"><span class="p-label">Who can use it</span><div class="as-seg"><label><input type="radio" name="aud" value="all" checked>Everyone</label><label><input type="radio" name="aud" value="members">Members only</label><label><input type="radio" name="aud" value="plans">Members of selected plans</label></div>` +
+    `<div class="as-scope" id="asAudPlans" hidden style="margin-top:10px"></div><span class="p-hint" id="asAudHint" hidden>Only students with an active membership can apply it. Members also get their plan’s course discount first — the coupon applies on top.</span></div>` +
     `<label class="as-check p-field--wide" data-mode="single"><input type="checkbox" name="offer">Show this code to students as an offer (store banner + cart)</label>` +
     `<label class="as-check p-field--wide"><input type="checkbox" name="active" checked>Active</label>` +
     `</form>` +
@@ -987,7 +1032,17 @@ function couponFormHTML() {
   );
 }
 
+function paintAudPlans() {
+  const box = $("#asAudPlans");
+  if (!box) return;
+  const checked = new Set($$("input:checked", box).map((i) => i.value));
+  box.innerHTML = A.plans.length
+    ? A.plans.map((p) => `<label class="as-scope-plan"><input type="checkbox" value="${esc(p.planId)}"${checked.has(p.planId) ? " checked" : ""}>${icon("i-crown")}${esc(p.title)}${p.active ? "" : ` <span class="as-sub">hidden</span>`}</label>`).join("")
+    : `<span class="as-sub">Create membership plans first (Memberships tab).</span>`;
+}
+
 function paintScope() {
+  paintAudPlans();
   const box = $("#asScope");
   if (!box) return;
   const checked = new Set($$("input:checked", box).map((i) => i.value));
@@ -1017,15 +1072,21 @@ function readCouponForm(form) {
   };
   if (type === "percent" && num(d.get("maxDiscount"))) rec.maxDiscount = Math.round(num(d.get("maxDiscount")));
   if (ids.length) rec.courseIds = Object.fromEntries(ids.map((id) => [id, true]));
-  return { rec, scopeSome, ids, offer: Boolean(d.get("offer")) };
+  const aud = String(d.get("aud") || "all");
+  const planIds = aud === "plans" ? $$("#asAudPlans input:checked").map((i) => i.value) : [];
+  if (aud !== "all") rec.members = true;
+  if (planIds.length) rec.memberPlans = Object.fromEntries(planIds.map((id) => [id, true]));
+  return { rec, scopeSome, ids, aud, planIds, offer: Boolean(d.get("offer")) };
 }
 
-function validateCoupon({ rec, scopeSome, ids }) {
+function validateCoupon(data) {
+  const { rec, scopeSome, ids } = data;
   if (!(rec.value > 0)) return "Enter the discount value.";
   if (rec.type === "percent" && rec.value > 100) return "Percent off can’t be more than 100.";
   if (rec.type === "percent") rec.value = Math.round(rec.value * 100) / 100;
   else rec.value = Math.round(rec.value);
   if (scopeSome && !ids.length) return "Pick at least one course or plan, or choose “All courses & plans”.";
+  if (data.aud === "plans" && !data.planIds.length) return "Pick at least one membership plan, or choose “Members only”.";
   if (rec.expiresAt && rec.startsAt && rec.expiresAt < rec.startsAt) return "Expiry is before the start date.";
   return "";
 }
@@ -1076,14 +1137,16 @@ async function saveCoupons(btn) {
 function offerRecord(code, rec) {
   const o = { code, label: couponLabel(rec) + (num(rec.minAmount) ? ` on orders above ${money(rec.minAmount)}` : ""), type: rec.type, value: rec.value };
   if (rec.courseIds) o.courseIds = rec.courseIds;
+  if (rec.members) o.members = true;
+  if (rec.memberPlans) o.memberPlans = rec.memberPlans;
   if (rec.expiresAt) o.expiresAt = rec.expiresAt;
   return o;
 }
 
 function exportCoupons(list) {
-  const rows = [["Code", "Type", "Value", "Max discount", "Min amount", "Applies to", "Used", "Max uses", "Starts", "Expires", "Status", "Batch", "Note"]];
+  const rows = [["Code", "Type", "Value", "Max discount", "Min amount", "Applies to", "Who can use", "Used", "Max uses", "Starts", "Expires", "Status", "Batch", "Note"]];
   list.forEach((c) =>
-    rows.push([c.code, c.type, c.value, c.maxDiscount || "", c.minAmount || "", scopeLabel(c), c.used, c.maxUses || "unlimited", num(c.startsAt) ? dateIn(c.startsAt) : "", num(c.expiresAt) ? dateIn(c.expiresAt) : "", couponState(c, c.used).label, c.batch || "", c.note || ""])
+    rows.push([c.code, c.type, c.value, c.maxDiscount || "", c.minAmount || "", scopeLabel(c), c.members ? audLabel(c) : "Everyone", c.used, c.maxUses || "unlimited", num(c.startsAt) ? dateIn(c.startsAt) : "", num(c.expiresAt) ? dateIn(c.expiresAt) : "", couponState(c, c.used).label, c.batch || "", c.note || ""])
   );
   downloadText(`fenxtek-coupons-${today()}.csv`, rows.map((r) => r.map(csvCell).join(",")).join("\n"));
 }
@@ -1100,6 +1163,9 @@ function bindCoupons() {
     $("#asValLabel").textContent = type === "flat" ? "Amount off (₹)" : "Percent off";
     $$("[data-pct]", form).forEach((el) => (el.hidden = type === "flat"));
     $("#asScope").hidden = (form.querySelector('input[name="scope"]:checked') || {}).value !== "some";
+    const aud = (form.querySelector('input[name="aud"]:checked') || {}).value;
+    $("#asAudPlans").hidden = aud !== "plans";
+    $("#asAudHint").hidden = aud === "all";
     $("#asCouponSave span").textContent = mode === "bulk" ? "Generate codes" : "Create coupon";
     if (mode === "bulk" && form.maxUses.value === "0" && !form.maxUses.dataset.touched) form.maxUses.value = "1";
     if (mode === "single" && form.maxUses.value === "1" && !form.maxUses.dataset.touched) form.maxUses.value = "0";

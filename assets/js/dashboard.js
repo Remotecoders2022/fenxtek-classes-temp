@@ -73,9 +73,18 @@ import {
   isPlanItem,
   planKey,
   perDay,
-  memberRecordFor
-} from "./commerce.js?v=2";
-import { downloadReceipt, receiptDataURL } from "./receipt.js?v=2";
+  memberRecordFor,
+  couponPlanIds,
+  memberPriceOf,
+  memberPrices,
+  rewardsFrom,
+  cleanRefCode,
+  makeRefCode,
+  coinsLabel,
+  TX_LABEL,
+  orderBreakdown
+} from "./commerce.js?v=3";
+import { downloadReceipt, receiptDataURL } from "./receipt.js?v=3";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -104,7 +113,16 @@ const S = {
   ccOut: {}, // courseId -> { ready, items, previews } public outline
   progress: {}, // courseId -> { done: { itemId: ts }, last: { id, at } }
   plans: [],
+  plansAll: [], // including hidden plans (an existing member keeps their perks)
   plansReady: false,
+  rewards: rewardsFrom(null), // refer & earn settings (site/rewards)
+  wallet: null, // wallets/<uid> { balance, earned, spent }
+  walletTx: [],
+  referral: null, // referrals/<uid> — who referred me
+  myRefs: [], // referredBy/<uid> — friends I referred
+  useCoins: true, // cart toggle "Use E-coins"
+  referralReady: false,
+  refBusy: false,
   batches: [],
   coupon: null, // { code, coupon, usedCount, usedByMe }
   filters: { q: "", cat: "all", sort: "featured" },
@@ -120,6 +138,62 @@ const cartItems = () => cartIds().map(itemById).filter((it) => it && (!isPlanIte
 const catalogReady = () => S.coursesReady && S.plansReady;
 const memberActive = () => membershipStatus(S.member).key === "active";
 const holdsPlan = (p) => Boolean(p && S.member && S.member.planId === p.planId && memberActive());
+
+/* ---- membership perks: members pay less for courses ---- */
+const myPlan = () => (memberActive() ? S.plansAll.find((p) => p.planId === S.member.planId) || null : null);
+const memberCtx = () => (memberActive() ? { active: true, planId: S.member.planId } : null);
+/* the plan whose course prices apply: your plan, or one in the cart (the better one wins) */
+function perkPlan(items = cartItems()) {
+  const mine = myPlan();
+  const inCart = items.find(isPlanItem) || null;
+  if (!mine || !inCart) return mine || inCart;
+  const gain = (pl) => memberPrices(items.filter((i) => !isPlanItem(i)), pl).memberDiscount;
+  return gain(inCart) > gain(mine) ? inCart : mine;
+}
+const memberPriceFor = (c) => {
+  const pl = myPlan();
+  return pl ? memberPriceOf(c, pl) : null;
+};
+/* the cheapest member price on sale (shown to non-members): { price, plan } */
+function memberDeal(c) {
+  let best = null;
+  S.plans
+    .filter((p) => p.buyable)
+    .forEach((p) => {
+      const mp = memberPriceOf(c, p);
+      if (mp != null && (!best || mp < best.price)) best = { price: mp, plan: p };
+    });
+  return best;
+}
+const perkTop = () => S.plans.filter((p) => p.buyable && p.courseOff > 0).sort((a, b) => b.courseOff - a.courseOff)[0] || null;
+/* member-only coupon the current student can't use */
+function offerLocked(o) {
+  if (!o || !o.members) return false;
+  const m = memberCtx();
+  if (!m) return true;
+  const ids = couponPlanIds(o);
+  return Boolean(ids && !ids.includes(m.planId));
+}
+
+/* ---- E-coins ---- */
+const coinBalance = () => Math.max(0, Math.floor(num(S.wallet && S.wallet.balance)));
+const coinsOn = () => S.rewards.enabled || coinBalance() > 0;
+
+/* Price the cart in one place: member prices → coupon → E-coins. */
+function cartPricing(items = cartItems()) {
+  const plan = perkPlan(items);
+  const { prices } = memberPrices(items, plan);
+  const check = S.coupon ? checkCoupon({ ...S.coupon, items, prices, member: memberCtx() }) : null;
+  const applied = S.coupon && check && check.ok ? { coupon: S.coupon.coupon, check } : null;
+  const rw = S.rewards;
+  const p = priceCart(items, applied, {
+    plan,
+    useCoins: rw.enabled && S.useCoins,
+    balance: rw.enabled ? coinBalance() : 0,
+    maxCoinPct: rw.maxRedeemPct
+  });
+  return { p, check, applied, plan, prices };
+}
 
 function access(id, now = Date.now()) {
   const e = S.enroll[id];
@@ -148,17 +222,19 @@ const ROUTES = [
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
   { id: "notes", label: "Notes & PDFs", icon: "i-file", group: "Learn", soon: true, blurb: "Outlines, phrase lists and dictation passages, organised by course." },
-  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay"] },
+  { id: "cart", label: "Cart", icon: "i-cart", group: "Purchases", tab: "Cart", badge: "cart", view: vCart, deps: ["courses", "plans", "cart", "enroll", "member", "offers", "pay", "rewards", "wallet"] },
   { id: "orders", label: "Orders & receipts", icon: "i-receipt", group: "Purchases", view: vOrders, deps: ["orders"] },
   { id: "membership", label: "Membership", icon: "i-crown", group: "Purchases", pill: "member", view: vMembership, deps: ["member", "plans", "cart", "offers", "orders"] },
+  { id: "rewards", label: "Refer & earn", icon: "i-coin", group: "Purchases", pill: "coins", view: vRewards, deps: ["rewards", "wallet", "refs", "orders", "profile"] },
   { id: "profile", label: "Profile", icon: "i-user", group: "Account", tab: "Profile", view: vProfile, deps: [] },
   /* detail screens (not in the menu) */
-  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress"] },
+  { id: "course", parent: "store", view: vCourse, deps: ["courses", "enroll", "cart", "offers", "cc", "progress", "plans", "member"] },
   { id: "learn", parent: "my-courses", view: vLearn, deps: ["courses", "enroll", "cart", "cc", "progress", "content"] },
   { id: "success", parent: "orders", view: vSuccess, deps: ["orders"] },
   { id: "receipt", parent: "orders", view: vReceipt, deps: ["orders"] },
   { id: "join", parent: "membership", view: vJoin, deps: ["plans", "member", "cart"] },
-  { id: "redeem", parent: "membership", view: vRedeem, deps: ["plans", "member"] }
+  { id: "redeem", parent: "membership", view: vRedeem, deps: ["plans", "member"] },
+  { id: "ref", parent: "rewards", view: vRef, deps: ["rewards", "refs", "orders"] }
 ];
 const routeById = (id) => ROUTES.find((r) => r.id === id);
 
@@ -234,6 +310,17 @@ function paintBadges() {
     b.textContent = String(n);
     b.hidden = n === 0;
   });
+  const bal = coinBalance();
+  $$("[data-coins-pill]").forEach((b) => {
+    b.hidden = !bal;
+    b.textContent = bal.toLocaleString("en-IN");
+    b.classList.add("is-coin");
+  });
+  const chip = $("#spCoinChip");
+  if (chip) {
+    chip.hidden = !coinsOn();
+    $("b", chip).textContent = bal.toLocaleString("en-IN");
+  }
   const st = membershipStatus(S.member);
   $$("[data-member-pill]").forEach((b) => {
     b.hidden = st.key === "none";
@@ -463,12 +550,36 @@ function hydrateCovers(root) {
    ============================================================ */
 function priceHTML(c, big) {
   const off = offPercent(c.price, c.mrp);
+  const mp = memberPriceFor(c);
+  if (mp != null) {
+    return (
+      `<div class="sp-price is-member${big ? " sp-price--big" : ""}">` +
+      `<b>${money(mp)}</b><s>${money(Math.max(c.mrp, c.price))}</s><em class="sp-mtag">${icon("i-crown")}Member price</em>` +
+      `</div>`
+    );
+  }
+  const deal = big && !memberActive() ? memberDeal(c) : null;
   return (
     `<div class="sp-price${big ? " sp-price--big" : ""}">` +
     `<b>${c.price ? money(c.price) : "Free"}</b>` +
     (off ? `<s>${money(c.mrp)}</s><em>${off}% off</em>` : "") +
-    `</div>`
+    `</div>` +
+    (deal
+      ? `<a class="sp-mdeal" href="#membership/${esc(deal.plan.planId)}">${icon("i-crown")}<span>Pay <b>${money(deal.price)}</b> with ${esc(deal.plan.title)} membership</span>${icon("i-arr")}</a>`
+      : "")
   );
+}
+
+/* coupon tile; member-only coupons are locked for everyone else */
+function offerTile(o, mode) {
+  const tag = o.members ? `<i class="sp-mtag-s">${icon("i-crown")}Members</i>` : "";
+  const body = `<span><b>${esc(o.code)}${tag}</b><small>${esc(o.label)}</small></span>`;
+  if (offerLocked(o)) {
+    return `<a class="sp-coupon-tile is-locked" href="#membership" title="Only for members">${icon("i-lock")}${body}<em>${memberActive() ? "Other plan" : "Join"}</em></a>`;
+  }
+  return mode === "apply"
+    ? `<button type="button" class="sp-coupon-tile${o.members ? " is-member" : ""}" data-apply="${esc(o.code)}">${icon(o.members ? "i-crown" : "i-tag")}${body}<em>Apply</em></button>`
+    : `<button type="button" class="sp-coupon-tile${o.members ? " is-member" : ""}" data-copy="${esc(o.code)}">${icon(o.members ? "i-crown" : "i-tag")}${body}${icon("i-copy")}</button>`;
 }
 
 function buyButtons(c, compact) {
@@ -493,7 +604,11 @@ function courseCard(c) {
   const inCart = Boolean(S.cart[c.id]);
   const off = offPercent(c.price, c.mrp);
   const acc = accentOf(c.accent);
-  const pd = perDay(c.price, c.validityDays);
+  const mp = memberPriceFor(c);
+  const shown = mp != null ? mp : c.price;
+  const strike = mp != null ? Math.max(c.mrp, c.price) : off ? c.mrp : 0;
+  const deal = mp == null && !active && !memberActive() ? memberDeal(c) : null;
+  const pd = perDay(shown, c.validityDays);
   const feats = (c.features || []).slice(0, 2);
   const href = `#course/${esc(c.id)}`;
   const validity = c.validityDays ? validityLabel(c.validityDays).replace(" access", "") : "Lifetime";
@@ -509,12 +624,15 @@ function courseCard(c) {
       `<span class="sc-meter"><i style="width:${left}%"></i></span></div>` +
       `<div class="sc-acts"><a class="sc-btn sc-btn--ghost" href="${href}">Details</a>` +
       `<a class="sc-btn sc-btn--go" href="#learn/${esc(c.id)}">${icon("i-play")}<span>Continue learning</span></a></div>`
-    : `<div class="sc-price"><div class="sc-price-main"><div class="sc-price-row"><b>${c.price ? money(c.price) : "Free"}</b>${off ? `<s>${money(c.mrp)}</s>` : ""}</div>` +
-      `<small>${off ? `<em>Save ${money(c.mrp - c.price)}</em>` : ""}${pd ? `≈ ₹${esc(pd)}/day` : "One-time payment"}</small></div>` +
+    : `<div class="sc-price${mp != null ? " is-member" : ""}"><div class="sc-price-main"><div class="sc-price-row"><b>${shown ? money(shown) : "Free"}</b>${strike > shown ? `<s>${money(strike)}</s>` : ""}</div>` +
+      `<small>${mp != null ? `<em class="sc-mem">${icon("i-crown")}Member price</em>` : off ? `<em>Save ${money(c.mrp - c.price)}</em>` : ""}${pd ? `≈ ₹${esc(pd)}/day` : "One-time payment"}</small></div>` +
       (inCart
         ? `<a class="sc-cart is-on" href="#cart" title="In your cart" aria-label="In your cart">${icon("i-check")}</a>`
         : `<button class="sc-cart" type="button" data-add="${esc(c.id)}" title="Add to cart" aria-label="Add ${esc(c.title)} to cart">${icon("i-cart")}<i aria-hidden="true">+</i></button>`) +
       `</div>` +
+      (deal
+        ? `<a class="sc-mdeal" href="#membership/${esc(deal.plan.planId)}">${icon("i-crown")}<span>Members pay <b>${money(deal.price)}</b></span><em>Save ${money(c.price - deal.price)}</em></a>`
+        : "") +
       `<div class="sc-acts"><a class="sc-btn sc-btn--ghost" href="${href}">Explore</a>` +
       (inCart
         ? `<a class="sc-btn sc-btn--buy" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
@@ -570,6 +688,7 @@ function planCard(p, focusId) {
     `<h3>${esc(p.title)}</h3>${p.subtitle ? `<p class="sp-plan-tag">${esc(p.subtitle)}</p>` : ""}` +
     `<div class="sp-plan-price"><b>${p.price ? money(p.price) : "Free"}</b><span>/ ${esc(p.mode)}</span></div>` +
     `<div class="sp-plan-sub">${off ? `<s>${money(p.mrp)}</s><em>Save ${off}%</em>` : ""}${pd ? `<span>≈ ₹${esc(pd)} a day</span>` : ""}</div>` +
+    (p.courseOff ? `<p class="sp-plan-perk">${icon("i-tag")}<span><b>Extra ${p.courseOff}% off</b> every course in the store</span></p>` : "") +
     cta +
     (other && p.buyable ? `<p class="sp-plan-note">${icon("i-info")}Starts on payment and replaces your current plan.</p>` : "") +
     (held && p.buyable ? `<p class="sp-plan-note">${icon("i-info")}Extends from ${esc(formatDate(S.member.endAt))} — no days lost.</p>` : "") +
@@ -590,7 +709,7 @@ function memberPromo(kind) {
     `<div class="sp-mpromo sp-mpromo--${kind}">` +
     `<a class="sp-mpromo-card" href="#membership/${esc(best.planId)}" tabindex="-1" aria-hidden="true">${planMini(best, "sm")}</a>` +
     `<a class="sp-mpromo-txt" href="#membership"><span class="sp-k sp-k--light">FenxTek membership</span><b>${kind === "store" ? "One plan. Everything you need to crack steno." : "Go all-in with a membership"}</b>` +
-    `<small>${list.length} plan${list.length === 1 ? "" : "s"} · from ${money(from)} · instant receipt</small></a>` +
+    `<small>${list.length} plan${list.length === 1 ? "" : "s"} · from ${money(from)} · ${perkTop() ? `extra ${perkTop().courseOff}% off all courses` : "instant receipt"}</small></a>` +
     `<span class="sp-mpromo-acts">` +
     (inCart
       ? `<a class="p-btn p-btn--lime p-btn--sm" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
@@ -705,10 +824,6 @@ async function fetchCoupon(code) {
   };
 }
 
-function couponCheck() {
-  if (!S.coupon) return null;
-  return checkCoupon({ ...S.coupon, items: cartItems() });
-}
 
 async function applyCoupon(raw, btn) {
   const code = normalizeCode(raw);
@@ -719,15 +834,18 @@ async function applyCoupon(raw, btn) {
   return busy(btn, "Checking", async () => {
     try {
       const info = await fetchCoupon(code);
-      const check = checkCoupon({ ...info, items: cartItems() });
+      const prev = S.coupon;
+      S.coupon = info;
+      const { p: pricing, check } = cartPricing();
       if (!check.ok) {
+        S.coupon = prev;
         toast(check.reason, "err");
         return false;
       }
-      S.coupon = info;
-      const pricing = priceCart(cartItems(), { coupon: info.coupon, check });
-      toast(`Coupon ${code} applied — you save ${money(pricing.discount)}`);
-      changed("cart");
+      toast(`Coupon ${code} applied — you save ${money(pricing.couponDiscount)}`);
+      /* re-render now: the coupon input still has focus, which would hold back a live refresh */
+      if (current.route && current.route.id === "cart") render({ quiet: true });
+      else changed("cart");
       return true;
     } catch (err) {
       toast(friendlyError(err), "err");
@@ -739,16 +857,22 @@ async function applyCoupon(raw, btn) {
 /* ============================================================
    checkout
    ============================================================ */
-async function placeOrder({ status, method, extra = {} }) {
+async function placeOrder({ status, method, extra = {}, expect = null }) {
   const items = cartItems();
   if (!items.length) throw new Error("Your cart is empty.");
   const uid = S.user.uid;
-  let check = couponCheck();
-  if (S.coupon && !(check && check.ok)) {
+  let priced = cartPricing(items);
+  if (S.coupon && !(priced.check && priced.check.ok)) {
     S.coupon = null;
-    check = null;
+    priced = cartPricing(items);
   }
-  const pricing = priceCart(items, S.coupon ? { coupon: S.coupon.coupon, check } : null);
+  const { p: pricing, plan: perk } = priced;
+  /* the student already sees/pays `expect.total` — never record a different amount
+     (Razorpay has already charged, so it is recorded as paid and verified by the admin) */
+  if (expect && method !== "razorpay" && pricing.total !== expect.total) {
+    changed("cart");
+    throw userErr("Your total changed — please review your cart and pay again.");
+  }
   const oid = await dbKey(`${PATH.orders}/${uid}`);
   const orderNo = orderNumber();
   const now = Date.now();
@@ -796,19 +920,39 @@ async function placeOrder({ status, method, extra = {} }) {
     ...extra
   };
   if (status === "paid") order.paidAt = now;
+  if (pricing.memberDiscount > 0 && perk) {
+    order.memberDiscount = pricing.memberDiscount;
+    order.memberPlan = perk.title;
+  }
+  if (pricing.coins > 0) order.coins = pricing.coins;
 
   const updates = {};
   updates[`${PATH.carts}/${uid}`] = null;
 
-  if (S.coupon && pricing.discount > 0) {
+  if (pricing.coins > 0) {
+    /* spend E-coins in the same write as the order (the rules tie them together) */
+    const w = snapVal(await dbGet(`${PATH.wallets}/${uid}`)) || {};
+    const bal = num(w.balance);
+    if (bal < pricing.coins) {
+      S.wallet = w;
+      changed("wallet");
+      throw userErr("Your E-coin balance changed — please review your cart and pay again.");
+    }
+    const wallet = { balance: bal - pricing.coins, spent: num(w.spent) + pricing.coins, lastSpend: { orderId: oid, coins: pricing.coins, at: now }, updatedAt: now };
+    if (w.earned !== undefined) wallet.earned = w.earned;
+    updates[`${PATH.wallets}/${uid}`] = wallet;
+    updates[`${PATH.walletTx}/${uid}/${oid}`] = { type: "spend", coins: -pricing.coins, orderId: oid, orderNo, at: now, note: countLabel(items).slice(0, 200) };
+  }
+
+  if (S.coupon && pricing.couponDiscount > 0) {
     const fresh = await fetchCoupon(S.coupon.code);
-    const again = checkCoupon({ ...fresh, items });
+    const again = checkCoupon({ ...fresh, items, prices: memberPrices(items, perk).prices, member: memberCtx() });
     if (!again.ok) {
       S.coupon = null;
       changed("cart");
       throw new Error(again.reason + " Your total has been updated — please review and pay again.");
     }
-    order.coupon = { code: fresh.code, type: fresh.coupon.type, value: num(fresh.coupon.value), discount: pricing.discount };
+    order.coupon = { code: fresh.code, type: fresh.coupon.type, value: num(fresh.coupon.value), discount: pricing.couponDiscount };
     updates[`${PATH.couponUsage}/${fresh.code}/count`] = fresh.usedCount + 1;
     updates[`${PATH.couponUsage}/${fresh.code}/users/${uid}`] = oid;
   }
@@ -840,6 +984,10 @@ async function placeOrder({ status, method, extra = {} }) {
   S.orders = [{ ...order, id: oid }, ...S.orders.filter((o) => o.id !== oid)];
   S.cart = {};
   S.coupon = null;
+  if (updates[`${PATH.wallets}/${uid}`]) {
+    S.wallet = updates[`${PATH.wallets}/${uid}`];
+    changed("wallet");
+  }
   if (status === "paid") {
     Object.keys(updates)
       .filter((k) => k.startsWith(`${PATH.enrollments}/`))
@@ -859,7 +1007,7 @@ function payHeader(pricing) {
   return (
     `<div class="sp-pay-head"><span class="sp-k">Secure checkout</span>` +
     `<h3>Pay ${money(pricing.total)}</h3>` +
-    `<p>${esc(countLabel(cartItems()))}${pricing.discount ? ` · coupon saves ${money(pricing.discount)}` : ""}</p></div>`
+    `<p>${esc(countLabel(cartItems()))}${pricing.discount + pricing.coins ? ` · you save ${money(pricing.discount + pricing.coins)}` : ""}${pricing.coins ? ` (incl. ${esc(coinsLabel(pricing.coins))})` : ""}</p></div>`
   );
 }
 
@@ -875,8 +1023,7 @@ function countLabel(items) {
 function openCheckout() {
   const items = cartItems();
   if (!items.length) return;
-  const check = couponCheck();
-  const pricing = priceCart(items, S.coupon && check && check.ok ? { coupon: S.coupon.coupon, check } : null);
+  const { p: pricing } = cartPricing(items);
   const pay = S.pay || {};
 
   if (pricing.total === 0) {
@@ -890,7 +1037,7 @@ function openCheckout() {
             busy(e.currentTarget, "Enrolling", async () => {
               lockModal(true);
               try {
-                const o = await placeOrder({ status: "paid", method: "free" });
+                const o = await placeOrder({ status: "paid", method: "free", expect: pricing });
                 closeModal();
                 go(`#success/${o.id}`);
               } catch (err) {
@@ -979,12 +1126,12 @@ async function payRazorpay(pricing, btn) {
         .slice(0, 250),
       image: new URL("fenxtek-logo.png", location.href).href,
       prefill: { name: S.profile.name || "", email: S.user.email || "", contact: S.profile.phone || "" },
-      notes: { uid: S.user.uid, coupon: S.coupon ? S.coupon.code : "" },
+      notes: { uid: S.user.uid, coupon: S.coupon ? S.coupon.code : "", coins: String(pricing.coins || 0) },
       theme: { color: "#5A4BFF" },
       handler: async (resp) => {
         openModal(`<div class="sp-processing"><span class="sp-spin sp-spin--lg"></span><h3>Confirming your payment…</h3><p>Please don’t close this window.</p></div>`, { locked: true });
         try {
-          const o = await placeOrder({ status: "paid", method: "razorpay", extra: { paymentId: String(resp.razorpay_payment_id || "") } });
+          const o = await placeOrder({ status: "paid", method: "razorpay", extra: { paymentId: String(resp.razorpay_payment_id || "") }, expect: pricing });
           closeModal();
           go(`#success/${o.id}`);
         } catch (err) {
@@ -1036,7 +1183,7 @@ async function payUPI(pricing) {
           busy(e.currentTarget.querySelector("button"), "Submitting", async () => {
             lockModal(true);
             try {
-              const o = await placeOrder({ status: "pending", method: "upi", extra: { utr } });
+              const o = await placeOrder({ status: "pending", method: "upi", extra: { utr }, expect: pricing });
               closeModal();
               go(`#success/${o.id}`);
             } catch (err) {
@@ -1245,10 +1392,10 @@ function vMyCourses() {
 function vStore() {
   const f = S.filters;
   const cats = Array.from(new Set(S.courses.map((c) => c.category)));
-  const offer = S.offers[0];
+  const offer = S.offers.find((o) => !offerLocked(o)) || null;
   const html =
     (offer
-      ? `<div class="sp-offer">${icon("i-gift")}<span>Use code <b>${esc(offer.code)}</b> — ${esc(offer.label)}</span><button type="button" class="sp-offer-copy" data-copy="${esc(offer.code)}">${icon("i-copy")}Copy</button></div>`
+      ? `<div class="sp-offer${offer.members ? " is-member" : ""}">${icon(offer.members ? "i-crown" : "i-gift")}<span>${offer.members ? "Members: use" : "Use"} code <b>${esc(offer.code)}</b> — ${esc(offer.label)}</span><button type="button" class="sp-offer-copy" data-copy="${esc(offer.code)}">${icon("i-copy")}Copy</button></div>`
       : "") +
     memberPromo("store") +
     `<div class="sp-toolbar" data-sp-keep>` +
@@ -1358,7 +1505,11 @@ function vCourse(id) {
         `<a class="p-btn p-btn--lime p-btn--block" href="#learn/${esc(c.id)}">${icon("i-play")}<span>Continue learning</span></a>` +
         (a.until ? `<button class="p-btn p-btn--ghost p-btn--block" type="button" data-renew="${esc(c.id)}">${icon("i-refresh")}<span>Extend validity</span></button>` : "")
       : priceHTML(c, true) +
-        (off ? `<p class="sp-buy-save">You save ${money(c.mrp - c.price)} on MRP</p>` : "") +
+        (memberPriceFor(c) != null
+          ? `<p class="sp-buy-save">${icon("i-crown")}You save ${money(Math.max(c.mrp, c.price) - memberPriceFor(c))} as a ${esc(myPlan().title)} member</p>`
+          : off
+          ? `<p class="sp-buy-save">You save ${money(c.mrp - c.price)} on MRP</p>`
+          : "") +
         `<ul class="sp-buy-facts"><li>${icon("i-clock")}${esc(validityLabel(c.validityDays))}</li><li>${icon("i-headphones")}${esc(c.mode)} · ${esc(c.language)}</li><li>${icon("i-receipt")}Instant receipt (PNG)</li></ul>` +
         (S.cart[c.id]
           ? `<a class="p-btn p-btn--lime p-btn--block" href="#cart">${icon("i-cart")}<span>Go to cart</span></a>`
@@ -1366,7 +1517,7 @@ function vCourse(id) {
             `<button class="p-btn p-btn--ghost p-btn--block" type="button" data-add="${esc(c.id)}">${icon("i-cart")}<span>Add to cart</span></button>`)) +
     (offers.length && !(a && a.active)
       ? `<div class="sp-buy-offers"><span class="p-label">Offers for this course</span>${offers
-          .map((o) => `<button type="button" class="sp-coupon-tile" data-copy="${esc(o.code)}">${icon("i-tag")}<span><b>${esc(o.code)}</b><small>${esc(o.label)}</small></span>${icon("i-copy")}</button>`)
+          .map((o) => offerTile(o, "copy"))
           .join("")}</div>`
       : "") +
     `<p class="sp-buy-trust">${icon("i-shield")}Secure payment · Prices include all taxes</p>` +
@@ -1440,18 +1591,39 @@ function vCart() {
       html: empty("i-cart", "Your cart is empty", "Add courses or a membership plan — you can apply a coupon at checkout.", `<div class="sp-empty-acts"><a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-bolt")}<span>Browse courses</span></a><a class="p-btn p-btn--ghost p-btn--sm" href="#membership">${icon("i-crown")}<span>Membership plans</span></a></div>`)
     };
   }
-  const check = couponCheck();
-  if (S.coupon && check && !check.ok) {
-    /* cart changed so the coupon no longer applies */
-    setTimeout(() => toast(check.reason + " Coupon removed.", "err"), 0);
+  let priced = cartPricing(items);
+  if (S.coupon && priced.check && !priced.check.ok) {
+    /* cart (or membership) changed so the coupon no longer applies */
+    const why = priced.check.reason;
+    setTimeout(() => toast(why + " Coupon removed.", "err"), 0);
     S.coupon = null;
+    priced = cartPricing(items);
   }
-  const applied = S.coupon && check && check.ok ? { coupon: S.coupon.coupon, check } : null;
-  const p = priceCart(items, applied);
-  const offers = S.offers.filter((o) => {
-    const ids = couponScopeIds(o);
-    return !ids || items.some((c) => ids.includes(c.id));
-  });
+  const { p, applied, plan: perk } = priced;
+  const offers = S.offers
+    .filter((o) => {
+      const ids = couponScopeIds(o);
+      return !ids || items.some((c) => ids.includes(c.id));
+    })
+    .sort((a, b) => Number(offerLocked(a)) - Number(offerLocked(b)));
+  const rw = S.rewards;
+  const bal = coinBalance();
+  /* membership upsell: what the best plan would save on this cart */
+  const courseItems = items.filter((c) => !isPlanItem(c));
+  let upsell = null;
+  if (!perk && courseItems.length) {
+    S.plans
+      .filter((pl) => pl.buyable)
+      .forEach((pl) => {
+        const save = memberPrices(courseItems, pl).memberDiscount;
+        if (save > 0 && (!upsell || save > upsell.save)) upsell = { plan: pl, save };
+      });
+  }
+  const linePrice = (c) => {
+    const lp = p.prices[c.id] != null ? p.prices[c.id] : c.price;
+    if (isPlanItem(c) || lp >= c.price) return priceHTML(c);
+    return `<div class="sp-price is-member"><b>${money(lp)}</b><s>${money(Math.max(c.mrp, c.price))}</s><em class="sp-mtag">${icon("i-crown")}Member</em></div>`;
+  };
   const phoneOk = /\d{10}/.test(String(S.profile.phone || "").replace(/\D/g, ""));
 
   const html =
@@ -1472,12 +1644,17 @@ function vCart() {
           `<span class="sp-line-meta">${esc(validityLabel(c.validityDays))}${plan ? "" : ` · ${esc(c.mode)}`}${note}</span>` +
           (disc ? `<span class="sp-line-coupon">${icon("i-tag")}Coupon applied</span>` : "") +
           `</div>` +
-          `<div class="sp-line-price">${priceHTML(c)}<button type="button" class="sp-line-rm" data-rm="${esc(c.id)}" aria-label="Remove ${esc(c.title)}">${icon("i-trash")}<span>Remove</span></button></div>` +
+          `<div class="sp-line-price">${linePrice(c)}<button type="button" class="sp-line-rm" data-rm="${esc(c.id)}" aria-label="Remove ${esc(c.title)}">${icon("i-trash")}<span>Remove</span></button></div>` +
           `</li>`
         );
       })
       .join("") +
     `</ul></section>` +
+    (upsell
+      ? `<section class="sp-upsell">${planMini(upsell.plan, "xs")}<div><span class="sp-k sp-k--light">Member price</span><b>Save ${money(upsell.save)} more on this cart</b>` +
+        `<small>${esc(upsell.plan.title)} members get ${upsell.plan.courseOff ? `extra ${upsell.plan.courseOff}% off every course` : "special course prices"} · ${money(upsell.plan.price)} / ${esc(upsell.plan.mode)}</small></div>` +
+        `<button class="p-btn p-btn--lime p-btn--sm" type="button" data-add="${esc(upsell.plan.id)}">${icon("i-crown")}<span>Add membership</span></button></section>`
+      : "") +
     `<section class="sp-panel"><span class="sp-k">Billing details</span><h3>Receipt will be issued to</h3>` +
     `<form class="sp-bill" id="spBill" data-sp-keep novalidate><div class="p-row">` +
     `<label class="p-field"><span class="p-label">Full name</span><input class="p-input" name="name" autocomplete="name" value="${esc(S.profile.name || S.user.displayName || "")}" required></label>` +
@@ -1488,20 +1665,32 @@ function vCart() {
     `<section class="sp-panel">` +
     `<span class="sp-k">Coupon</span>` +
     (applied
-      ? `<div class="sp-applied">${icon("i-tag")}<div><b>${esc(S.coupon.code)}</b><span>${esc(couponLabel(S.coupon.coupon))} · saving ${money(p.discount)}</span></div><button type="button" class="sp-icon-btn" id="spCouponRm" aria-label="Remove coupon">${icon("i-x")}</button></div>`
+      ? `<div class="sp-applied${S.coupon.coupon && S.coupon.coupon.members ? " is-member" : ""}">${icon(S.coupon.coupon && S.coupon.coupon.members ? "i-crown" : "i-tag")}<div><b>${esc(S.coupon.code)}</b><span>${esc(couponLabel(S.coupon.coupon))}${S.coupon.coupon && S.coupon.coupon.members ? " · members" : ""} · saving ${money(p.couponDiscount)}</span></div><button type="button" class="sp-icon-btn" id="spCouponRm" aria-label="Remove coupon">${icon("i-x")}</button></div>`
       : `<form class="sp-coupon" id="spCoupon" data-sp-keep novalidate><input class="p-input" name="code" placeholder="Enter coupon code" autocomplete="off" autocapitalize="characters" maxlength="24"><button class="p-btn p-btn--sm" type="submit"><span>Apply</span></button></form>` +
         (offers.length
           ? `<div class="sp-offers">${offers
               .slice(0, 4)
-              .map((o) => `<button type="button" class="sp-coupon-tile" data-apply="${esc(o.code)}">${icon("i-tag")}<span><b>${esc(o.code)}</b><small>${esc(o.label)}</small></span><em>Apply</em></button>`)
+              .map((o) => offerTile(o, "apply"))
               .join("")}</div>`
           : "")) +
     `</section>` +
+    (rw.enabled && bal > 0
+      ? `<section class="sp-panel sp-coins${S.useCoins && p.coins ? " is-on" : ""}">` +
+        `<label class="sp-coins-row"><span class="sp-coins-ic">${icon("i-coin")}</span>` +
+        `<span class="sp-coins-txt"><b>${p.coinsMax ? `Use ${esc(coinsLabel(p.coinsMax))}` : "E-coins"}</b>` +
+        `<small>${p.coinsMax ? `Save ${money(p.coinsMax)} · balance ${esc(coinsLabel(bal))}` : `Balance ${esc(coinsLabel(bal))} · can’t be used on this order`}</small></span>` +
+        `<input type="checkbox" class="sp-switch" id="spUseCoins"${S.useCoins && p.coinsMax ? " checked" : ""}${p.coinsMax ? "" : " disabled"} aria-label="Use E-coins"></label>` +
+        `<p class="sp-coins-note">1 E-coin = ₹1 · up to ${rw.maxRedeemPct}% of an order</p></section>`
+      : rw.enabled
+      ? `<a class="sp-coins-promo" href="#rewards">${icon("i-coin")}<span><b>Refer friends, earn E-coins</b><small>Get ${esc(coinsLabel(rw.referrerCoins))} for every friend who joins</small></span>${icon("i-arr")}</a>`
+      : "") +
     `<section class="sp-panel sp-summary"><span class="sp-k">Order summary</span>` +
     `<dl>` +
     `<div><dt>MRP total</dt><dd>${money(p.mrpTotal)}</dd></div>` +
     (p.courseSavings ? `<div class="is-save"><dt>Discount on MRP</dt><dd>− ${money(p.courseSavings)}</dd></div>` : "") +
-    (p.discount ? `<div class="is-save"><dt>Coupon (${esc(S.coupon.code)})</dt><dd>− ${money(p.discount)}</dd></div>` : "") +
+    (p.memberDiscount ? `<div class="is-save is-member"><dt>${icon("i-crown")}Member price${perk ? ` (${esc(perk.title)})` : ""}</dt><dd>− ${money(p.memberDiscount)}</dd></div>` : "") +
+    (p.couponDiscount ? `<div class="is-save"><dt>Coupon (${esc(S.coupon.code)})</dt><dd>− ${money(p.couponDiscount)}</dd></div>` : "") +
+    (p.coins ? `<div class="is-save is-coins"><dt>${icon("i-coin")}E-coins</dt><dd>− ${money(p.coins)}</dd></div>` : "") +
     `<div class="is-total"><dt>To pay</dt><dd>${money(p.total)}</dd></div>` +
     `</dl>` +
     (p.savings ? `<p class="sp-savebar">${icon("i-gift")}You’re saving ${money(p.savings)} on this order</p>` : "") +
@@ -1524,6 +1713,14 @@ function vCart() {
           applyCoupon(cf.code.value, cf.querySelector("button"));
         });
       $$("[data-apply]", root).forEach((b) => b.addEventListener("click", () => applyCoupon(b.dataset.apply, b)));
+      const uc = $("#spUseCoins", root);
+      if (uc)
+        uc.addEventListener("change", () => {
+          S.useCoins = uc.checked;
+          render({ quiet: true });
+        });
+      const up = $(".sp-upsell", root);
+      if (up) bindAdd(up);
       const rm = $("#spCouponRm", root);
       if (rm)
         rm.addEventListener("click", () => {
@@ -1571,6 +1768,15 @@ function orderItems(o) {
   return Array.isArray(items) ? items.filter(Boolean) : Object.keys(items).map((id) => ({ id, ...items[id] }));
 }
 
+function orderSaveNote(o) {
+  const b = orderBreakdown(o);
+  const bits = [];
+  if (b.member) bits.push(`Member −${money(b.member)}`);
+  if (b.coupon) bits.push(`${o.coupon && o.coupon.code ? `Coupon ${esc(o.coupon.code)}` : "Discount"} −${money(b.coupon)}`);
+  if (b.coins) bits.push(`E-coins −${money(b.coins)}`);
+  return bits.length ? `<small>${bits.join(" · ")}</small>` : "";
+}
+
 function statusPill(o) {
   const s = statusOf(o.status);
   return `<span class="sp-status sp-status--${s.tone}">${esc(s.label)}</span>`;
@@ -1595,7 +1801,7 @@ function vOrders() {
           `<article class="sp-order">` +
           `<div class="sp-order-top"><div><span class="sp-k">${esc(o.orderNo)}</span><b>${esc(items.map((i) => i.title).join(", ") || "Order")}</b>` +
           `<small>${esc(formatDate(o.createdAt, true))} · ${esc(methodLabel(o.method))}</small></div>${statusPill(o)}</div>` +
-          `<div class="sp-order-foot"><div class="sp-order-amt"><b>${money(o.total)}</b>${num(o.discount) ? `<small>Coupon ${esc((o.coupon && o.coupon.code) || "")} · −${money(o.discount)}</small>` : ""}</div>` +
+          `<div class="sp-order-foot"><div class="sp-order-amt"><b>${money(o.total)}</b>${orderSaveNote(o)}</div>` +
           `<div class="sp-order-acts">` +
           (canReceipt
             ? `<a class="p-btn p-btn--ghost p-btn--sm" href="#receipt/${esc(o.id)}">${icon("i-eye")}<span>View</span></a><button class="p-btn p-btn--sm" type="button" data-dl="${esc(o.id)}">${icon("i-download")}<span>Receipt</span></button>`
@@ -1650,7 +1856,7 @@ function vSuccess(id) {
     `<span class="sp-k">${paid ? "Payment successful" : "Payment submitted"}</span>` +
     `<h2>${esc(head)}</h2>` +
     `<p>${lead}</p>` +
-    `<div class="sp-success-card"><div><span>Order</span><b>${esc(o.orderNo)}</b></div><div><span>Amount</span><b>${money(o.total)}</b></div><div><span>${planIt ? "Items" : "Courses"}</span><b>${items.length}</b></div>${num(o.discount) ? `<div><span>Saved</span><b>${money(Math.max(0, num(o.mrpTotal) - num(o.total)))}</b></div>` : ""}</div>` +
+    `<div class="sp-success-card"><div><span>Order</span><b>${esc(o.orderNo)}</b></div><div><span>Amount</span><b>${money(o.total)}</b></div><div><span>${planIt ? "Items" : "Courses"}</span><b>${items.length}</b></div>${num(o.discount) || num(o.coins) ? `<div><span>Saved</span><b>${money(Math.max(0, num(o.mrpTotal) - num(o.total)))}</b></div>` : ""}</div>` +
     `<div class="sp-success-cta">` +
     (paid
       ? `<button class="p-btn p-btn--lime" type="button" id="spDl">${icon("i-download")}<span>Download receipt (PNG)</span></button>` +
@@ -2722,6 +2928,270 @@ function vSoon(route) {
 /* ============================================================
    chrome: user card, sign out
    ============================================================ */
+/* ============================================================
+   Refer & earn — E-coins wallet (1 E-coin = ₹1 off courses)
+   ============================================================ */
+function refLink(code) {
+  const u = new URL("auth.html", location.href);
+  u.search = `?mode=signup&next=${encodeURIComponent(`dashboard.html#ref/${code}`)}`;
+  u.hash = "";
+  return u.href;
+}
+function shareText(code, withLink = true) {
+  const rw = S.rewards;
+  return (
+    `I’m learning shorthand with FenxTek Shorthand Classes. Join with my code ${code}` +
+    (rw.refereeCoins ? ` and get ${coinsLabel(rw.refereeCoins)} (₹${rw.refereeCoins} off) on your first course` : "") +
+    (withLink ? `: ${refLink(code)}` : ".")
+  );
+}
+
+/* every student gets one personal code: refCodes/<CODE> = uid (+ users/<uid>/refCode) */
+let refChecked = false;
+async function ensureRefCode() {
+  if (S.refBusy || !S.rewards.enabled || !S.user) return;
+  const have = cleanRefCode(S.profile.refCode);
+  if (have && refChecked) return;
+  S.refBusy = true;
+  try {
+    if (have) {
+      const owner = snapVal(await dbGet(`${PATH.refCodes}/${have}`).catch(() => null));
+      if (owner === S.user.uid) return void (refChecked = true);
+      if (!owner) {
+        const ok = await dbSet(`${PATH.refCodes}/${have}`, S.user.uid).then(() => true, () => false);
+        if (ok) return void (refChecked = true);
+      }
+    }
+    for (let i = 0; i < 4; i++) {
+      const code = makeRefCode(S.profile.name || S.user.displayName || S.user.email);
+      try {
+        await dbUpdateRoot({ [`${PATH.refCodes}/${code}`]: S.user.uid, [`users/${S.user.uid}/refCode`]: code });
+        S.profile.refCode = code;
+        refChecked = true;
+        changed("profile");
+        return;
+      } catch (err) {
+        if (i === 3) throw err;
+      }
+    }
+  } catch (err) {
+    console.warn("[rewards] referral code", err);
+  } finally {
+    S.refBusy = false;
+  }
+}
+
+async function applyReferral(raw, btn) {
+  const code = cleanRefCode(raw);
+  if (code.length < 4) {
+    toast("Enter your friend’s referral code.", "err");
+    return false;
+  }
+  return busy(btn, "Applying", async () => {
+    try {
+      const rw = S.rewards;
+      if (!rw.enabled) throw userErr("Referral rewards are paused right now.");
+      if (S.referral) throw userErr("You’ve already used a referral code.");
+      if (S.orders.length) throw userErr("Referral codes are for new students, before their first purchase.");
+      const by = snapVal(await dbGet(`${PATH.refCodes}/${code}`));
+      if (!by) throw userErr("That referral code doesn’t exist — check the spelling with your friend.");
+      if (by === S.user.uid) throw userErr("That’s your own code — share it with friends instead.");
+      const now = Date.now();
+      const name = String(S.profile.name || S.user.displayName || "Friend").trim().slice(0, 60) || "Friend";
+      await dbUpdateRoot({
+        [`${PATH.referrals}/${S.user.uid}`]: { by, code, status: "pending", at: now, name },
+        [`${PATH.referredBy}/${by}/${S.user.uid}`]: { name, at: now, status: "pending" }
+      });
+      S.referral = { by, code, status: "pending", at: now, name };
+      changed("refs");
+      toast(rw.refereeCoins ? `Invite accepted — ${coinsLabel(rw.refereeCoins)} will be added after your first purchase.` : "Invite accepted.");
+      return true;
+    } catch (err) {
+      toast(err.userFacing ? err.message : friendlyError(err), "err");
+      return false;
+    }
+  });
+}
+
+function vRewards() {
+  const rw = S.rewards;
+  const bal = coinBalance();
+  const w = S.wallet || {};
+  const code = cleanRefCode(S.profile.refCode);
+  const refs = S.myRefs;
+  const won = refs.filter((r) => r.status === "rewarded");
+  const wonCoins = won.reduce((t, r) => t + (num(r.coins) || rw.referrerCoins), 0);
+  const fmt = (n) => Math.round(num(n)).toLocaleString("en-IN");
+  if (!rw.enabled && !bal && !S.walletTx.length) {
+    return {
+      title: "Refer & earn",
+      crumb: "Purchases",
+      html: empty("i-coin", "Refer & earn is coming soon", "Invite friends to FenxTek and earn E-coins you can spend on courses — like cash at checkout.", `<a class="p-btn p-btn--sm" href="#store">${icon("i-bolt")}<span>Browse courses</span></a>`)
+    };
+  }
+
+  const hero =
+    `<section class="rw-hero${rw.enabled ? "" : " is-solo"}">` +
+    `<div class="rw-wallet">` +
+    `<span class="rw-k">${icon("i-coin")}FenxTek E-coins</span>` +
+    `<div class="rw-bal"><b data-rw-bal>${fmt(bal)}</b><span>coins</span></div>` +
+    `<p>Worth ${money(bal)} on courses · 1 E-coin = ₹1</p>` +
+    `<div class="rw-wstats"><div><small>Earned</small><b>${fmt(w.earned)}</b></div><div><small>Used</small><b>${fmt(w.spent)}</b></div><div><small>Friends</small><b>${won.length}</b></div></div>` +
+    `<a class="p-btn p-btn--lime p-btn--sm" href="#store">${icon("i-cart")}<span>Shop with E-coins</span></a>` +
+    `<span class="rw-art" aria-hidden="true"><i></i><i></i><i></i></span>` +
+    `</div>` +
+    (rw.enabled
+      ? `<div class="rw-refer"><span class="sp-k">Refer &amp; earn</span>` +
+        `<h2>Invite friends, earn <em>${esc(coinsLabel(rw.referrerCoins))}</em> each</h2>` +
+        `<p>${rw.refereeCoins ? `Your friend gets ${esc(coinsLabel(rw.refereeCoins))} too. ` : ""}Coins are added when they buy their first course${rw.minOrder ? ` of ${money(rw.minOrder)} or more` : ""}.</p>` +
+        (code
+          ? `<div class="rw-code"><div><small>Your referral code</small><b>${esc(code)}</b></div><button type="button" class="p-btn p-btn--ghost p-btn--sm" data-copy="${esc(code)}">${icon("i-copy")}<span>Copy</span></button></div>` +
+            `<div class="rw-share">` +
+            `<a class="rw-sh rw-sh--wa" href="https://wa.me/?text=${encodeURIComponent(shareText(code))}" target="_blank" rel="noopener">${icon("i-wa")}<span>WhatsApp</span></a>` +
+            `<a class="rw-sh rw-sh--tg" href="https://t.me/share/url?url=${encodeURIComponent(refLink(code))}&amp;text=${encodeURIComponent(shareText(code, false))}" target="_blank" rel="noopener">${icon("i-send")}<span>Telegram</span></a>` +
+            `<button type="button" class="rw-sh" data-copy-link>${icon("i-link")}<span>Copy link</span></button>` +
+            `<button type="button" class="rw-sh" data-share hidden>${icon("i-share")}<span>More</span></button>` +
+            `</div>`
+          : `<div class="rw-code is-loading"><span class="sp-spin"></span><span>Creating your personal code…</span></div>`) +
+        `</div>`
+      : "") +
+    `</section>`;
+
+  const mine = S.referral;
+  const joined = mine
+    ? `<div class="rw-joined is-${esc(mine.status || "pending")}">${icon(mine.status === "rewarded" ? "i-check" : mine.status === "void" ? "i-info" : "i-gift")}<div>` +
+      (mine.status === "rewarded"
+        ? `<b>Welcome bonus received</b><span>${esc(coinsLabel(num(mine.refereeCoins)))} were added to your wallet.</span>`
+        : mine.status === "void"
+        ? `<b>Referral not eligible</b><span>The academy marked this referral as not eligible.</span>`
+        : `<b>You joined with a friend’s code</b><span>${rw.refereeCoins ? `Buy your first course and you’ll get ${esc(coinsLabel(rw.refereeCoins))}.` : "Thanks for joining!"}</span>`) +
+      `</div><code>${esc(mine.code || "")}</code></div>`
+    : "";
+
+  const canEnter = rw.enabled && !mine && S.referralReady && S.ordersReady && !S.orders.length;
+  const enter = canEnter
+    ? `<form class="sp-panel rw-enter" id="rwEnter" data-sp-keep novalidate>` +
+      `<div><span class="sp-k">Have a referral code?</span><b>${rw.refereeCoins ? `Get ${esc(coinsLabel(rw.refereeCoins))} on your first course` : "Join a friend on FenxTek"}</b></div>` +
+      `<div class="rw-enter-row"><input class="p-input" name="code" placeholder="Friend’s code" maxlength="12" autocapitalize="characters" autocomplete="off"><button class="p-btn p-btn--sm" type="submit"><span>Apply</span></button></div></form>`
+    : "";
+
+  const steps = rw.enabled
+    ? `<section class="sp-panel rw-steps"><span class="sp-k">How it works</span><ol>` +
+      [
+        ["i-share", "Share your code", "Send your link or code to friends on WhatsApp or Telegram."],
+        ["i-user", "Friend joins", "They sign up with your link — or enter your code — before their first purchase."],
+        ["i-coin", "You both earn", `You get ${coinsLabel(rw.referrerCoins)}${rw.refereeCoins ? `, they get ${coinsLabel(rw.refereeCoins)}` : ""} once their first payment is confirmed.`],
+        ["i-cart", "Spend like cash", `Use E-coins at checkout — up to ${rw.maxRedeemPct}% of any order.`]
+      ]
+        .map(([ic, t, d], i) => `<li><span class="rw-step-ic">${icon(ic)}<i>${i + 1}</i></span><b>${t}</b><small>${esc(d)}</small></li>`)
+        .join("") +
+      `</ol></section>`
+    : "";
+
+  const refList = rw.enabled || refs.length
+    ? `<section class="sp-panel rw-box"><div class="rw-head"><div><span class="sp-k">Your referrals</span><h3>${refs.length ? `${refs.length} friend${refs.length === 1 ? "" : "s"} joined` : "No referrals yet"}</h3></div>${wonCoins ? `<em class="rw-earn">+${fmt(wonCoins)}</em>` : ""}</div>` +
+      (refs.length
+        ? `<ul class="rw-list">${refs
+            .map(
+              (r) =>
+                `<li><span class="rw-av">${esc(initials(r.name || "Friend", ""))}</span><div><b>${esc(r.name || "Friend")}</b><small>Joined ${esc(formatDate(r.at))}</small></div>` +
+                (r.status === "rewarded"
+                  ? `<em class="rw-st is-ok">+${fmt(num(r.coins) || rw.referrerCoins)}</em>`
+                  : r.status === "void"
+                  ? `<em class="rw-st is-off">Not eligible</em>`
+                  : `<em class="rw-st">Awaiting purchase</em>`) +
+                `</li>`
+            )
+            .join("")}</ul>`
+        : `<p class="rw-emptyline">${icon("i-users")}<span>Share your code — friends who join will show up here.</span></p>`) +
+      `</section>`
+    : "";
+
+  const tx = S.walletTx;
+  const hist =
+    `<section class="sp-panel rw-box"><div class="rw-head"><div><span class="sp-k">Coin history</span><h3>${tx.length ? "Recent activity" : "No activity yet"}</h3></div></div>` +
+    (tx.length
+      ? `<ul class="rw-tx">${tx
+          .slice(0, 40)
+          .map((t) => {
+            const c = num(t.coins);
+            const ic = c < 0 ? "i-cart" : t.type === "referral" ? "i-users" : t.type === "welcome" ? "i-gift" : t.type === "refund" ? "i-refresh" : "i-coin";
+            const sub = [t.note || t.orderNo || "", formatDate(t.at)].filter(Boolean).join(" · ");
+            return `<li><span class="rw-tx-ic${c < 0 ? " is-out" : ""}">${icon(ic)}</span><div><b>${esc(TX_LABEL[t.type] || "E-coins")}</b><small>${esc(sub)}</small></div><em class="${c < 0 ? "is-out" : "is-in"}">${c < 0 ? "−" : "+"}${fmt(Math.abs(c))}</em></li>`;
+          })
+          .join("")}</ul>`
+      : `<p class="rw-emptyline">${icon("i-coin")}<span>Coins you earn and spend will appear here.</span></p>`) +
+    `</section>`;
+
+  const html =
+    hero +
+    joined +
+    enter +
+    steps +
+    `<div class="rw-grid">${refList}${hist}</div>` +
+    `<p class="rw-terms">${icon("i-info")}<span>E-coins have no cash value, can’t be transferred and can only be used on FenxTek courses and memberships. Referral rewards are added after the academy confirms the payment; refunded orders don’t qualify.${rw.note ? ` ${esc(rw.note)}` : ""}</span></p>`;
+
+  return {
+    title: "Refer & earn",
+    crumb: "Purchases",
+    html,
+    mount(root) {
+      if (rw.enabled) ensureRefCode();
+      $$("[data-copy]", root).forEach((b) => b.addEventListener("click", () => copyText(b.dataset.copy)));
+      const cl = $("[data-copy-link]", root);
+      if (cl) cl.addEventListener("click", () => copyText(refLink(code)));
+      const sh = $("[data-share]", root);
+      if (sh && navigator.share) {
+        sh.hidden = false;
+        sh.addEventListener("click", () => navigator.share({ title: "Join me on FenxTek", text: shareText(code, false), url: refLink(code) }).catch(() => {}));
+      }
+      const f = $("#rwEnter", root);
+      if (f)
+        f.addEventListener("submit", (e) => {
+          e.preventDefault();
+          applyReferral(f.code.value, f.querySelector("button"));
+        });
+    }
+  };
+}
+
+/* #ref/<CODE> — landing for a friend's invite link */
+function vRef(arg) {
+  const code = cleanRefCode(arg);
+  const rw = S.rewards;
+  const card = (ic, title, text, cta) => ({
+    title: "Invitation",
+    crumb: "Refer & earn",
+    html: `<div class="rw-invite"><div class="rw-inv-card is-plain"><span class="rw-inv-coin">${icon(ic)}</span><h2>${title}</h2><p>${text}</p>${cta}</div></div>`
+  });
+  const toStore = `<a class="p-btn p-btn--lime" href="#store">${icon("i-bolt")}<span>Browse courses</span></a>`;
+  const toRewards = `<a class="p-btn p-btn--lime" href="#rewards">${icon("i-coin")}<span>Refer &amp; earn</span></a>`;
+  if (!S.ordersReady || !S.referralReady) return { title: "Invitation", crumb: "Refer & earn", html: skeletonGrid(1) };
+  if (!rw.enabled) return card("i-coin", "Referral rewards are paused", "You can still explore courses and memberships — welcome to FenxTek!", toStore);
+  if (code.length < 4) return card("i-info", "This invite link looks incomplete", "Ask your friend for their referral code and enter it under Refer &amp; earn.", toRewards);
+  if (S.referral) return card("i-check", "You’ve already joined with a referral code", `Code <b>${esc(S.referral.code || "")}</b> is linked to your account.`, toRewards);
+  if (code === cleanRefCode(S.profile.refCode)) return card("i-share", "That’s your own invite link", "Share it with friends — you earn E-coins when they buy their first course.", toRewards);
+  if (S.orders.length) return card("i-info", "Invites are for new students", "Referral codes apply before the first purchase. Invite your own friends and earn E-coins instead.", toRewards);
+  return {
+    title: "Invitation",
+    crumb: "Refer & earn",
+    html:
+      `<div class="rw-invite"><div class="rw-inv-card">` +
+      `<span class="rw-inv-coin">${icon("i-coin")}</span><span class="sp-k">You’re invited</span>` +
+      `<h2>A friend invited you to FenxTek</h2>` +
+      `<p>${rw.refereeCoins ? `Accept to get <b>${esc(coinsLabel(rw.refereeCoins))}</b> — that’s ${money(rw.refereeCoins)} off your first course.` : "Accept the invite to join your friend on FenxTek."}</p>` +
+      `<div class="rw-code rw-code--center"><div><small>Invite code</small><b>${esc(code)}</b></div></div>` +
+      `<button class="p-btn p-btn--lime p-btn--block" type="button" id="rwAccept">${icon("i-gift")}<span>Accept invite</span></button>` +
+      `<a class="sp-link" href="#store">Skip for now</a>` +
+      `</div></div>`,
+    mount(root) {
+      $("#rwAccept", root).addEventListener("click", async (e) => {
+        if (await applyReferral(code, e.currentTarget)) go("#store");
+      });
+    }
+  };
+}
+
 function initials(name, email) {
   const source = String(name || email || "").trim();
   if (!source) return "FX";
@@ -2843,6 +3313,7 @@ async function init() {
   });
   dbWatch(PATH.plans, (v) => {
     S.plans = plansFrom(v);
+    S.plansAll = plansFrom(v, { all: true });
     S.plansReady = true;
     changed("plans");
     changed("cart");
@@ -2850,6 +3321,38 @@ async function init() {
   dbWatch(`${CC_PATH.progress}/${user.uid}`, (v) => {
     S.progress = v && typeof v === "object" ? v : {};
     changed("progress");
+  });
+  dbWatch(PATH.rewards, (v) => {
+    S.rewards = rewardsFrom(v);
+    changed("rewards");
+    changed("cart");
+  });
+  dbWatch(`${PATH.wallets}/${user.uid}`, (v) => {
+    S.wallet = v && typeof v === "object" ? v : null;
+    changed("wallet");
+  });
+  dbWatch(`${PATH.walletTx}/${user.uid}`, (v) => {
+    S.walletTx = Object.keys(v || {})
+      .map((k) => ({ id: k, ...(v[k] || {}) }))
+      .sort((a, b) => num(b.at) - num(a.at));
+    changed("wallet");
+  });
+  dbWatch(`${PATH.referrals}/${user.uid}`, (v) => {
+    S.referral = v && typeof v === "object" ? v : null;
+    S.referralReady = true;
+    changed("refs");
+  });
+  /* if the rules aren't published yet the watch never answers — don't wait forever */
+  setTimeout(() => {
+    if (S.referralReady) return;
+    S.referralReady = true;
+    changed("refs");
+  }, 4000);
+  dbWatch(`${PATH.referredBy}/${user.uid}`, (v) => {
+    S.myRefs = Object.keys(v || {})
+      .map((k) => ({ uid: k, ...(v[k] || {}) }))
+      .sort((a, b) => num(b.at) - num(a.at));
+    changed("refs");
   });
   dbWatch(`members/${user.uid}`, (v) => {
     S.member = v;

@@ -22,7 +22,13 @@ export const PATH = {
   enrollments: "enrollments",
   courseAccess: "courseAccess",
   plans: "site/memberships",
-  members: "members"
+  members: "members",
+  rewards: "site/rewards",
+  refCodes: "refCodes",
+  referrals: "referrals",
+  referredBy: "referredBy",
+  wallets: "wallets",
+  walletTx: "walletTx"
 };
 
 export const COURSE_CATEGORIES = ["Shorthand", "Typing", "Exam pack", "Dictation", "Mentorship", "Other"];
@@ -128,6 +134,7 @@ export function normalizeCourse(raw) {
     published: c.published !== false,
     order: num(c.order, 0),
     lessons: Math.max(0, Math.round(num(c.lessons))),
+    memberPrice: Math.max(0, Math.round(num(c.memberPrice))), // 0 = use the plan's % off
     createdAt: num(c.createdAt, 0),
     updatedAt: num(c.updatedAt, 0)
   };
@@ -221,6 +228,7 @@ export function normalizePlan(raw, theme) {
     cta: String(p.cta || ""),
     active: p.active !== false,
     order: num(p.order, 0),
+    courseOff: Math.min(90, Math.max(0, Math.round(num(p.courseOff)))), // members' extra % off courses
     buyable: price > 0 && hasDays && rawPrice === String(price)
   };
 }
@@ -305,10 +313,19 @@ export function couponState(c, usedCount = 0, now = Date.now()) {
   return { key: "active", label: "Active" };
 }
 
+/* Member-only coupons: { members: true, memberPlans?: { planId: true } } */
+export function couponPlanIds(c) {
+  if (!c || !c.memberPlans || typeof c.memberPlans !== "object") return null; // null = any plan
+  const ids = Object.keys(c.memberPlans).filter((k) => c.memberPlans[k]);
+  return ids.length ? ids : null;
+}
+
 /* Validate a coupon against a cart.
-   ctx = { coupon, usedCount, usedByMe, items, now } */
+   ctx = { coupon, usedCount, usedByMe, items, now,
+           member: { active, planId }   (for member-only coupons)
+           prices: { itemId: price }     (member prices; the coupon applies after them) } */
 export function checkCoupon(ctx) {
-  const { coupon: c, usedCount = 0, usedByMe = false, items = [], now = Date.now() } = ctx;
+  const { coupon: c, usedCount = 0, usedByMe = false, items = [], now = Date.now(), member = null, prices = null } = ctx;
   if (!c) return { ok: false, reason: "That coupon code doesn’t exist." };
   const st = couponState(c, usedCount, now);
   if (st.key === "off") return { ok: false, reason: "This coupon is no longer active." };
@@ -316,14 +333,20 @@ export function checkCoupon(ctx) {
   if (st.key === "expired") return { ok: false, reason: `This coupon expired on ${formatDate(c.expiresAt)}.` };
   if (st.key === "exhausted") return { ok: false, reason: "This coupon has reached its usage limit." };
   if (usedByMe) return { ok: false, reason: "You have already used this coupon." };
+  if (c.members) {
+    if (!member || !member.active) return { ok: false, members: true, reason: "This coupon is only for FenxTek members — join a membership plan to use it." };
+    const pids = couponPlanIds(c);
+    if (pids && !pids.includes(member.planId)) return { ok: false, members: true, reason: "This coupon is for members of a different plan." };
+  }
   const scope = couponScopeIds(c);
   const eligible = scope ? items.filter((i) => scope.includes(i.id)) : items;
   if (!eligible.length) return { ok: false, reason: "This coupon doesn’t apply to the items in your cart." };
-  const eligibleSubtotal = eligible.reduce((s, i) => s + num(i.price), 0);
+  const priceOf = (i) => (prices && prices[i.id] != null ? num(prices[i.id]) : num(i.price));
+  const eligibleSubtotal = eligible.reduce((s, i) => s + priceOf(i), 0);
   if (num(c.minAmount) && eligibleSubtotal < num(c.minAmount)) {
     return { ok: false, reason: `Add courses worth ${money(c.minAmount)} or more to use this coupon.` };
   }
-  return { ok: true, eligibleIds: eligible.map((i) => i.id), eligibleSubtotal };
+  return { ok: true, eligibleIds: eligible.map((i) => i.id), eligibleSubtotal, rawEligibleSubtotal: eligible.reduce((s, i) => s + num(i.price), 0) };
 }
 
 export function couponDiscount(c, eligibleSubtotal) {
@@ -334,22 +357,127 @@ export function couponDiscount(c, eligibleSubtotal) {
   return Math.max(0, Math.min(base, Math.round(d)));
 }
 
+/* ---------------- membership perks ---------------- */
+
+/* What a member of `plan` pays for a course: the plan's "% off courses" or
+   the course's own member price, whichever is lower. null = no member price
+   (plans themselves never get one). */
+export function memberPriceOf(course, plan) {
+  if (!course || !plan || isPlanItem(course)) return null;
+  const price = num(course.price);
+  if (!price) return null;
+  const cands = [];
+  const off = Math.min(90, Math.max(0, num(plan.courseOff)));
+  if (off) cands.push(Math.round((price * (100 - off)) / 100));
+  const mp = num(course.memberPrice);
+  if (mp > 0 && mp < price) cands.push(Math.round(mp));
+  if (!cands.length) return null;
+  const best = Math.max(0, Math.min(...cands));
+  return best < price ? best : null;
+}
+
+/* { prices: { id: price }, memberDiscount } for a cart priced for `plan` */
+export function memberPrices(items, plan) {
+  const prices = {};
+  let memberDiscount = 0;
+  items.forEach((i) => {
+    const mp = memberPriceOf(i, plan);
+    prices[i.id] = mp == null ? num(i.price) : mp;
+    memberDiscount += num(i.price) - prices[i.id];
+  });
+  return { prices, memberDiscount };
+}
+
 /* ---------------- pricing ---------------- */
 
-/* items: normalised courses. applied: { coupon, check } or null. */
-export function priceCart(items, applied) {
+/* items: normalised courses/plans. applied: { coupon, check } or null.
+   opts: { plan (member perks), useCoins, balance, maxCoinPct }
+   Order of savings: member price → coupon → E-coins (1 coin = ₹1). */
+export function priceCart(items, applied, opts = {}) {
+  const { plan = null, useCoins = false, balance = 0, maxCoinPct = 0 } = opts;
   const subtotal = items.reduce((s, i) => s + num(i.price), 0);
   const mrpTotal = items.reduce((s, i) => s + Math.max(num(i.mrp), num(i.price)), 0);
   const courseSavings = Math.max(0, mrpTotal - subtotal);
-  let discount = 0;
-  if (applied && applied.coupon && applied.check && applied.check.ok) {
-    discount = couponDiscount(applied.coupon, applied.check.eligibleSubtotal);
+  let { prices, memberDiscount } = memberPrices(items, plan);
+  let couponOff = 0;
+  const ok = applied && applied.coupon && applied.check && applied.check.ok;
+  if (ok) couponOff = couponDiscount(applied.coupon, applied.check.eligibleSubtotal);
+  if (ok && memberDiscount > 0 && subtotal - memberDiscount - couponOff <= 0) {
+    /* a free order must be covered by the coupon alone (the database rules
+       check that), so drop the member price instead of stacking to ₹0 */
+    memberDiscount = 0;
+    prices = Object.fromEntries(items.map((i) => [i.id, num(i.price)]));
+    couponOff = couponDiscount(applied.coupon, applied.check.rawEligibleSubtotal != null ? applied.check.rawEligibleSubtotal : applied.check.eligibleSubtotal);
   }
-  const total = Math.max(0, subtotal - discount);
-  return { count: items.length, subtotal, mrpTotal, courseSavings, discount, total, savings: courseSavings + discount };
+  const discount = Math.min(subtotal, memberDiscount + couponOff);
+  const after = Math.max(0, subtotal - discount);
+  const pct = Math.min(90, Math.max(0, num(maxCoinPct)));
+  const coinsMax = after > 1 ? Math.max(0, Math.min(Math.floor(num(balance)), Math.floor((after * pct) / 100), after - 1)) : 0;
+  const coins = useCoins ? coinsMax : 0;
+  const total = Math.max(0, after - coins);
+  return {
+    count: items.length,
+    subtotal,
+    mrpTotal,
+    courseSavings,
+    memberDiscount,
+    couponDiscount: couponOff,
+    discount,
+    coinsMax,
+    coins,
+    total,
+    prices,
+    savings: courseSavings + discount + coins
+  };
 }
 
+/* ---------------- refer & earn (E-coins) ---------------- */
+
+export const REWARDS_DEFAULT = { enabled: false, referrerCoins: 100, refereeCoins: 50, maxRedeemPct: 20, minOrder: 0 };
+export function rewardsFrom(v) {
+  const r = v || {};
+  const int = (x, d, lo, hi) => Math.min(hi, Math.max(lo, Math.round(x === undefined || x === null || x === "" || !isFinite(Number(x)) ? d : Number(x))));
+  return {
+    enabled: r.enabled === true,
+    referrerCoins: int(r.referrerCoins, REWARDS_DEFAULT.referrerCoins, 0, 100000),
+    refereeCoins: int(r.refereeCoins, REWARDS_DEFAULT.refereeCoins, 0, 100000),
+    maxRedeemPct: int(r.maxRedeemPct, REWARDS_DEFAULT.maxRedeemPct, 0, 90),
+    minOrder: int(r.minOrder, 0, 0, 10000000),
+    note: String(r.note || "")
+  };
+}
+export const cleanRefCode = (v) =>
+  String(v || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 12);
+export function makeRefCode(name) {
+  const base = String(name || "")
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 5);
+  return (base.length >= 3 ? base : "FXT" + base).slice(0, 5) + generateCode("", 4);
+}
+export const coinsLabel = (n) => `${Math.round(num(n)).toLocaleString("en-IN")} E-coin${Math.round(num(n)) === 1 ? "" : "s"}`;
+export const TX_LABEL = {
+  referral: "Referral reward",
+  welcome: "Welcome bonus",
+  spend: "Used on order",
+  refund: "Refunded to wallet",
+  admin: "Added by academy",
+  debit: "Adjusted by academy"
+};
+
 /* ---------------- orders ---------------- */
+
+/* Split an order's savings for display. Older orders only have a coupon
+   discount; newer ones also carry memberDiscount and coins. */
+export function orderBreakdown(o) {
+  const member = Math.max(0, num(o && o.memberDiscount));
+  const discount = Math.max(0, num(o && o.discount));
+  return { member, coupon: Math.max(0, discount - member), coins: Math.max(0, num(o && o.coins)), discount };
+}
+
 
 export function orderNumber(now = new Date()) {
   const y = String(now.getFullYear()).slice(2);
