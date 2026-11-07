@@ -219,7 +219,9 @@
     '<span><i>(03)</i>Brighter future</span><span class="f-index-geo">26.45° N — 80.33° E</span></div>' +
     keyboard("fKb") +
     /* 4 — legal */
-    '<div class="fx-bottom"><span>© <span id="year">' + yearNow + "</span> FenxTek Shorthand Classes · Kanpur, Uttar Pradesh</span>" +
+    '<div class="fx-bottom"><span>© <span id="year">' + yearNow + "</span> FenxTek Shorthand Classes · Kanpur, Uttar Pradesh. All rights reserved.</span>" +
+    '<span class="fx-legal"><a href="privacy.html">Privacy policy</a><i>·</i>' +
+    '<a href="terms.html">Terms &amp; conditions</a></span>' +
     "<span>Designed by Tanmay and Aditya</span>" +
     '<button class="fx-up" type="button" data-to-top><span>Back to top</span><i><svg><use href="#i-arr-u"/></svg></i></button></div>' +
     "</div></footer>" +

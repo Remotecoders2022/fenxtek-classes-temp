@@ -37,6 +37,8 @@ Course details, batch timings, fees and membership prices change over time and a
 - [Achievements](/achievements.html): Results, selections and milestones of FenxTek students, posted by the academy
 - [Membership plans](/membership.html): Membership plans with access to courses, dictations and mock tests, starting at ₹549, plus a membership FAQ
 - [Contact & admissions](/contact.html): Enquiry form (name, phone, email, course of interest) for a call back and a free demo dictation; call, WhatsApp, email or Telegram
+- [Privacy policy](/privacy.html): What the academy collects (account, enrolment, payments, portal activity), how it is used and stored, DPDP Act rights and the grievance contact
+- [Terms & conditions](/terms.html): Enrolment, fees and payment, coupons and E-coins, membership, instalments, refunds and cancellation, acceptable use, IP and governing law (Kanpur, UP)
 
 ## Student portal
 
