@@ -172,7 +172,7 @@ function openTab(name) {
   $$("[data-crm-panel]").forEach((panel) => {
     panel.hidden = panel.dataset.crmPanel !== name;
   });
-  if (name === "students") loadStudents();
+  if (name === "students") { loadStudents(); loadDeleted(); }
   if (name === "leads") loadLeads();
   if (name === "memberships") loadMembers();
   if (name === "overview") paintOverview();
@@ -1686,7 +1686,88 @@ async function loadStudents(opts = {}) {
   paintOverview();
 }
 
+/* ---------------- deleted accounts (self-service deletions from the portal) ---------------- */
+
+const DELETE_REASON_LABEL = {
+  done: "Finished exam preparation",
+  "other-academy": "Studying elsewhere",
+  price: "Too expensive",
+  "not-useful": "Portal not useful",
+  privacy: "Privacy",
+  other: "Something else"
+};
+
+async function loadDeleted() {
+  const body = $("#deletedBody");
+  if (!body) return;
+  const snap = await dbGet("accountDeletions").catch((err) => {
+    console.warn("[admin] accountDeletions read", err);
+    return null;
+  });
+  const list = [];
+  if (snap && snap.forEach) snap.forEach((c) => { list.push({ id: c.key, ...(c.val() || {}) }); });
+  state.deleted = list.sort((a, b) => Number(b.at || 0) - Number(a.at || 0));
+  paintDeleted();
+}
+
+function paintDeleted() {
+  const body = $("#deletedBody");
+  if (!body) return;
+  const list = state.deleted || [];
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="6" class="crm-table-empty">No deleted accounts.</td></tr>';
+    return;
+  }
+  body.innerHTML = list
+    .map(
+      (d) =>
+        `<tr><td><b>${esc(d.name || "—")}</b><br><span class="muted">${esc(d.email || "—")}</span></td>` +
+        `<td>${esc(DELETE_REASON_LABEL[d.reason] || "—")}</td>` +
+        `<td>${Number(d.coins || 0).toLocaleString("en-IN")}</td>` +
+        `<td>${Number(d.orders || 0)}</td>` +
+        `<td class="muted">${formatDate(d.at)}</td>` +
+        `<td class="actions">${d.cleanedAt ? `<span class="crm-pill crm-pill--off">Cleared ${esc(formatDate(d.cleanedAt))}</span>` : `<button class="crm-mini" type="button" data-clean="${esc(d.id)}">Clear leftovers</button>`}</td></tr>`
+    )
+    .join("");
+}
+
+async function cleanDeleted(uid, btn) {
+  const d = (state.deleted || []).find((x) => x.id === uid);
+  if (!d) return;
+  if (!confirm(`Clear leftover data for ${d.email || uid}?\n\nRemoves their E-coin wallet and history, referral code and referral records, enrollments and membership. Orders and receipts are kept.`)) return;
+  btn.disabled = true;
+  try {
+    const updates = {
+      [`wallets/${uid}`]: null,
+      [`walletTx/${uid}`]: null,
+      [`referrals/${uid}`]: null,
+      [`referredBy/${uid}`]: null,
+      [`enrollments/${uid}`]: null,
+      [`members/${uid}`]: null,
+      [`accountDeletions/${uid}/cleanedAt`]: Date.now()
+    };
+    if (d.refCode) {
+      const owner = await dbGet(`refCodes/${d.refCode}`).catch(() => null);
+      if (owner && owner.exists() && owner.val() === uid) updates[`refCodes/${d.refCode}`] = null;
+    }
+    await dbUpdateRoot(updates);
+    d.cleanedAt = Date.now();
+    paintDeleted();
+    showAlert("ok", "Leftover data cleared. Orders and receipts were kept.");
+  } catch (err) {
+    console.warn("[admin] clean deleted", err);
+    showAlert("err", friendlyError(err));
+    btn.disabled = false;
+  }
+}
+
 function bindStudents() {
+  const del = $("#deletedBody");
+  if (del)
+    del.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-clean]");
+      if (b) cleanDeleted(b.dataset.clean, b);
+    });
   const body = $("#studentsBody");
   if (!body) return;
   body.addEventListener("click", (e) => {
