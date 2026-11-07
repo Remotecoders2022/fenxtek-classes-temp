@@ -6,11 +6,17 @@
    adminInvites/{emailKey}     { email, role, by, at } — not signed up yet
    adminLog/{id}               audit trail
    The owner (ADMIN_EMAILS) always gets the super-admin seat.
+   BUILTIN_SUPERS are permanent super admins too. Their seat doesn't
+   need a verified email (database.rules.json allows exactly these
+   addresses to claim their own seat), so only list accounts that
+   already exist in Firebase Authentication.
    ============================================================ */
 import { dbGet, dbKey, dbUpdateRoot, isAdminEmail } from "./firebase.js?v=5";
 
 export const ROLE_LABEL = { owner: "Owner", super: "Super admin", admin: "Admin" };
 export const emailKey = (email) => String(email || "").trim().toLowerCase().replace(/\./g, ",");
+export const BUILTIN_SUPERS = ["admin@example.com"];
+export const isBuiltinSuper = (user) => Boolean(user && user.email && BUILTIN_SUPERS.includes(String(user.email).trim().toLowerCase()));
 const val = (s) => (s && s.exists && s.exists() ? s.val() : null);
 
 /* The signed-in user accepts a pending admin invite (one atomic write). */
@@ -36,7 +42,18 @@ export async function claimAdminInvite(user) {
 
 /* The owner account claims its super-admin seat (first visit). */
 export async function ensureOwnerSeat(user) {
-  if (!user || !isAdminEmail(user) || !user.emailVerified) return false;
+  if (!user) return false;
+  if (isBuiltinSuper(user) && !isAdminEmail(user)) {
+    const has = val(await dbGet(`superadmins/${user.uid}`).catch(() => null)) === true;
+    if (has) return true;
+    await dbUpdateRoot({
+      [`admins/${user.uid}`]: true,
+      [`superadmins/${user.uid}`]: true,
+      [`adminMeta/${user.uid}`]: { email: String(user.email).toLowerCase(), name: String(user.displayName || "Super admin").slice(0, 100), role: "super", addedBy: "built-in", at: Date.now() }
+    });
+    return true;
+  }
+  if (!isAdminEmail(user) || !user.emailVerified) return false;
   const already = val(await dbGet(`superadmins/${user.uid}`).catch(() => null)) === true;
   if (already) return true;
   await dbUpdateRoot({

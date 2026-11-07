@@ -25,7 +25,7 @@ import { initOverview, overviewOpened } from "./admin-overview.js?v=3";
 import { initTheme, themeTabOpened } from "./admin-theme.js?v=2";
 import { initEmi, emiTabOpened } from "./admin-emi.js?v=1";
 import { initNotifyAdmin, notifyTabOpened } from "./admin-notify.js?v=1";
-import { claimAdminInvite, ensureOwnerSeat, isSuperAdmin } from "./admin-claim.js?v=1";
+import { claimAdminInvite, ensureOwnerSeat, isSuperAdmin, isBuiltinSuper } from "./admin-claim.js?v=2";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
 import {
@@ -2218,6 +2218,7 @@ async function init() {
     );
     return;
   }
+  if (isBuiltinSuper(user)) await ensureOwnerSeat(user).catch((err) => console.warn("[admin] built-in super seat", err));
   const admin = await isAdmin(user).catch(() => false);
   if (!admin && isAdminEmail(user) && !user.emailVerified) {
     const sent = await sendVerification().then(() => true).catch(() => false);

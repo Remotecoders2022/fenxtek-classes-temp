@@ -5,7 +5,7 @@
    Not linked publicly; the CRM sidebar links here for super admins.
    ============================================================ */
 import { configured, waitForUser, signOutUser, dbGet, dbWatch, dbKey, dbUpdateRoot, isAdminEmail, sendVerification, friendlyError, ADMIN_EMAILS } from "./firebase.js?v=5";
-import { ROLE_LABEL, emailKey, claimAdminInvite, ensureOwnerSeat, isSuperAdmin } from "./admin-claim.js?v=1";
+import { ROLE_LABEL, emailKey, claimAdminInvite, ensureOwnerSeat, isSuperAdmin, isBuiltinSuper, BUILTIN_SUPERS } from "./admin-claim.js?v=2";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const icon = (id) => `<svg><use href="#${id}"/></svg>`;
@@ -67,7 +67,7 @@ async function init() {
     }
   });
 
-  const inv = await claimAdminInvite(user).catch(() => null);
+  const inv = isBuiltinSuper(user) ? null : await claimAdminInvite(user).catch(() => null);
   if (inv && inv.needsVerify) {
     const sent = await sendVerification().then(() => true).catch(() => false);
     return gate("Verify your email", `You’ve been invited as an admin. Verify ${esc(user.email)} ${sent ? "(we just sent a link)" : ""} and reload this page.`, "Reload", "admin-access.html");
@@ -140,7 +140,8 @@ function personOf(uid) {
   const email = String(m.email || u.email || "").toLowerCase();
   const owner = m.role === "owner" || OWNERS.includes(email);
   const sup = X.supers[uid] === true;
-  return { uid, email, name: m.name || u.name || "", role: owner ? "owner" : sup ? "super" : "admin", sup, owner, addedBy: m.addedBy || "", at: m.at || 0, me: uid === X.user.uid };
+  const fixed = owner || BUILTIN_SUPERS.includes(email);
+  return { uid, email, name: m.name || u.name || "", role: owner ? "owner" : sup || fixed ? "super" : "admin", sup: sup || fixed, owner, fixed, addedBy: m.addedBy || "", at: m.at || 0, me: uid === X.user.uid };
 }
 
 function paint() {
@@ -157,7 +158,7 @@ function paint() {
         .map((p) => {
           const label = ROLE_LABEL[p.role];
           const acts = [];
-          if (!p.owner && !p.me) {
+          if (!p.fixed && !p.me) {
             acts.push(
               p.sup
                 ? `<button class="p-btn p-btn--ghost p-btn--sm" type="button" data-aa-demote="${esc(p.uid)}">${icon("i-arr-d")}<span>Make admin</span></button>`
@@ -170,7 +171,7 @@ function paint() {
             `<span class="aa-av aa-av--${p.role}">${esc((p.name || p.email || "?").trim().charAt(0).toUpperCase())}</span>` +
             `<div class="aa-row-main"><b>${esc(p.name || p.email || p.uid)}${p.me ? ` <em class="aa-you">You</em>` : ""}</b><small>${esc(p.email || `uid ${p.uid}`)}${p.addedBy && !p.owner ? ` · added by ${esc(p.addedBy)}` : ""}${p.at ? ` · ${esc(when(p.at))}` : ""}</small></div>` +
             `<span class="aa-pill aa-pill--${p.role}">${p.owner ? icon("i-crown") : p.sup ? icon("i-key") : icon("i-shield")}${esc(label)}</span>` +
-            `<div class="aa-row-acts">${acts.join("") || (p.owner ? `<span class="aa-lock" title="The owner can’t be removed">${icon("i-lock")}</span>` : "")}</div>` +
+            `<div class="aa-row-acts">${acts.join("") || (p.fixed ? `<span class="aa-lock" title="${p.owner ? "The owner" : "A built-in super admin"} can’t be removed">${icon("i-lock")}</span>` : "")}</div>` +
             `</div>`
           );
         })
@@ -260,7 +261,7 @@ async function onTeam(e) {
   if (!btn) return;
   const uid = btn.dataset.aaPromote || btn.dataset.aaDemote || btn.dataset.aaRemove;
   const p = personOf(uid);
-  if (p.me || p.owner) return;
+  if (p.me || p.fixed) return;
   const who = p.email || p.uid;
   try {
     if (rem) {
