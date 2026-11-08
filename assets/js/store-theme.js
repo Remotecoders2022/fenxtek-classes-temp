@@ -48,7 +48,10 @@ export const PRESETS = {
     effect: "diya",
     level: 2,
     ribbon: "Diwali special",
-    countdown: true
+    countdown: true,
+    marquee: "Diwali dhamaka · festive prices on every course · instant access",
+    garland: true,
+    glow: true
   },
   holi: {
     name: "Holi",
@@ -66,7 +69,10 @@ export const PRESETS = {
     effect: "colour",
     level: 2,
     ribbon: "Holi offer",
-    countdown: true
+    countdown: true,
+    marquee: "Holi hai · a splash of savings · instant access to every class",
+    garland: true,
+    glow: true
   },
   christmas: {
     name: "Christmas",
@@ -84,7 +90,10 @@ export const PRESETS = {
     effect: "snow",
     level: 2,
     ribbon: "Christmas deal",
-    countdown: true
+    countdown: true,
+    marquee: "Christmas deal · gift yourself a sarkari naukri · instant access",
+    garland: true,
+    glow: true
   },
   newyear: {
     name: "New Year",
@@ -102,7 +111,10 @@ export const PRESETS = {
     effect: "fireworks",
     level: 2,
     ribbon: "New Year offer",
-    countdown: true
+    countdown: true,
+    marquee: "New Year pricing · make this the year you clear the exam",
+    garland: true,
+    glow: true
   },
   sale: {
     name: "Holiday sale",
@@ -120,7 +132,10 @@ export const PRESETS = {
     effect: "confetti",
     level: 2,
     ribbon: "Sale price",
-    countdown: true
+    countdown: true,
+    marquee: "Limited period · the season's biggest prices · instant access",
+    garland: true,
+    glow: true
   }
 };
 
@@ -150,6 +165,9 @@ export function themeOf(id, saved, now = Date.now()) {
     effect: EFFECTS[s.effect] ? s.effect : p.effect,
     level: [1, 2, 3].includes(s.level) ? s.level : p.level,
     ribbon: s.ribbon === undefined ? p.ribbon : str(s.ribbon, 24, ""),
+    marquee: str(s.marquee, 160, p.marquee),
+    garland: typeof s.garland === "boolean" ? s.garland : p.garland !== false,
+    glow: typeof s.glow === "boolean" ? s.glow : p.glow !== false,
     countdown: typeof s.countdown === "boolean" ? s.countdown : p.countdown,
     from: numOr(s.from, 0),
     to: numOr(s.to, 0),
@@ -419,7 +437,7 @@ function parts(ms) {
   return [Math.floor(s / 86400), Math.floor((s % 86400) / 3600), Math.floor((s % 3600) / 60), s % 60];
 }
 const pad = (n) => String(n).padStart(2, "0");
-function countdownHTML(end, now) {
+export function countdownHTML(end, now) {
   const [d, h, m, s] = parts(end - now);
   return (
     `<div class="ft-count" data-ft-end="${end}" role="timer" aria-label="Offer ends in">` +
@@ -458,6 +476,71 @@ export function startCountdowns() {
 export function ribbonHTML(t) {
   if (!t || !t.ribbon) return "";
   return `<span class="sc-fest ft-ribbon ft-ribbon--${t.id}" style="${themeVars(t)}">${SPARK}${esc(t.ribbon)}</span>`;
+}
+
+/* ---------------- store garland (toran) ----------------
+   A hanging festive band across the top of the course store.
+   The rope is a sampled sine so every pendant lands exactly on it.  */
+const PENDANT = {
+  diwali: `<svg viewBox="0 0 24 34" aria-hidden="true"><path d="M12 22c-6 0-10 2-10 5h20c0-3-4-5-10-5z" fill="currentColor"/><ellipse cx="12" cy="21" rx="9" ry="2.6" fill="currentColor" opacity=".35"/><path d="M12 2c2.6 4.2 4.6 6.3 4.6 9a4.6 4.6 0 0 1-9.2 0c0-2.7 2-4.8 4.6-9z" fill="var(--ft-flame,#FFC24A)"/><path d="M12 8c1.3 2.2 2.3 3.3 2.3 4.8a2.3 2.3 0 0 1-4.6 0c0-1.5 1-2.6 2.3-4.8z" fill="#fff" opacity=".85"/></svg>`,
+  holi: `<svg viewBox="0 0 24 34" aria-hidden="true"><path d="M12 2c3.8 5.6 6.4 9.4 6.4 12.6A6.4 6.4 0 0 1 12 21a6.4 6.4 0 0 1-6.4-6.4C5.6 11.4 8.2 7.6 12 2z" fill="currentColor"/><circle cx="9.4" cy="14" r="2" fill="#fff" opacity=".45"/><path d="M8 26h8l-1.4 5H9.4z" fill="currentColor" opacity=".6"/></svg>`,
+  christmas: `<svg viewBox="0 0 24 34" aria-hidden="true"><path d="M12 2v30M3.6 7.5l16.8 17M20.4 7.5 3.6 24.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M12 6.5 14 5l-1.4 2.6L15 8.6l-2.6.4-.6 2.6-.8-2.6-2.6-.4 2.4-1L9.4 5z" fill="currentColor"/></svg>`,
+  newyear: `<svg viewBox="0 0 24 34" aria-hidden="true"><path d="M12 2l2.1 6.6L21 11l-6.9 2.4L12 20l-2.1-6.6L3 11l6.9-2.4z" fill="currentColor"/><circle cx="19.5" cy="5" r="1.7" fill="currentColor" opacity=".7"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor" opacity=".7"/></svg>`,
+  sale: `<svg viewBox="0 0 24 34" aria-hidden="true"><path d="M13.6 2H6a2 2 0 0 0-2 2v7.6L17.2 24.8a2.4 2.4 0 0 0 3.4-3.4L7.4 8.4z" fill="currentColor"/><circle cx="7.6" cy="7.6" r="1.9" fill="#fff"/><path d="m4 21 4.4-1 3.2 3.2-1.8 4.4-4.6-2.2z" fill="currentColor" opacity=".75"/></svg>`
+};
+
+export function garlandHTML(t) {
+  if (!t || !t.garland) return "";
+  const W = 1200;
+  const H = 78;
+  const ropeY = (x) => 16 + 9 * Math.sin((x / W) * Math.PI * 3) + 5 * Math.sin((x / W) * Math.PI * 7 + 1.1);
+  let d = "";
+  for (let x = 0; x <= W; x += 20) d += (x ? "L" : "M") + x + " " + ropeY(x).toFixed(1) + " ";
+  let beads = "";
+  for (let x = 26; x < W; x += 58) beads += `<circle cx="${x}" cy="${ropeY(x).toFixed(1)}" r="2.9"/>`;
+  const pend = PENDANT[t.id] || PENDANT.sale;
+  const n = 13;
+  let drops = "";
+  for (let i = 0; i < n; i++) {
+    const x = 54 + (i * (W - 108)) / (n - 1);
+    drops +=
+      `<span class="ft-tp ft-tp--${i % 3}" style="left:${((x / W) * 100).toFixed(3)}%;top:${ropeY(x).toFixed(1)}px;` +
+      `--dl:${(-i * 0.16).toFixed(2)}s">${pend}</span>`;
+  }
+  return (
+    `<div class="ft-toran ft-toran--${t.id}" style="${themeVars(t)}" aria-hidden="true">` +
+    `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" focusable="false">` +
+    `<defs><linearGradient id="ftRopeG" x1="0" y1="0" x2="1" y2="0">` +
+    `<stop offset="0" stop-color="var(--ft-ac)"/><stop offset=".5" stop-color="var(--ft-c2)"/><stop offset="1" stop-color="var(--ft-ac)"/>` +
+    `</linearGradient></defs>` +
+    `<path d="${d}" fill="none" stroke="url(#ftRopeG)" stroke-width="4.5" stroke-linecap="round"/>` +
+    `<g class="ft-toran__beads" fill="var(--ft-ac)">${beads}</g>` +
+    `</svg>` +
+    drops +
+    `</div>`
+  );
+}
+
+/* ---------------- offer ticker ----------------
+   items: [{ text, tone }] — tone is pill | dot | coin | tag   */
+export function marqueeHTML(items, t = null, { label = "Offers" } = {}) {
+  const list = (items || []).filter((i) => i && i.text).slice(0, 14);
+  if (!list.length) return "";
+  const row =
+    `<div class="sp-tick__row">` +
+    list
+      .map(
+        (i) =>
+          `<span class="sp-tick__i is-${esc(i.tone || "dot")}"><i aria-hidden="true"></i>${esc(i.text)}</span>`
+      )
+      .join("") +
+    `</div>`;
+  return (
+    `<div class="sp-tick${t ? " is-fest" : ""}"${t ? ` style="${themeVars(t)}"` : ""} role="marquee" aria-label="${esc(label)}">` +
+    row +
+    row +
+    `</div>`
+  );
 }
 
 /* ---------------- particle effects ---------------- */

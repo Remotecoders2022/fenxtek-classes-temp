@@ -363,6 +363,15 @@
             "ribbon": {
               ".validate": "newData.isString() && newData.val().length <= 24"
             },
+            "marquee": {
+              ".validate": "newData.isString() && newData.val().length <= 160"
+            },
+            "garland": {
+              ".validate": "newData.isBoolean()"
+            },
+            "glow": {
+              ".validate": "newData.isBoolean()"
+            },
             "countdown": {
               ".validate": "newData.isBoolean()"
             },
