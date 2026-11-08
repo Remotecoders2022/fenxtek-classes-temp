@@ -270,6 +270,30 @@
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
         }
       },
+      "fonts": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "scale": {
+          ".validate": "newData.isNumber() && newData.val() >= 40 && newData.val() <= 200"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "pages": {
+          "$page": {
+            ".validate": "$page.matches(/^[a-z0-9]{1,24}$/)",
+            "$item": {
+              ".validate": "$item.matches(/^[a-zA-Z0-9]{1,40}$/)",
+              "s": {
+                ".validate": "newData.isNumber() && newData.val() >= 8 && newData.val() <= 200"
+              },
+              "f": {
+                ".validate": "newData.isString() && newData.val().matches(/^(body|display|mono|hindi)$/)"
+              }
+            }
+          }
+        }
+      },
       "storeTheme": {
         ".read": true,
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",

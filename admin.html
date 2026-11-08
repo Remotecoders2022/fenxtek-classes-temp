@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="assets/css/portal.css?v=8">
 <link rel="stylesheet" href="assets/css/store.css?v=14">
 <link rel="stylesheet" href="assets/css/fest.css?v=1">
-<link rel="stylesheet" href="assets/css/admin.css?v=5">
+<link rel="stylesheet" href="assets/css/admin.css?v=6">
 <noscript><style>.preloader{display:none}[data-reveal]{opacity:1;transform:none}.menu{display:none}</style></noscript>
 </head>
 <body data-page="admin" class="crm-body">
@@ -75,6 +75,7 @@
             <button class="crm-nav" type="button" data-crm-tab="achievements"><svg><use href="#i-award"/></svg><span class="crm-nav-t">Achievements</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="faqs"><svg><use href="#i-info"/></svg><span class="crm-nav-t">FAQs</span><span class="crm-badge"></span></button>
             <button class="crm-nav" type="button" data-crm-tab="testimonials"><svg><use href="#i-user"/></svg><span class="crm-nav-t">Testimonials</span><span class="crm-badge"></span></button>
+            <button class="crm-nav" type="button" data-crm-tab="fonts"><svg><use href="#i-zoom"/></svg><span class="crm-nav-t">Fonts &amp; text sizes</span><span class="crm-badge"></span></button>
           </div>
         </nav>
         <div class="crm-side-foot">
@@ -499,6 +500,59 @@
             </div>
           </section>
 
+          <!-- FONTS & TEXT SIZES -->
+          <section class="crm-panel" data-crm-panel="fonts" hidden>
+            <div class="crm-panel-head">
+              <div>
+                <h2>Fonts &amp; text sizes</h2>
+                <p>Set the size in pixels — and the font — of every section on every page. Use <b>Body text size</b> or <b>Text scale</b> to change the whole website at once; everything below is page by page. Changes save themselves and show up in the live preview.</p>
+              </div>
+              <div class="crm-top-actions">
+                <a class="p-btn p-btn--ghost p-btn--sm" id="ftOpen" href="index.html" target="_blank" rel="noopener"><span>Open page</span><svg><use href="#i-arr-ur"/></svg></a>
+                <button class="p-btn p-btn--lime p-btn--sm" id="ftSave" type="button" disabled><span>Save changes</span><svg><use href="#i-check"/></svg></button>
+              </div>
+            </div>
+
+            <div class="crm-card ft-global" id="ftGlobal"><p class="ft-note">Loading font settings…</p></div>
+
+            <div class="ft-toolbar">
+              <div class="em-chips ft-chips" id="ftPages"></div>
+              <input class="p-input as-grow" id="ftQ" type="search" placeholder="Find a section…" aria-label="Find a section">
+              <span class="crm-save-state" id="ftCount"></span>
+            </div>
+
+            <div class="ft-work">
+              <div class="ft-editor">
+                <div class="crm-card ft-page-head" id="ftPageHead"></div>
+                <div class="crm-card ft-list" id="ftList"><p class="ft-note">Loading…</p></div>
+                <div class="crm-card ft-foot">
+                  <span class="crm-save-state" id="ftState">Loading…</span>
+                  <div class="ft-foot-acts">
+                    <button class="p-btn p-btn--ghost p-btn--sm" id="ftResetPage" type="button"><span>Reset this page</span><svg><use href="#i-refresh"/></svg></button>
+                    <button class="p-btn p-btn--ghost p-btn--sm" id="ftResetAll" type="button"><span>Reset everything</span><svg><use href="#i-trash"/></svg></button>
+                  </div>
+                </div>
+              </div>
+              <aside class="ft-pv">
+                <div class="ft-pv-head">
+                  <span class="th-k">Live preview</span>
+                  <div class="ft-seg">
+                    <button class="ft-seg-btn is-on" type="button" data-ft-dev="desktop">Desktop</button>
+                    <button class="ft-seg-btn" type="button" data-ft-dev="mobile">Mobile</button>
+                  </div>
+                  <div class="ft-seg">
+                    <button class="ft-seg-btn is-on" type="button" data-ft-zoom="fit">Fit</button>
+                    <button class="ft-seg-btn" type="button" data-ft-zoom="50">50%</button>
+                    <button class="ft-seg-btn" type="button" data-ft-zoom="100">100%</button>
+                  </div>
+                  <span class="ft-zoom-label" id="ftZoomLabel">31%</span>
+                </div>
+                <div class="ft-pv-stage" id="ftStage"></div>
+                <p class="ft-pv-note"><svg><use href="#i-info"/></svg><span>The real page, updating with your sizes as you type.</span></p>
+              </aside>
+            </div>
+          </section>
+
           <!-- STUDENTS -->
           <section class="crm-panel" data-crm-panel="students" hidden>
             <div class="crm-panel-head">
@@ -870,6 +924,6 @@
 <script src="assets/js/chrome.js?v=14"></script>
 <script src="assets/js/site.js?v=5"></script>
 <script type="module" src="assets/js/content.js?v=15"></script>
-<script type="module" src="assets/js/admin.js?v=22"></script>
+<script type="module" src="assets/js/admin.js?v=23"></script>
 </body>
 </html>
