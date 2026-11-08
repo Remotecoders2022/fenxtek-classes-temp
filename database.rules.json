@@ -268,6 +268,21 @@
         },
         "buyMax": {
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+        },
+        "typingOn": {
+          ".validate": "newData.isBoolean()"
+        },
+        "typingCoins": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 500"
+        },
+        "typingMinWpm": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 300"
+        },
+        "typingDailyMax": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000"
+        },
+        "typingNote": {
+          ".validate": "newData.isString() && newData.val().length <= 300"
         }
       },
       "fonts": {
@@ -919,7 +934,7 @@
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && data.exists() && newData.exists() && newData.child('lastSpend').child('coins').isNumber() && newData.child('lastSpend').child('coins').val() > 0 && newData.child('lastSpend').child('orderId').isString() && newData.child('lastSpend').child('orderId').val() !== data.child('lastSpend').child('orderId').val() && newData.child('balance').val() === data.child('balance').val() - newData.child('lastSpend').child('coins').val() && newData.child('spent').val() === (data.child('spent').isNumber() ? data.child('spent').val() : 0) + newData.child('lastSpend').child('coins').val() && newData.child('earned').val() === data.child('earned').val() && !root.child('orders').child($uid).child(newData.child('lastSpend').child('orderId').val()).exists() && newData.parent().parent().child('orders').child($uid).child(newData.child('lastSpend').child('orderId').val()).child('coins').val() === newData.child('lastSpend').child('coins').val()",
+        ".write": "(auth != null && auth.uid === $uid && data.exists() && newData.exists() && newData.child('lastSpend').child('coins').isNumber() && newData.child('lastSpend').child('coins').val() > 0 && newData.child('lastSpend').child('orderId').isString() && newData.child('lastSpend').child('orderId').val() !== data.child('lastSpend').child('orderId').val() && newData.child('balance').val() === data.child('balance').val() - newData.child('lastSpend').child('coins').val() && newData.child('spent').val() === (data.child('spent').isNumber() ? data.child('spent').val() : 0) + newData.child('lastSpend').child('coins').val() && newData.child('earned').val() === data.child('earned').val() && !root.child('orders').child($uid).child(newData.child('lastSpend').child('orderId').val()).exists() && newData.parent().parent().child('orders').child($uid).child(newData.child('lastSpend').child('orderId').val()).child('coins').val() === newData.child('lastSpend').child('coins').val()) || (auth != null && auth.uid === $uid && newData.exists() && newData.child('lastEarn').child('type').val() === 'typing' && newData.child('lastEarn').child('coins').isNumber() && newData.child('lastEarn').child('coins').val() > 0 && newData.child('lastEarn').child('testId').isString() && root.child('typing').child($uid).child(newData.child('lastEarn').child('testId').val()).exists() && root.child('typing').child($uid).child(newData.child('lastEarn').child('testId').val()).child('coins').val() === newData.child('lastEarn').child('coins').val() && root.child('typing').child($uid).child(newData.child('lastEarn').child('testId').val()).child('at').val() === newData.child('lastEarn').child('at').val() && root.child('site/rewards/enabled').val() === true && root.child('site/rewards/typingOn').val() === true && newData.child('lastEarn').child('coins').val() <= root.child('site/rewards/typingCoins').val() && newData.child('spent').val() === (data.exists() ? data.child('spent').val() : 0) && newData.child('balance').val() === (data.exists() ? data.child('balance').val() : 0) + newData.child('lastEarn').child('coins').val() && newData.child('earned').val() === (data.exists() && data.child('earned').isNumber() ? data.child('earned').val() : 0) + newData.child('lastEarn').child('coins').val())",
         ".validate": "newData.hasChildren(['balance']) && newData.child('balance').isNumber() && newData.child('balance').val() >= 0",
         "balance": {
           ".validate": "newData.isNumber() && newData.val() >= 0"
@@ -949,6 +964,23 @@
         },
         "$other": {
           ".validate": "false"
+        },
+        "lastEarn": {
+          "type": {
+            ".validate": "newData.isString() && newData.val() === 'typing'"
+          },
+          "coins": {
+            ".validate": "newData.isNumber() && newData.val() > 0"
+          },
+          "testId": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": "false"
+          }
         }
       }
     },
@@ -958,8 +990,8 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$tx": {
-          ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.child('type').val() === 'spend' && newData.child('orderId').val() === $tx && newData.child('coins').val() < 0 && newData.child('coins').val() === 0 - newData.parent().parent().parent().child('orders').child($uid).child($tx).child('coins').val() && newData.parent().parent().parent().child('wallets').child($uid).child('lastSpend').child('orderId').val() === $tx",
-          ".validate": "newData.hasChildren(['type', 'coins', 'at']) && newData.child('type').isString() && newData.child('type').val().matches(/^(referral|welcome|spend|refund|admin|debit|purchase)$/)",
+          ".write": "(auth != null && auth.uid === $uid && !data.exists() && newData.child('type').val() === 'spend' && newData.child('orderId').val() === $tx && newData.child('coins').val() < 0 && newData.child('coins').val() === 0 - newData.parent().parent().parent().child('orders').child($uid).child($tx).child('coins').val() && newData.parent().parent().parent().child('wallets').child($uid).child('lastSpend').child('orderId').val() === $tx) || (auth != null && auth.uid === $uid && !data.exists() && newData.child('type').val() === 'typing' && newData.child('coins').isNumber() && newData.child('coins').val() > 0 && root.child('site/rewards/enabled').val() === true && root.child('site/rewards/typingOn').val() === true && newData.child('coins').val() <= root.child('site/rewards/typingCoins').val() && root.child('typing').child($uid).child($tx).exists() && root.child('typing').child($uid).child($tx).child('coins').val() === newData.child('coins').val() && root.child('typing').child($uid).child($tx).child('at').val() === newData.child('at').val())",
+          ".validate": "newData.hasChildren(['type', 'coins', 'at']) && newData.child('type').isString() && newData.child('type').val().matches(/^(referral|welcome|spend|refund|admin|debit|purchase|typing)$/)",
           "coins": {
             ".validate": "newData.isNumber()"
           },
@@ -1140,6 +1172,99 @@
         },
         "$other": {
           ".validate": false
+        }
+      }
+    },
+    "typing": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".indexOn": [
+          "at"
+        ],
+        "$test": {
+          ".write": "auth != null && auth.uid === $uid && !data.exists()",
+          ".validate": "newData.hasChildren(['mode','wpm','acc','at'])",
+          "mode": {
+            ".validate": "newData.isString() && newData.val().matches(/^(en|kd|ins)$/)"
+          },
+          "wpm": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 400"
+          },
+          "raw": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 400"
+          },
+          "acc": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          },
+          "consistency": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          },
+          "chars": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+          },
+          "errors": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+          },
+          "duration": {
+            ".validate": "newData.isNumber() && newData.val() >= 10 && newData.val() <= 3600"
+          },
+          "coins": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= root.child('site/rewards/typingCoins').val()"
+          },
+          "pb": {
+            ".validate": "newData.isBoolean()"
+          },
+          "finished": {
+            ".validate": "newData.isBoolean()"
+          },
+          "at": {
+            ".validate": "newData.isNumber() && newData.val() <= now + 120000 && newData.val() >= now - 300000"
+          },
+          "$other": {
+            ".validate": "false"
+          }
+        }
+      }
+    },
+    "typingBest": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$mode": {
+          ".validate": "newData.hasChildren(['wpm'])",
+          "wpm": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 400"
+          },
+          "acc": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          },
+          "consistency": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          },
+          "chars": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+          },
+          "errors": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000"
+          },
+          "duration": {
+            ".validate": "newData.isNumber() && newData.val() >= 10 && newData.val() <= 3600"
+          },
+          "tests": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "id": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          },
+          "$other": {
+            ".validate": "false"
+          }
         }
       }
     }

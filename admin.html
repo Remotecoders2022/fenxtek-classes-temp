@@ -828,6 +828,17 @@
                 </div>
               </fieldset>
               <fieldset class="ar-group">
+                <legend><span class="ar-group-ic"><svg><use href="#i-keyboard"/></svg></span>Typing rewards</legend>
+                <p class="ar-group-sub">Students practise in the <b>Typing test</b> section (English, Kruti Dev and Mangal). Turn this on and they earn E-coins whenever they beat their own best speed.</p>
+                <label class="as-check" style="margin-bottom:12px"><input type="checkbox" name="typingOn">Students earn E-coins from typing</label>
+                <div class="crm-form">
+                  <label class="p-field"><span class="p-label">E-coins per personal best</span><input class="p-input" name="typingCoins" inputmode="numeric" placeholder="10"><span class="p-hint">0–500. A test pays 1 coin per 5 wpm above the minimum, up to this cap.</span></label>
+                  <label class="p-field"><span class="p-label">Minimum speed to earn (wpm)</span><input class="p-input" name="typingMinWpm" inputmode="numeric" placeholder="20"><span class="p-hint">Personal bests slower than this earn nothing.</span></label>
+                  <label class="p-field"><span class="p-label">Daily limit per student</span><input class="p-input" name="typingDailyMax" inputmode="numeric" placeholder="40"><span class="p-hint">0–5000. Counted from today’s typing rewards.</span></label>
+                  <label class="p-field p-field--wide"><span class="p-label">Note shown to students (optional)</span><input class="p-input" name="typingNote" maxlength="300" placeholder="Only personal bests above 20 wpm earn E-coins."></label>
+                </div>
+              </fieldset>
+              <fieldset class="ar-group">
                 <legend><span class="ar-group-ic"><svg><use href="#i-coin"/></svg></span>Redeeming</legend>
                 <div class="crm-form">
                   <label class="p-field"><span class="p-label">Max % of an order payable with E-coins</span><input class="p-input" name="maxRedeemPct" inputmode="numeric" placeholder="20"><span class="p-hint">0–90. The rest is paid by UPI / Razorpay.</span></label>

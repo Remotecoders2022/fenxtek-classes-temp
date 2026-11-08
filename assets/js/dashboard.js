@@ -93,6 +93,7 @@ import { downloadReceipt, receiptDataURL } from "./receipt.js?v=5";
 import { THEME_PATH, resolveTheme, heroHTML, fxHTML, ribbonHTML, themeVars, signature, startCountdowns, fxAllowed, setFxAllowed } from "./store-theme.js?v=1";
 import { emiConfig, emiPlans, planForCourse, emiEnrollUntil, emiSummary, emiItemOf, EMI_STATE, EMI_GRACE_DAYS } from "./emi.js?v=1";
 import { initNotify, refreshNotify } from "./notify.js?v=1";
+import { initTyping, vTyping } from "./typing.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -230,6 +231,7 @@ const ROUTES = [
   { id: "home", label: "Home", icon: "i-home", group: "Learn", tab: "Home", view: vHome, deps: ["courses", "enroll", "cart", "orders", "member", "plans", "batches", "content", "wallet", "rewards", "refs"] },
   { id: "my-courses", label: "My courses", icon: "i-book", group: "Learn", tab: "Learn", view: vMyCourses, deps: ["courses", "enroll", "orders", "cart", "cc", "progress"] },
   { id: "store", label: "Course store", icon: "i-bolt", group: "Learn", tab: "Store", view: vStore, deps: ["courses", "enroll", "cart", "offers", "plans", "member", "rewards", "theme"] },
+  { id: "typing", label: "Typing test", icon: "i-keyboard", group: "Learn", tab: "Typing", view: vTyping, deps: ["typing", "rewards", "wallet"] },
   { id: "live", label: "Live classes", icon: "i-live", group: "Learn", soon: true, blurb: "Join scheduled live dictation and doubt sessions right from the portal." },
   { id: "tests", label: "Test series", icon: "i-test", group: "Learn", soon: true, blurb: "Timed exam-pattern transcription tests with error analysis and rank." },
   { id: "notes", label: "Notes & PDFs", icon: "i-file", group: "Learn", soon: true, blurb: "Outlines, phrase lists and dictation passages, organised by course." },
@@ -1792,7 +1794,8 @@ function vHome() {
     (S.admin ? `<span class="sp-chip">${icon("i-shield")}Admin</span>` : "") +
     `</div>` +
     `<div class="sp-hero-cta"><a class="p-btn p-btn--lime" href="${activeOwned.length ? "#my-courses" : "#store"}">${icon(activeOwned.length ? "i-play" : "i-bolt")}<span>${activeOwned.length ? "Continue learning" : "Explore courses"}</span></a>` +
-    `<a class="p-btn p-btn--ghost sp-btn-onDark" href="#orders">${icon("i-receipt")}<span>Orders &amp; receipts</span></a></div>` +
+    `<a class="p-btn p-btn--ghost sp-btn-onDark" href="#orders">${icon("i-receipt")}<span>Orders &amp; receipts</span></a>` +
+    `<a class="p-btn p-btn--ghost sp-btn-onDark" href="#typing">${icon("i-keyboard")}<span>Typing test</span></a></div>` +
     `</div>` +
     `<div class="sp-hero-art" aria-hidden="true">${Array.from({ length: 22 }, (_, i) => `<i style="--h:${(0.25 + Math.abs(Math.sin(i * 1.6)) * 0.75).toFixed(2)};--d:${(-i * 0.08).toFixed(2)}s"></i>`).join("")}</div>` +
     `</section>` +
@@ -4588,6 +4591,15 @@ async function init() {
   } else {
     dbUpdate(`users/${user.uid}`, { lastLogin: Date.now() }).catch(() => {});
   }
+
+  initTyping({
+    uid: () => (S.user ? S.user.uid : ""),
+    toast: (m, k) => toast(m, k),
+    changed: (key) => changed(key),
+    rewards: () => S.rewards,
+    wallet: () => S.wallet,
+    walletTx: () => S.walletTx
+  });
 
   paintNav();
   paintUser();

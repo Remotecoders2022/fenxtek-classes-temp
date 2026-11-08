@@ -439,7 +439,22 @@ export function priceCart(items, applied, opts = {}) {
 
 /* ---------------- refer & earn (E-coins) ---------------- */
 
-export const REWARDS_DEFAULT = { enabled: false, referrerCoins: 100, refereeCoins: 50, maxRedeemPct: 20, minOrder: 0, buyOn: false, buyPct: 5, buyMax: 0 };
+export const REWARDS_DEFAULT = {
+  enabled: false,
+  referrerCoins: 100,
+  refereeCoins: 50,
+  maxRedeemPct: 20,
+  minOrder: 0,
+  buyOn: false,
+  buyPct: 5,
+  buyMax: 0,
+  /* E-coins for typing: off until the admin turns it on */
+  typingOn: false,
+  typingCoins: 10, // most E-coins one test can pay
+  typingMinWpm: 20, // below this a personal best earns nothing
+  typingDailyMax: 40, // soft daily cap, checked before crediting
+  typingNote: ""
+};
 export function rewardsFrom(v) {
   const r = v || {};
   const int = (x, d, lo, hi) => Math.min(hi, Math.max(lo, Math.round(x === undefined || x === null || x === "" || !isFinite(Number(x)) ? d : Number(x))));
@@ -452,6 +467,11 @@ export function rewardsFrom(v) {
     buyOn: r.buyOn === true, // purchase rewards (cashback in E-coins)
     buyPct: int(r.buyPct, REWARDS_DEFAULT.buyPct, 0, 50), // % of the amount paid
     buyMax: int(r.buyMax, 0, 0, 100000), // cap per order for the % reward, 0 = no cap
+    typingOn: r.typingOn === true, // students earn E-coins from typing personal bests
+    typingCoins: int(r.typingCoins, REWARDS_DEFAULT.typingCoins, 0, 500),
+    typingMinWpm: int(r.typingMinWpm, REWARDS_DEFAULT.typingMinWpm, 0, 300),
+    typingDailyMax: int(r.typingDailyMax, REWARDS_DEFAULT.typingDailyMax, 0, 5000),
+    typingNote: String(r.typingNote || ""),
     note: String(r.note || "")
   };
 }
