@@ -242,6 +242,13 @@ function fillForm() {
   f.buyPct.value = r.buyPct;
   f.buyMax.value = r.buyMax || "";
   f.note.value = r.note || "";
+  if (f.typingOn) {
+    f.typingOn.checked = r.typingOn;
+    f.typingCoins.value = r.typingCoins;
+    f.typingMinWpm.value = r.typingMinWpm;
+    f.typingDailyMax.value = r.typingDailyMax;
+    f.typingNote.value = r.typingNote || "";
+  }
   previewRules();
   const st = $("#arLive");
   if (st) {
@@ -269,6 +276,9 @@ function previewRules() {
         row("i-gift", `Friend gets <em>${fmt(n("refereeCoins"))}</em> E-coins`, "Welcome bonus, added with that first order.") +
         row("i-cart", buy ? `Buy a course → <em>${n("buyPct")}%</em> back in E-coins` : "Purchase rewards are off", buy ? `A ₹${ex.toLocaleString("en-IN")} course earns ${fmt(exCoins)} E-coins${n("buyMax") ? ` (max ${fmt(n("buyMax"))} per order)` : ""}. Courses with fixed coins override this.` : "Turn on to give E-coins back on every paid order, or set fixed coins on individual courses.") +
         row("i-coin", `Pay up to <em>${Math.min(90, n("maxRedeemPct"))}%</em> with E-coins`, "1 E-coin = ₹1 at checkout.") +
+        (f.typingOn && f.typingOn.checked
+          ? row("i-keyboard", `Typing personal best → up to <em>${fmt(n("typingCoins"))}</em> E-coins`, `Typing test (English, Kruti Dev, Mangal): 1 coin per 5 wpm above ${fmt(n("typingMinWpm"))} wpm, capped at ${fmt(n("typingDailyMax"))} a day.`)
+          : row("i-keyboard", "Typing rewards are off", "Students can still practise — they just don’t earn E-coins from it.")) +
         `</ul>`
       : `<p class="ar-pv-off">${icon("i-info")}<span>The program is off — students don’t see E-coins, invite links or rewards.</span></p>`);
 }
@@ -462,6 +472,11 @@ function bind() {
       buyPct: n("buyPct", 0, 50),
       buyMax: n("buyMax", 0, 100000),
       note: String(f.note.value || "").trim().slice(0, 300),
+      typingOn: f.typingOn ? f.typingOn.checked : false,
+      typingCoins: f.typingCoins ? n("typingCoins", 0, 500) : 0,
+      typingMinWpm: f.typingMinWpm ? n("typingMinWpm", 0, 300) : 0,
+      typingDailyMax: f.typingDailyMax ? n("typingDailyMax", 0, 5000) : 0,
+      typingNote: f.typingNote ? String(f.typingNote.value || "").trim().slice(0, 300) : "",
       updatedAt: Date.now()
     };
     busy(f.querySelector('button[type="submit"]'), "Saving…", async () => {
