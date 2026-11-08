@@ -25,6 +25,7 @@ import { initOverview, overviewOpened } from "./admin-overview.js?v=3";
 import { initTheme, themeTabOpened } from "./admin-theme.js?v=2";
 import { initEmi, emiTabOpened } from "./admin-emi.js?v=2";
 import { initNotifyAdmin, notifyTabOpened } from "./admin-notify.js?v=1";
+import { initFonts, fontsTabOpened } from "./admin-fonts.js?v=1";
 import { claimAdminInvite, ensureOwnerSeat, isSuperAdmin, isBuiltinSuper } from "./admin-claim.js?v=2";
 import { qrSvg, membershipPoster } from "./qr.js?v=1";
 
@@ -207,6 +208,7 @@ function openTab(name) {
   themeTabOpened(name);
   emiTabOpened(name);
   notifyTabOpened(name);
+  fontsTabOpened(name);
   if (history.replaceState) history.replaceState(null, "", "#" + name);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -2306,6 +2308,11 @@ async function init() {
     initNotifyAdmin({ user, showAlert, withBusy });
   } catch (err) {
     console.warn("[admin] notifications init", err);
+  }
+  try {
+    initFonts({ user, showAlert, withBusy });
+  } catch (err) {
+    console.warn("[admin] fonts init", err);
   }
   /* the owner gets the super-admin seat; super admins see the Admin access link */
   (async () => {
