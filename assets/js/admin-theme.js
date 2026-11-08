@@ -9,7 +9,7 @@
    ============================================================ */
 import { dbWatch, dbUpdate, dbSet, friendlyError } from "./firebase.js?v=5";
 import { PATH, esc, money, num, coursesFrom } from "./commerce.js?v=5";
-import { THEME_PATH, THEME_IDS, PRESETS, EFFECTS, LEVELS, themeOf, resolveTheme, themeStatus, heroHTML, fxHTML, ribbonHTML, themeVars, shortDate, startCountdowns } from "./store-theme.js?v=1";
+import { THEME_PATH, THEME_IDS, PRESETS, EFFECTS, LEVELS, themeOf, resolveTheme, themeStatus, heroHTML, fxHTML, ribbonHTML, themeVars, garlandHTML, marqueeHTML, shortDate, startCountdowns } from "./store-theme.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -238,6 +238,11 @@ function openEditor(id) {
       .map((l) => `<label><input type="radio" name="level" value="${l}"${raw.level === l ? " checked" : ""}><span>${LEVELS[l]}</span></label>`)
       .join("")}</div></div>` +
     `<label class="p-field"><span class="p-label">Course card ribbon</span><input class="p-input" name="ribbon" maxlength="24" value="${esc(saved.ribbon !== undefined ? saved.ribbon : p.ribbon)}" placeholder="Leave blank for none"></label>` +
+    `<label class="p-field p-field--wide"><span class="p-label">Offer ticker line</span><input class="p-input" name="marquee" maxlength="160" value="${esc(field("marquee"))}" placeholder="e.g. Festive prices · instant access"><span class="p-hint">Scrolls under the banner with your live offers. Leave blank to show offers and perks only.</span></label>` +
+    `<div class="p-field p-field--wide"><span class="p-label">Store dressing</span><div class="th-switches">` +
+    `<label class="as-check th-check"><input type="checkbox" name="garland"${raw.garland ? " checked" : ""}>Hanging garland above the banner</label>` +
+    `<label class="as-check th-check"><input type="checkbox" name="glow"${raw.glow ? " checked" : ""}>Ambient festival light on the store</label>` +
+    `</div><span class="p-hint">At intensity <b>Festive</b> the ticker, category rail, count-down bar and cards also pick up the theme.</span></div>` +
     `<label class="as-check th-check"><input type="checkbox" name="countdown"${raw.countdown ? " checked" : ""}>Show a countdown to the end date</label>` +
     `</div></fieldset>` +
     /* schedule */
@@ -344,6 +349,9 @@ function formValues() {
     effect: f.effect.value,
     level: Number((f.querySelector('input[name="level"]:checked') || {}).value || 2),
     ribbon: f.ribbon.value.trim(),
+    marquee: f.marquee.value.trim(),
+    garland: f.garland.checked,
+    glow: f.glow.checked,
     countdown: f.countdown.checked,
     on: f.on.checked
   };
@@ -367,7 +375,17 @@ function preview() {
   frame.innerHTML =
     `<div class="th-fbar" style="${themeVars(shown)}"><span class="th-fbar-t"><small>Learn</small>Course store</span><i></i><i></i></div>` +
     `<div class="th-fbody">` +
+    garlandHTML(shown) +
     heroHTML(shown, { preview: true }) +
+    marqueeHTML(
+      [
+        shown.coupon ? { tone: "pill", text: `${shown.coupon} · festive offer` } : null,
+        shown.marquee ? { tone: "spark", text: shown.marquee } : null,
+        { tone: "dot", text: "Instant access the moment payment lands" },
+        { tone: "coin", text: "Members get an extra 10% off every course" }
+      ].filter(Boolean),
+      shown
+    ) +
     `<div class="th-mgrid">${card(c.title, num(c.price), num(c.mrp), "#6A5CFF")}${card((T.courses[1] || {}).title || "Hindi Typing Pro — Mangal & Kruti Dev", num((T.courses[1] || {}).price) || 499, num((T.courses[1] || {}).mrp) || 799, "#1FC8F5")}${card((T.courses[2] || {}).title || "High Court Steno 80 WPM — English", num((T.courses[2] || {}).price) || 999, num((T.courses[2] || {}).mrp) || 1499, "#9BD21F")}</div>` +
     `</div>` +
     fxHTML(shown, { contained: true });

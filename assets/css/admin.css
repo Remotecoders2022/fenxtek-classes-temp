@@ -373,6 +373,11 @@ button.ov-kpi:hover { transform: translateY(-2px); border-color: var(--ad-line-2
 .th-seg button svg { width: 13px; height: 13px; }
 .th-seg--sm button { padding: 7px 10px; font-size: 12px; }
 .th-check { align-self: end; padding-bottom: 12px; }
+.th-switches { display: grid; gap: 8px; }
+.th-switches .th-check { align-self: start; padding-bottom: 0; }
+.th-fbody .ft-toran { margin-top: -6px; }
+.th-fbody .sp-tick { margin-bottom: 14px; }
+.th-fbody .sp-tick__row { animation-duration: 26s; }
 .th-actions { flex-wrap: wrap; gap: 10px; }
 .th-actions .as-grow { flex: 1; }
 

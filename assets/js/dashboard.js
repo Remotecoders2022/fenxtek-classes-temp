@@ -90,7 +90,7 @@ import {
   orderEarnCoins
 } from "./commerce.js?v=5";
 import { downloadReceipt, receiptDataURL } from "./receipt.js?v=5";
-import { THEME_PATH, resolveTheme, heroHTML, fxHTML, ribbonHTML, themeVars, signature, startCountdowns, fxAllowed, setFxAllowed } from "./store-theme.js?v=1";
+import { THEME_PATH, resolveTheme, heroHTML, fxHTML, ribbonHTML, themeVars, signature, startCountdowns, countdownHTML, garlandHTML, marqueeHTML, fxAllowed, setFxAllowed } from "./store-theme.js?v=1";
 import { emiConfig, emiPlans, planForCourse, emiEnrollUntil, emiSummary, emiItemOf, EMI_STATE, EMI_GRACE_DAYS } from "./emi.js?v=1";
 import { initNotify, refreshNotify } from "./notify.js?v=1";
 import { initTyping, vTyping } from "./typing.js?v=1";
@@ -649,6 +649,10 @@ function applyFest() {
   const on = Boolean(S.fest && current.route && FEST_ROUTES.has(current.route.id));
   if (on) {
     html.dataset.fest = S.fest.id;
+    /* how far the festival spreads through the store: 1 subtle → 3 full */
+    html.dataset.festLevel = String(S.fest.level || 2);
+    if (S.fest.glow) html.dataset.festGlow = "1";
+    else delete html.dataset.festGlow;
     themeVars(S.fest)
       .split(";")
       .forEach((kv) => {
@@ -657,6 +661,8 @@ function applyFest() {
       });
   } else if (html.dataset.fest) {
     delete html.dataset.fest;
+    delete html.dataset.festLevel;
+    delete html.dataset.festGlow;
     ["--ft-c1", "--ft-c2", "--ft-ac", "--ft-tx"].forEach((k) => html.style.removeProperty(k));
   }
   let layer = document.getElementById("ftFx");
@@ -748,6 +754,7 @@ function courseCard(c) {
       `</div>`;
   return (
     `<article class="sc${active ? " is-owned" : ""}${inCart ? " is-incart" : ""}" data-id="${esc(c.id)}" style="--acc:${acc.a};--acc2:${acc.b};--acc-t:${acc.text || acc.b}">` +
+    `<div class="sc-media-box">` +
     `<a class="sc-media" href="${href}" aria-label="${esc(c.title)}">${cover(c, "md")}` +
     (c.badge || a
       ? `<span class="sc-tags">` +
@@ -758,6 +765,13 @@ function courseCard(c) {
     (off && !active ? `<span class="sc-off"><b>${off}%</b><small>off</small></span>` : "") +
     (S.fest && !active ? ribbonHTML(S.fest) : "") +
     `<span class="sc-shine" aria-hidden="true"></span></a>` +
+    (!active ? `<span class="sc-fast">${icon("i-bolt")}Instant access</span>` : "") +
+    (!active
+      ? inCart
+        ? `<a class="sc-add is-on" href="#cart" title="In your cart" aria-label="In your cart">${icon("i-check")}<span>Added</span></a>`
+        : `<button class="sc-add" type="button" data-add="${esc(c.id)}" title="Add to cart" aria-label="Add ${esc(c.title)} to cart"><b>ADD</b>${icon("i-plus")}</button>`
+      : "") +
+    `</div>` +
     `<div class="sc-body">` +
     `<div class="sc-kick"><span>${esc(c.category)}</span><i aria-hidden="true"></i><span>${esc(c.language)}</span></div>` +
     `<a class="sc-title" href="${href}">${esc(c.title)}</a>` +
@@ -1937,29 +1951,80 @@ function vMyCourses() {
   };
 }
 
+/* ticker copy: festive coupon → live offers → festival line → perks → trust */
+function storeTicker(offer) {
+  const fest = S.fest;
+  const out = [];
+  const perk = perkTop();
+  if (fest && fest.coupon) out.push({ tone: "pill", text: `${fest.coupon} · festive offer, tap the banner to copy` });
+  if (offer) out.push({ tone: "tag", text: `${offer.code} — ${offer.label}` });
+  S.offers
+    .filter((o) => o !== offer && !offerLocked(o) && (!fest || o.code !== fest.coupon))
+    .slice(0, 3)
+    .forEach((o) => out.push({ tone: "tag", text: `${o.code} — ${o.label}` }));
+  if (fest && fest.marquee) out.push({ tone: "spark", text: fest.marquee });
+  if (perk) out.push({ tone: "coin", text: `Members get an extra ${perk.courseOff}% off every course` });
+  out.push({ tone: "dot", text: "Instant access the moment payment lands" });
+  out.push({ tone: "dot", text: "Hindi + English · Kruti Dev & Mangal friendly" });
+  out.push({ tone: "dot", text: "Free demo class · call the academy any day" });
+  return out;
+}
+
+/* Blinkit-ish category rail — an icon tile per department */
+const CAT_ICON = [
+  [/steno|shorthand|dictation/i, "i-keyboard"],
+  [/typ(e|ing)|kruti|mangal/i, "i-key"],
+  [/computer|ccc|dca|ms ?office/i, "i-book"],
+  [/exam|test|mock|paper/i, "i-test"],
+  [/live|class|batch/i, "i-live"],
+  [/english|grammar|speaking/i, "i-megaphone"],
+  [/court|law|legal/i, "i-court"],
+  [/skill|career|job/i, "i-award"]
+];
+const catIcon = (name) => (CAT_ICON.find(([re]) => re.test(String(name || ""))) || [, "i-award"])[1];
+
 function vStore() {
   const f = S.filters;
   const cats = Array.from(new Set(S.courses.map((c) => c.category)));
   const offer = S.offers.find((o) => !offerLocked(o) && !(S.fest && S.fest.coupon === o.code)) || null;
+  const fest = S.fest || null;
+  const cd = fest && fest.countdown && fest.to && fest.to > Date.now() ? countdownHTML(fest.to, Date.now()) : "";
   const html =
+    `<div class="sp-store${fest ? " is-fest" : ""}"${fest ? ` style="${themeVars(fest)}"` : ""}>` +
+    (fest && fest.garland ? garlandHTML(fest) : "") +
     festHero() +
     (offer
       ? `<div class="sp-offer${offer.members ? " is-member" : ""}">${icon(offer.members ? "i-crown" : "i-gift")}<span>${offer.members ? "Members: use" : "Use"} code <b>${esc(offer.code)}</b> — ${esc(offer.label)}</span><button type="button" class="sp-offer-copy" data-copy="${esc(offer.code)}">${icon("i-copy")}Copy</button></div>`
       : "") +
     memberPromo("store") +
-    `<div class="sp-toolbar" data-sp-keep>` +
+    marqueeHTML(storeTicker(offer), fest) +
+    `<div class="sp-stickybar" data-sp-keep>` +
+    `<div class="sp-toolbar">` +
     `<label class="sp-search">${icon("i-search")}<input type="search" id="spQ" placeholder="Search courses, exams, speeds…" value="${esc(f.q)}" autocomplete="off"></label>` +
     `<label class="sp-sort">${icon("i-filter")}<select id="spSort" aria-label="Sort">` +
     [["featured", "Featured"], ["price-asc", "Price: low to high"], ["price-desc", "Price: high to low"], ["off", "Biggest discount"], ["new", "Newest"]]
       .map(([v, l]) => `<option value="${v}"${f.sort === v ? " selected" : ""}>${l}</option>`)
       .join("") +
     `</select></label></div>` +
+    (cd ? `<div class="sp-cd">${icon("i-bolt")}<span class="sp-cd-l">Offer ends in</span>${cd}</div>` : "") +
+    `</div>` +
     (cats.length > 1
-      ? `<div class="sp-chips" role="tablist">${["all", ...cats]
-          .map((c) => `<button type="button" class="sp-fchip${f.cat === c ? " is-on" : ""}" data-cat="${esc(c)}">${esc(c === "all" ? "All courses" : c)}</button>`)
-          .join("")}</div>`
+      ? `<div class="sp-cats" role="tablist" aria-label="Course categories">` +
+        [["all", "All courses"], ...cats.map((c) => [c, c])]
+          .map(([v, label]) => {
+            const n = v === "all" ? S.courses.length : S.courses.filter((c) => c.category === v).length;
+            return (
+              `<button type="button" class="sp-cat${f.cat === v ? " is-on" : ""}" data-cat="${esc(v)}" role="tab" aria-selected="${f.cat === v}">` +
+              `<span class="sp-cat-ic">${icon(v === "all" ? "i-grid" : catIcon(v))}</span>` +
+              `<span class="sp-cat-t"><b>${esc(label === "all" ? "All courses" : label)}</b><small>${n} item${n === 1 ? "" : "s"}</small></span>` +
+              `</button>`
+            );
+          })
+          .join("") +
+        `</div>`
       : "") +
-    `<div id="spStoreGrid"></div>`;
+    `<div id="spStoreGrid"></div>` +
+    `</div>`;
   return {
     title: "Course store",
     crumb: "Learn",
