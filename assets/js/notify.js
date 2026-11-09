@@ -266,6 +266,12 @@ function paintPanel(list) {
       ? `<span class="nt-foot-note is-quiet">${icon("i-info")}Alerts are blocked in browser settings</span>`
       : `<button type="button" class="nt-push${ps === "on" ? " is-on" : ""}" data-nt-push><span class="nt-switch" aria-hidden="true"></span>Alerts on this device</button>`) +
     `</div>`;
+  /* on narrow screens the tab strip scrolls — keep the chosen one in sight */
+  const strip = $(".nt-tabs", p);
+  if (strip && strip.scrollWidth > strip.clientWidth + 4) {
+    const on = $(".nt-tab.is-on", strip);
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
 }
 
 /* grouped by when it landed — sticky labels inside the scrolling list */
