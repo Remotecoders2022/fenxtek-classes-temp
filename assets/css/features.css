@@ -1,0 +1,164 @@
+/* ============================================================
+   Features page (features.html)
+   A standalone index of everything FenxTek does — public site,
+   student portal, admin CRM and the platform underneath.
+   ============================================================ */
+
+/* ---------- hero map (right column of the page hero) ---------- */
+.ft-map{
+  border:1px solid var(--line-d);border-radius:var(--r);
+  background:rgba(255,255,255,.04);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  padding:clamp(18px,2vw,24px);
+}
+.ft-map-k{
+  display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:rgba(255,255,255,.45)
+}
+.ft-map ol{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:1px}
+.ft-map li{border-top:1px solid rgba(255,255,255,.08)}
+.ft-map li:first-child{border-top:0}
+.ft-map a{
+  display:flex;align-items:baseline;gap:12px;padding:8px 0;
+  font-size:14.5px;color:rgba(255,255,255,.78);
+  transition:color .3s var(--ease),padding-left .3s var(--ease)
+}
+.ft-map a:hover,.ft-map a:focus-visible{color:#fff;padding-left:6px}
+.ft-map a em{
+  flex:none;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  color:var(--lime);font-style:normal;width:2.2em
+}
+.ft-map a span{flex:1}
+.ft-map a i{font-style:normal;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.3)}
+
+/* ---------- section shell ---------- */
+.ft-sec{padding:clamp(56px,7vw,104px) 0;border-top:1px solid var(--line)}
+.ft-sec:first-of-type{border-top:0}
+.ft-sec--ink{background:var(--ink);color:var(--paper);border-top:0}
+.ft-sec--ink .sec-head{border-top-color:var(--line-d)}
+.ft-sec--ink .sec-note{color:rgba(255,255,255,.55)}
+.ft-sec--ink .sec-note b{color:var(--lime)}
+.ft-sec--ink .lead{color:var(--muted-d)}
+
+.ft-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:26px}
+@media (max-width:1080px){.ft-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:660px){.ft-grid{grid-template-columns:minmax(0,1fr)}}
+
+.ft-card{
+  position:relative;display:flex;flex-direction:column;gap:12px;
+  padding:clamp(20px,2vw,26px);border:1px solid var(--line);border-radius:var(--r);
+  background:#FBF9F4;scroll-margin-top:120px;
+  transition:transform .5s var(--ease),border-color .4s,box-shadow .5s var(--ease)
+}
+.ft-card:hover{transform:translateY(-4px);border-color:rgba(11,11,16,.26);box-shadow:0 26px 50px -34px rgba(11,11,16,.4)}
+.ft-sec--ink .ft-card{background:rgba(255,255,255,.045);border-color:var(--line-d)}
+.ft-sec--ink .ft-card:hover{border-color:rgba(255,255,255,.3);box-shadow:0 26px 50px -34px rgba(0,0,0,.7)}
+
+.ft-card-head{display:flex;align-items:center;gap:12px}
+.ft-ic{
+  flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  background:rgba(90,75,255,.09);color:var(--violet);border:1px solid rgba(90,75,255,.18)
+}
+.ft-ic svg{width:18px;height:18px}
+.ft-ic--lime{background:rgba(217,255,87,.14);color:#5c6b00;border-color:rgba(217,255,87,.3)}
+.ft-ic--sky{background:rgba(143,227,255,.16);color:#0b5a72;border-color:rgba(143,227,255,.34)}
+.ft-sec--ink .ft-ic{background:rgba(217,255,87,.12);color:var(--lime);border-color:rgba(217,255,87,.24)}
+.ft-sec--ink .ft-ic--sky,.ft-sec--ink .ft-ic--lime{background:rgba(143,227,255,.12);color:var(--sky);border-color:rgba(143,227,255,.24)}
+
+.ft-card-n{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--muted)}
+.ft-sec--ink .ft-card-n{color:rgba(255,255,255,.35)}
+
+.ft-card h3{font-size:clamp(18px,1.6vw,21px);font-weight:600;letter-spacing:-.025em;line-height:1.2}
+.ft-card h3 em{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.01em}
+.ft-card p.ft-sub{margin:0;font-size:14.5px;line-height:1.6;color:var(--muted)}
+.ft-sec--ink .ft-card p.ft-sub{color:var(--muted-d)}
+
+.ft-list{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:7px}
+.ft-list li{position:relative;padding-left:22px;font-size:14px;line-height:1.5;color:var(--ink)}
+.ft-sec--ink .ft-list li{color:rgba(255,255,255,.86)}
+.ft-list li::before{
+  content:"";position:absolute;left:2px;top:.55em;width:9px;height:5px;
+  border-left:1.8px solid var(--violet);border-bottom:1.8px solid var(--violet);
+  transform:rotate(-45deg)
+}
+.ft-sec--ink .ft-list li::before{border-color:var(--lime)}
+.ft-list li b{font-weight:600}
+.ft-list li code{
+  font-family:var(--mono);font-size:.86em;padding:1px 5px;border-radius:5px;
+  background:rgba(11,11,16,.06)
+}
+.ft-sec--ink .ft-list li code{background:rgba(255,255,255,.1)}
+
+/* ---------- "coming soon" tag ---------- */
+.ft-soon{
+  align-self:flex-start;margin-top:auto;padding-top:12px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);display:inline-flex;align-items:center;gap:7px
+}
+.ft-soon::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:var(--violet);
+  box-shadow:0 0 0 3px rgba(90,75,255,.16)
+}
+.ft-sec--ink .ft-soon{color:rgba(255,255,255,.5)}
+.ft-sec--ink .ft-soon::before{background:var(--sky);box-shadow:0 0 0 3px rgba(143,227,255,.18)}
+
+/* ---------- fine print under a section ---------- */
+.ft-note{
+  margin-top:22px;display:flex;gap:10px;align-items:flex-start;
+  font-size:13.5px;line-height:1.6;color:var(--muted);max-width:78ch
+}
+.ft-note svg{flex:none;width:16px;height:16px;margin-top:3px;color:var(--violet)}
+.ft-sec--ink .ft-note{color:rgba(255,255,255,.55)}
+.ft-sec--ink .ft-note svg{color:var(--lime)}
+
+/* ---------- the "at a glance" tally strip ---------- */
+.ft-tally{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-top:26px;
+  border:1px solid var(--line-d);border-radius:var(--r);overflow:hidden;
+  background:var(--line-d)
+}
+@media (max-width:760px){.ft-tally{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ft-tally div{background:var(--ink);padding:20px 18px}
+.ft-tally dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.ft-tally dd{
+  margin:8px 0 0;font-size:clamp(24px,2.4vw,34px);font-weight:600;letter-spacing:-.04em;
+  line-height:1;color:#fff
+}
+.ft-tally dd small{font-family:var(--serif);font-style:italic;font-weight:400;font-size:.55em;color:var(--lime);margin-left:3px}
+
+/* ---------- two-column "split" row (list + panel) ---------- */
+.ft-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,4vw,64px);align-items:start}
+@media (max-width:900px){.ft-split{grid-template-columns:minmax(0,1fr)}}
+
+.ft-stack{display:grid;gap:12px;margin-top:26px}
+.ft-row{
+  display:grid;grid-template-columns:38px minmax(0,1fr);gap:14px;align-items:start;
+  padding:16px 0;border-top:1px solid var(--line)
+}
+.ft-sec--ink .ft-row{border-top-color:var(--line-d)}
+.ft-row:first-child{border-top:0;padding-top:0}
+.ft-row-ic{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  background:rgba(90,75,255,.09);color:var(--violet);border:1px solid rgba(90,75,255,.18)
+}
+.ft-row-ic svg{width:17px;height:17px}
+.ft-sec--ink .ft-row-ic{background:rgba(217,255,87,.12);color:var(--lime);border-color:rgba(217,255,87,.24)}
+.ft-row b{display:block;font-size:15.5px;font-weight:600;letter-spacing:-.02em}
+.ft-row span{display:block;margin-top:3px;font-size:14px;line-height:1.6;color:var(--muted)}
+.ft-sec--ink .ft-row span{color:var(--muted-d)}
+
+/* ---------- pills (small inline legend) ---------- */
+.ft-pills{display:flex;flex-wrap:wrap;gap:7px;margin-top:18px}
+.ft-pill{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;
+  border:1px solid var(--line);background:rgba(255,255,255,.5);
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)
+}
+.ft-sec--ink .ft-pill{border-color:var(--line-d);background:rgba(255,255,255,.05);color:rgba(255,255,255,.62)}
+.ft-pill svg{width:13px;height:13px}
+
+@media (prefers-reduced-motion:reduce){
+  .ft-card,.ft-card:hover{transition:none;transform:none}
+  .ft-map a{transition:none}
+  .ft-map a:hover,.ft-map a:focus-visible{padding-left:0}
+}
