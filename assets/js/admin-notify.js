@@ -146,8 +146,8 @@ function paintPreview() {
   box.innerHTML =
     `<div class="nt-demo">` +
     `<div class="nt-demo-bar"><span>${icon("i-bell")}<b>1</b></span></div>` +
-    `<div class="nt-demo-panel"><div class="nt-head"><div><span class="nt-k">Notifications</span><b>1 new</b></div></div>` +
-    `<div class="nt-list"><div class="nt-item nt-item--${kind} is-new"><span class="nt-ic">${icon(NOTIF_KIND_ICON[kind])}</span><span class="nt-body"><b>${esc(d.title || "Your title appears here")}</b><span class="nt-text">${esc(d.body || "Write a short, clear message. Add a link so students can act on it in one tap.")}</span><small>${d.audience === "student" ? "For you" : "FenxTek academy"} · just now</small></span></div></div></div>` +
+    `<div class="nt-demo-panel"><div class="nt-head"><span class="nt-glow" aria-hidden="true"></span><div class="nt-head-t"><span class="nt-k">Notification centre</span><b>1 new</b></div><span class="nt-newpill">1 unread</span></div>` +
+    `<div class="nt-list"><div class="nt-item nt-item--${kind} is-new"><span class="nt-ic">${icon(NOTIF_KIND_ICON[kind])}</span><span class="nt-body"><b>${esc(d.title || "Your title appears here")}</b><span class="nt-text">${esc(d.body || "Write a short, clear message. Add a link so students can act on it in one tap.")}</span><span class="nt-meta"><em class="nt-src">${d.audience === "student" ? "For you" : "FenxTek academy"}</em><i aria-hidden="true"></i><small>just now</small></span></span><span class="nt-bar" aria-hidden="true"></span></div></div></div>` +
     `</div>` +
     `<p class="as-sub nt-demo-meta">${icon("i-users")}${esc(d.audience === "student" ? d.student || "One student" : audienceLabel(d.audience, course && course.title))}${d.link ? ` · opens ${esc(d.link)}` : ""}${d.audience !== "student" && d.expires ? ` · hides after ${d.expires} day${d.expires === 1 ? "" : "s"}` : ""}</p>`;
 }
