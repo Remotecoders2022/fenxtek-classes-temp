@@ -7,11 +7,28 @@
    - optional browser alerts (Notification API) while the portal is open
    ============================================================ */
 import { dbWatch, dbUpdate, dbRemove } from "./firebase.js?v=5";
-import { NOTIF_PATH, BROADCAST_PATH, NOTIF_KIND_ICON, cleanLink, timeAgo } from "./notices.js?v=1";
+import { NOTIF_PATH, BROADCAST_PATH, NOTIF_KINDS, NOTIF_KIND_ICON, cleanLink, timeAgo } from "./notices.js?v=1";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const icon = (id) => `<svg><use href="#${id}"/></svg>`;
 const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+/* filter tabs: one per kind of notification, in the order they matter to a student */
+const KIND_LABEL = { all: "All", info: "Updates", order: "Payments", emi: "Instalments", offer: "Offers", class: "Classes", alert: "Alerts" };
+const KIND_EMPTY_ICON = { order: "i-receipt", emi: "i-clock", offer: "i-gift", class: "i-live", alert: "i-bolt", info: "i-info" };
+const kindOf = (n) => (NOTIF_KIND_ICON[n && n.kind] ? n.kind : "info");
+const startOfDay = (ms) => {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+/* Today / Yesterday / Earlier this week / Older */
+function bucketOf(ms, now) {
+  const days = Math.round((startOfDay(now) - startOfDay(Number(ms) || 0)) / 86400000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return "Earlier this week";
+  return "Older";
+}
+
 const LS_PUSH = "fx:nt-push";
 const LS_ALERTED = "fx:nt-alerted";
 const LS_HIDDEN = "fx:nt-hidden";
@@ -23,6 +40,7 @@ const N = {
   seen: 0,
   openSeen: 0, // "new" highlight while the panel is open
   open: false,
+  filter: "all", // which tab the student is looking at (all | info | order | …)
   ready: { p: false, b: false },
   alerted: new Set(),
   hidden: new Set(),
@@ -124,7 +142,7 @@ function mountUI() {
     btn.setAttribute("aria-label", "Notifications");
     btn.setAttribute("aria-haspopup", "dialog");
     btn.setAttribute("aria-expanded", "false");
-    btn.innerHTML = `${icon("i-bell")}<b class="sp-count nt-count" hidden>0</b>`;
+    btn.innerHTML = `${icon("i-bell")}<i class="nt-ping" aria-hidden="true"></i><b class="sp-count nt-count" hidden>0</b>`;
     tools.insertBefore(btn, cart || null);
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -142,7 +160,12 @@ function mountUI() {
     p.addEventListener("click", onPanelClick);
   }
   document.addEventListener("click", (e) => {
-    if (N.open && !e.target.closest("#ntPanel") && !e.target.closest("#ntBell")) close();
+    if (!N.open) return;
+    /* re-rendering the list detaches the clicked row mid-dispatch — that is
+       still an inside click, so don't let it count as "clicked outside" */
+    if (!document.body.contains(e.target)) return;
+    if (e.target.closest("#ntPanel") || e.target.closest("#ntBell")) return;
+    close();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && N.open) close();
@@ -153,8 +176,14 @@ function mountUI() {
 function paintBadge(n) {
   const b = $("#ntBell .nt-count");
   if (!b) return;
+  const was = b.hidden ? 0 : b.textContent;
   b.hidden = !n;
   b.textContent = n > 9 ? "9+" : String(n);
+  if (String(was) !== b.textContent) {
+    b.classList.remove("is-bump");
+    void b.offsetWidth;
+    b.classList.add("is-bump");
+  }
   $("#ntBell").classList.toggle("has-new", n > 0);
   document.title = document.title.replace(/^\(\d+\+?\) /, "");
   if (n) document.title = `(${n > 9 ? "9+" : n}) ${document.title}`;
@@ -200,39 +229,101 @@ function paintPanel(list) {
   if (!p) return;
   const newCount = list.filter((n) => Number(n.at || 0) > N.openSeen).length;
   const ps = pushState();
+  /* tab counts — only the kinds this student actually has */
+  const counts = { all: list.length };
+  list.forEach((n) => {
+    const k = kindOf(n);
+    counts[k] = (counts[k] || 0) + 1;
+  });
+  /* keep the open tab visible even once it is empty, so dismissing the
+     last row in it shows "no X yet" instead of jumping back to All */
+  if (!NOTIF_KINDS.includes(N.filter)) N.filter = "all";
+  const tabs = ["all", ...NOTIF_KINDS.filter((k) => counts[k] || k === N.filter)];
+  const shown = N.filter === "all" ? list : list.filter((n) => kindOf(n) === N.filter);
   p.innerHTML =
-    `<div class="nt-head"><div><span class="nt-k">Notifications</span><b>${newCount ? `${newCount} new` : "You’re all caught up"}</b></div>` +
-    `<button class="nt-x" type="button" data-nt-close aria-label="Close">${icon("i-x")}</button></div>` +
-    (list.length
-      ? `<div class="nt-list">${list.map((n) => itemHTML(n)).join("")}</div>`
-      : `<div class="nt-empty">${icon("i-bell")}<b>No notifications yet</b><p>Payment updates, instalment reminders and news from the academy will show up here.</p></div>`) +
+    `<header class="nt-head">` +
+    `<span class="nt-glow" aria-hidden="true"></span>` +
+    `<div class="nt-head-t"><span class="nt-k">Notification centre</span>` +
+    `<b>${newCount ? `${newCount} new` : list.length ? "You’re all caught up" : "Nothing yet"}</b></div>` +
+    (newCount ? `<span class="nt-newpill">${newCount} unread</span>` : "") +
+    `<button class="nt-x" type="button" data-nt-close aria-label="Close">${icon("i-x")}</button>` +
+    `</header>` +
+    (list.length && tabs.length > 2
+      ? `<div class="nt-tabs" role="tablist" aria-label="Filter notifications">${tabs
+          .map(
+            (k) =>
+              `<button type="button" class="nt-tab${N.filter === k ? " is-on" : ""}" data-nt-filter="${esc(k)}" role="tab" aria-selected="${N.filter === k}">` +
+              `${esc(KIND_LABEL[k] || k)}<i>${counts[k]}</i></button>`
+          )
+          .join("")}</div>`
+      : "") +
+    listHTML(shown) +
     `<div class="nt-foot">` +
+    `<span class="nt-foot-note">${icon("i-bell")}${list.length} notification${list.length === 1 ? "" : "s"}</span>` +
     (ps === "unsupported"
-      ? `<span class="nt-foot-note">${icon("i-info")}This browser can’t show alerts</span>`
+      ? `<span class="nt-foot-note is-quiet">${icon("i-info")}This browser can’t show alerts</span>`
       : ps === "blocked"
-      ? `<span class="nt-foot-note">${icon("i-info")}Alerts are blocked in browser settings</span>`
+      ? `<span class="nt-foot-note is-quiet">${icon("i-info")}Alerts are blocked in browser settings</span>`
       : `<button type="button" class="nt-push${ps === "on" ? " is-on" : ""}" data-nt-push><span class="nt-switch" aria-hidden="true"></span>Alerts on this device</button>`) +
     `</div>`;
 }
 
+/* grouped by when it landed — sticky labels inside the scrolling list */
+function listHTML(shown) {
+  if (!shown.length) {
+    const f = N.filter;
+    const only = f !== "all";
+    return (
+      `<div class="nt-empty">${icon(only ? KIND_EMPTY_ICON[f] || "i-bell" : "i-bell")}` +
+      `<b>${only ? `No ${esc((KIND_LABEL[f] || "notification").toLowerCase())} yet` : "No notifications yet"}</b>` +
+      `<p>${only ? "Nothing here right now — new ones will land in this tab." : "Payment updates, instalment reminders and news from the academy will show up here."}</p></div>`
+    );
+  }
+  const now = Date.now();
+  let out = "";
+  let last = "";
+  shown.forEach((n) => {
+    const g = bucketOf(Number(n.at || 0), now);
+    if (g !== last) {
+      last = g;
+      const fresh = shown.filter((x) => bucketOf(Number(x.at || 0), now) === g && Number(x.at || 0) > N.openSeen).length;
+      out += `<p class="nt-group"><span>${g}</span>${fresh ? `<i>${fresh} new</i>` : ""}</p>`;
+    }
+    out += itemHTML(n);
+  });
+  return `<div class="nt-list">${out}</div>`;
+}
+
 function itemHTML(n) {
   const link = cleanLink(n.link);
-  const tag = link ? "a" : "div";
-  const href = link ? ` href="${esc(link)}"${link.startsWith("http") ? ' target="_blank" rel="noopener"' : ""}` : "";
-  const kind = NOTIF_KIND_ICON[n.kind] ? n.kind : "info";
+  const kind = kindOf(n);
   const isNew = Number(n.at || 0) > N.openSeen;
   const src = n.virtual ? "Reminder" : n.broadcast ? "FenxTek academy" : "For you";
+  const ext = link.startsWith("http");
   return (
-    `<${tag} class="nt-item nt-item--${kind}${isNew ? " is-new" : ""}"${href} data-nt-id="${esc(n.id)}">` +
+    /* stretched link instead of a button inside an anchor — valid, and the whole row stays clickable */
+    `<article class="nt-item nt-item--${kind}${isNew ? " is-new" : ""}${link ? " is-link" : ""}" data-nt-id="${esc(n.id)}">` +
+    (link ? `<a class="nt-go" href="${esc(link)}"${ext ? ' target="_blank" rel="noopener"' : ""} aria-label="${esc(n.title)}"></a>` : "") +
     `<span class="nt-ic">${icon(NOTIF_KIND_ICON[kind])}</span>` +
-    `<span class="nt-body"><b>${esc(n.title)}</b>${n.body ? `<span class="nt-text">${esc(n.body)}</span>` : ""}<small>${esc(src)} · ${esc(timeAgo(n.at))}</small></span>` +
-    (n.virtual ? "" : `<button class="nt-del" type="button" data-nt-del="${esc(n.id)}" data-nt-kind="${n.personal ? "p" : "b"}" aria-label="Dismiss">${icon("i-x")}</button>`) +
-    `</${tag}>`
+    `<span class="nt-body"><b>${esc(n.title)}</b>${n.body ? `<span class="nt-text">${esc(n.body)}</span>` : ""}` +
+    `<span class="nt-meta"><em class="nt-src">${esc(src)}</em><i aria-hidden="true"></i><small>${esc(timeAgo(n.at))}</small></span></span>` +
+    (n.virtual
+      ? ""
+      : `<span class="nt-acts"><button class="nt-del" type="button" data-nt-del="${esc(n.id)}" data-nt-kind="${n.personal ? "p" : "b"}" aria-label="Dismiss">${icon("i-x")}</button></span>`) +
+    `<span class="nt-bar" aria-hidden="true"></span>` +
+    `</article>`
   );
 }
 
 function onPanelClick(e) {
   if (e.target.closest("[data-nt-close]")) return close();
+  const tab = e.target.closest("[data-nt-filter]");
+  if (tab) {
+    e.stopPropagation();
+    N.filter = tab.dataset.ntFilter;
+    paintPanel(items());
+    return;
+  }
   const del = e.target.closest("[data-nt-del]");
   if (del) {
     e.preventDefault();
@@ -250,8 +341,8 @@ function onPanelClick(e) {
   }
   const push = e.target.closest("[data-nt-push]");
   if (push) return togglePush();
-  const item = e.target.closest(".nt-item[href]");
-  if (item && item.getAttribute("href").startsWith("#")) setTimeout(close, 30);
+  const go = e.target.closest(".nt-go");
+  if (go && go.getAttribute("href").startsWith("#")) setTimeout(close, 30);
 }
 
 async function togglePush() {
