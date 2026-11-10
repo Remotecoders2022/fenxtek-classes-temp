@@ -648,6 +648,55 @@ function paintCourses() {
     );
 }
 
+/* ---------- course banner: drag & drop uploader ----------
+   The banner is compressed in the browser and stored as a base64 data
+   URL at site/courseImages/{courseId} (see database.rules.json), so
+   the student store can read it without any file hosting. The heavy
+   payload lives in its own node: the course list stays small and the
+   picture is fetched only for covers that are actually on screen. */
+
+const THUMB_MAX_DIM = 1600;
+const THUMB_BUDGET = 900000;
+
+function thumbDropHTML() {
+  return (
+    `<div class="p-field p-field--wide" data-thumb="upload" hidden>` +
+    `<span class="p-label">Banner image (16:9 works best)</span>` +
+    `<div class="as-drop" id="asThumbDrop" role="button" tabindex="0" aria-label="Drag and drop a banner image here, or press Enter to browse">` +
+    `<div class="as-drop-empty">` +
+    `<span class="as-drop-ic">${icon("i-upload")}</span>` +
+    `<b>Drag &amp; drop your banner here</b>` +
+    `<span>or click to browse — PNG, JPG, WEBP or GIF</span>` +
+    `</div>` +
+    `<img class="as-drop-img" id="asThumbImg" alt="">` +
+    `<button class="as-drop-clear" type="button" id="asThumbClear" aria-label="Remove this banner">${icon("i-x")}</button>` +
+    `</div>` +
+    `<input class="as-drop-file" type="file" id="asThumbFile" name="file" accept="image/*" tabindex="-1" hidden>` +
+    `<span class="p-hint" id="asThumbInfo">Compressed in your browser and stored in Realtime Database as base64. You can also paste a screenshot while this editor is open.</span>` +
+    `</div>`
+  );
+}
+
+/* Show whatever banner the draft currently holds. */
+function paintThumbDrop() {
+  const drop = $("#asThumbDrop");
+  if (!drop) return;
+  const img = $("#asThumbImg", drop);
+  const src = (A.draft && A.draft.image) || "";
+  drop.classList.toggle("has-img", Boolean(src));
+  if (img) {
+    if (src) img.src = src;
+    else img.removeAttribute("src");
+  }
+}
+
+function setThumbInfo(text, tone) {
+  const el = $("#asThumbInfo");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle("is-err", tone === "err");
+}
+
 function courseForm(c) {
   const opt = (list, v) => list.map((x) => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
   const presets = [[30, "1 month"], [90, "3 months"], [180, "6 months"], [365, "1 year"], [730, "2 years"], [0, "Lifetime"]];
@@ -682,7 +731,7 @@ function courseForm(c) {
     `<div class="p-field p-field--wide"><span class="p-label">Cover picture</span><div class="as-seg">` +
     ["none", "upload", "link"].map((v) => `<label><input type="radio" name="thumb" value="${v}"${c.thumb === v ? " checked" : ""}>${v === "none" ? "Generated art" : v === "upload" ? "Upload" : "Image link"}</label>`).join("") +
     `</div></div>` +
-    `<label class="p-field p-field--wide" data-thumb="upload"${c.thumb === "upload" ? "" : " hidden"}><span class="p-label">Upload image (16:9 works best)</span><input class="p-input" type="file" name="file" accept="image/*"><span class="p-hint" id="asThumbInfo">Compressed in your browser and stored in Realtime Database.</span></label>` +
+    thumbDropHTML(c) +
     `<label class="p-field p-field--wide" data-thumb="link"${c.thumb === "link" ? "" : " hidden"}><span class="p-label">Image URL</span><input class="p-input" name="thumbUrl" value="${esc(c.thumbUrl)}" placeholder="https://…"></label>` +
     `<label class="as-check p-field--wide"><input type="checkbox" name="published"${c.published ? " checked" : ""}>Published — visible in the student store</label>` +
     `</form>` +
@@ -814,6 +863,127 @@ function coinLine(c) {
   return `<span class="as-sub as-sub--coin">${icon("i-coin")}${earn ? `Earn ${earn.toLocaleString("en-IN")}` : ""}${earn && refer ? " · " : ""}${refer ? `Referral ${refer.toLocaleString("en-IN")}` : ""}${c.earnCoins >= 0 || c.referCoins >= 0 ? " · custom" : ""}</span>`;
 }
 
+/* Wire the banner dropzone: drag & drop, click to browse, keyboard,
+   paste a screenshot, and a clear button. Everything ends up in
+   A.draft.image as a base64 data URL, ready for saveCourse(). */
+function bindThumbDrop(card, form) {
+  const drop = $("#asThumbDrop", card);
+  const file = $("#asThumbFile", card);
+  const clear = $("#asThumbClear", card);
+  if (!drop || !file) return;
+
+  const IMAGE_EXT = /\.(png|jpe?g|jfif|pjpeg|webp|gif|bmp|avif|heic|heif)$/i;
+  const isImageFile = (f) => /^image\//i.test((f && f.type) || "") || IMAGE_EXT.test((f && f.name) || "");
+
+  async function takeFile(f) {
+    if (!f) return;
+    drop.classList.add("is-busy");
+    setThumbInfo("Compressing…");
+    try {
+      const out = await fileToDataImage(f, { maxDim: THUMB_MAX_DIM, budget: THUMB_BUDGET });
+      const url = typeof out === "string" ? out : out.dataUrl;
+      A.draft.image = url;
+      A.draft.imageChanged = true;
+      const dims = out && out.width && out.height ? ` · ${out.width}×${out.height}` : "";
+      setThumbInfo(`Ready · ${prettyBytes(url.length)}${dims}${out && out.resized ? " · resized" : ""}`);
+      paintThumbDrop();
+      paintCoursePreview(form);
+    } catch (err) {
+      const msg = (err && err.message) || "Could not read that image.";
+      setThumbInfo(msg, "err");
+      alert("err", msg);
+    } finally {
+      drop.classList.remove("is-busy");
+      file.value = "";
+    }
+  }
+
+  const browse = () => {
+    if (!A.draft) return;
+    file.click();
+  };
+
+  drop.addEventListener("click", (e) => {
+    if (clear && e.target.closest("#asThumbClear")) return;
+    browse();
+  });
+  drop.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      browse();
+    }
+  });
+  file.addEventListener("change", () => takeFile(file.files && file.files[0]));
+
+  /* dragenter/dragleave fire for every child element the cursor crosses,
+     so keep a depth counter instead of toggling on each event. */
+  let depth = 0;
+  drop.addEventListener("dragenter", (e) => {
+    e.preventDefault();
+    depth++;
+    drop.classList.add("is-over");
+  });
+  drop.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  });
+  drop.addEventListener("dragleave", () => {
+    depth = Math.max(0, depth - 1);
+    if (!depth) drop.classList.remove("is-over");
+  });
+  drop.addEventListener("drop", (e) => {
+    e.preventDefault();
+    depth = 0;
+    drop.classList.remove("is-over");
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    const files = Array.from(dt.files || []).filter(isImageFile);
+    if (files.length) {
+      if (files.length > 1) alert("info", "One banner per course — using the first image you dropped.");
+      takeFile(files[0]);
+      return;
+    }
+    /* An image dragged straight from another web page arrives as a link. */
+    const html = dt.getData("text/html") || "";
+    const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    const link =
+      (m && m[1]) ||
+      (dt.getData("text/uri-list") || "").split(/\r?\n/).find((l) => l && !l.startsWith("#")) ||
+      dt.getData("text/plain") ||
+      "";
+    if (/^data:image\//i.test(link)) {
+      fetch(link)
+        .then((r) => r.blob())
+        .then((b) => takeFile(new File([b], "banner", { type: b.type })))
+        .catch(() => alert("err", "Could not read that dropped image."));
+      return;
+    }
+    alert("err", "Drop an image file — PNG, JPG, WEBP or GIF.");
+  });
+
+  /* Paste a screenshot while the course editor is open. */
+  document.addEventListener("paste", (e) => {
+    if (!card || card.hidden) return;
+    const items = Array.from((e.clipboardData && e.clipboardData.items) || []);
+    const img = items.find((it) => it.kind === "file" && /^image\//i.test(it.type));
+    if (!img) return;
+    e.preventDefault();
+    takeFile(img.getAsFile());
+  });
+
+  if (clear) {
+    clear.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!A.draft) return;
+      A.draft.image = "";
+      A.draft.imageChanged = true;
+      setThumbInfo("Banner removed — save the course to finish.");
+      paintThumbDrop();
+      paintCoursePreview(form);
+    });
+  }
+}
+
 async function openCourseEditor(id) {
   const card = $("#asCourseEditor");
   if (!card) return;
@@ -827,6 +997,7 @@ async function openCourseEditor(id) {
       .then((s) => {
         if (A.draft && A.draft.image === undefined) {
           A.draft.image = safeDataImage(s && s.val ? s.val() : "");
+          paintThumbDrop();
           paintCoursePreview($("#asCourseForm"));
         }
       })
@@ -842,23 +1013,9 @@ async function openCourseEditor(id) {
   };
   form.addEventListener("input", sync);
   form.addEventListener("change", sync);
-  form.file.addEventListener("change", async () => {
-    const file = form.file.files && form.file.files[0];
-    if (!file) return;
-    const info = $("#asThumbInfo");
-    info.textContent = "Compressing…";
-    try {
-      const out = await fileToDataImage(file, { maxDim: 1600, budget: 900000 });
-      const url = typeof out === "string" ? out : out.dataUrl;
-      A.draft.image = url;
-      A.draft.imageChanged = true;
-      info.textContent = `Ready · ${prettyBytes(url.length)}`;
-      paintCoursePreview(form);
-    } catch (err) {
-      info.textContent = err.message;
-    }
-  });
+  bindThumbDrop(card, form);
   sync();
+  paintThumbDrop();
   $("#asCourseCancel").addEventListener("click", closeCourseEditor);
   $("#asCourseSave").addEventListener("click", (e) => saveCourse(form, e.currentTarget));
   card.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -916,7 +1073,9 @@ async function saveCourse(form, btn) {
       if (c.referCoins >= 0) rec.referCoins = c.referCoins;
       if (emi) rec.emi = emi;
       const updates = { [`${PATH.courses}/${id}`]: rec };
-      if (c.thumb === "upload" && A.draft.imageChanged && A.draft.image) updates[`${PATH.courseImages}/${id}`] = A.draft.image;
+      /* A cleared banner removes the stored image; validation rules don't
+         run on deletes, so writing null is enough to drop it. */
+      if (c.thumb === "upload" && A.draft.imageChanged) updates[`${PATH.courseImages}/${id}`] = A.draft.image || null;
       if (c.thumb !== "upload") updates[`${PATH.courseImages}/${id}`] = null;
       await dbUpdateRoot(updates);
       alert("ok", `Saved “${c.title}”.${c.published ? " It’s live in the student store." : " It’s hidden until you publish it."}`);

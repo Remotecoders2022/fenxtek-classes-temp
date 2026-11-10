@@ -2796,3 +2796,93 @@ html.sp-locked, html.sp-locked body { overflow: hidden; }
   .sp-crumb-t { font-size: 16px; }
   .sp-top-search { width: 38px; }
 }
+
+/* ---------- course banner: drag & drop uploader (CRM) ---------- */
+.as-drop {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 190px;
+  border: 1.5px dashed rgba(11, 11, 16, 0.28);
+  border-radius: 16px;
+  background:
+    repeating-linear-gradient(45deg, rgba(11, 11, 16, 0.015) 0 10px, transparent 10px 20px),
+    rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  overflow: hidden;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.as-drop:hover,
+.as-drop:focus-visible { border-color: var(--violet); }
+.as-drop.is-over {
+  border-color: var(--violet);
+  border-style: solid;
+  background: rgba(90, 75, 255, 0.07);
+  transform: scale(1.01);
+}
+.as-drop.is-busy::after {
+  content: "Processing…";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(243, 240, 232, 0.82);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.as-drop-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 22px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.as-drop-empty b { color: var(--ink); font-size: 15px; font-weight: 600; }
+.as-drop-ic {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--lime);
+  margin-bottom: 2px;
+}
+.as-drop-ic svg { width: 23px; height: 23px; }
+.as-drop.has-img .as-drop-empty { display: none; }
+.as-drop-img {
+  display: none;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  background: var(--ink-3);
+}
+.as-drop.has-img .as-drop-img { display: block; }
+.as-drop-clear {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  place-items: center;
+  background: rgba(11, 11, 16, 0.75);
+  color: #fff;
+}
+.as-drop.has-img .as-drop-clear { display: grid; }
+.as-drop-clear svg { width: 16px; height: 16px; }
+.as-drop-clear:hover { background: #a42828; }
+.as-drop-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.p-hint.is-err { color: #a42828; }
+@media (prefers-reduced-motion: reduce) {
+  .as-drop { transition: none; }
+  .as-drop.is-over { transform: none; }
+}
