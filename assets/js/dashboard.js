@@ -90,7 +90,7 @@ import {
   orderEarnCoins
 } from "./commerce.js?v=5";
 import { downloadReceipt, receiptDataURL } from "./receipt.js?v=5";
-import { THEME_PATH, resolveTheme, heroHTML, fxHTML, ribbonHTML, themeVars, signature, startCountdowns, countdownHTML, garlandHTML, marqueeHTML, fxAllowed, setFxAllowed } from "./store-theme.js?v=1";
+import { THEME_PATH, resolveTheme, heroHTML, fxHTML, ribbonHTML, themeVars, signature, startCountdowns, countdownHTML, garlandHTML, marqueeHTML, fxAllowed, setFxAllowed } from "./store-theme.js?v=2";
 import { emiConfig, emiPlans, planForCourse, emiEnrollUntil, emiSummary, emiItemOf, EMI_STATE, EMI_GRACE_DAYS } from "./emi.js?v=1";
 import { initNotify, refreshNotify } from "./notify.js?v=1";
 import { initTyping, vTyping } from "./typing.js?v=1";

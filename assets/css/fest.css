@@ -23,6 +23,14 @@
 .ft--newyear .ft-pattern { background-image: radial-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1.5px), radial-gradient(color-mix(in srgb, var(--ft-ac) 60%, transparent) 1.2px, transparent 1.7px); background-size: 46px 46px, 29px 29px; background-position: 0 0, 13px 7px; }
 .ft--holi .ft-pattern { background: radial-gradient(40% 60% at 10% 20%, rgba(255, 225, 77, 0.35), transparent 70%), radial-gradient(30% 50% at 35% 90%, rgba(34, 211, 238, 0.35), transparent 70%), radial-gradient(25% 40% at 55% 10%, rgba(74, 222, 128, 0.3), transparent 70%); mask-image: none; -webkit-mask-image: none; }
 .ft--sale .ft-pattern { background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0 14px, transparent 14px 28px); }
+/* Children’s Day: bubbles of two sizes, like a sheet of cartoon paper */
+.ft--children .ft-pattern {
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.3) 2.4px, transparent 3px),
+    radial-gradient(color-mix(in srgb, var(--ft-ac) 55%, transparent) 1.6px, transparent 2.2px);
+  background-size: 46px 46px, 23px 23px;
+  background-position: 0 0, 12px 9px;
+}
 
 .ft-art { position: absolute; right: -6px; bottom: 0; z-index: 0; width: min(54%, 540px); height: 100%; color: var(--ft-tx); pointer-events: none; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.25)); }
 .ft-body { position: relative; z-index: 1; display: grid; gap: 12px; justify-items: start; max-width: min(580px, 56%); }
@@ -127,6 +135,27 @@
   animation: ftConfetti var(--d) linear var(--dl) infinite;
 }
 @keyframes ftConfetti { from { transform: translate3d(0, 0, 0) rotate3d(1, 0.4, 0.2, 0deg); } to { transform: translate3d(var(--dx), calc(var(--fh) + 30px), 0) rotate3d(1, 0.4, 0.2, var(--rot)); } }
+
+.ft-fx--balloons i {
+  bottom: -74px; width: var(--s); height: calc(var(--s) * 1.18);
+  border-radius: 50% 50% 46% 46% / 44% 44% 56% 56%;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 42%),
+    var(--c);
+  box-shadow: inset -3px -5px 9px rgba(0, 0, 0, 0.18);
+  animation: ftBalloon var(--d) ease-in var(--dl) infinite;
+}
+.ft-fx--balloons i::after {
+  content: ""; position: absolute; left: 50%; top: 100%;
+  width: 1.5px; height: 20px; transform: translateX(-50%);
+  background: linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
+}
+@keyframes ftBalloon {
+  0% { transform: translate3d(0, 0, 0) scale(0.7); opacity: 0; }
+  12% { opacity: 1; }
+  50% { transform: translate3d(calc(var(--dx) * 0.55), calc(var(--fh) * -0.52), 0) scale(1) rotate(5deg); }
+  100% { transform: translate3d(var(--dx), calc(var(--fh) * -1.05), 0) scale(1.06) rotate(-5deg); opacity: 0; }
+}
 
 .ft-fx--colour i {
   bottom: -40px; width: var(--s); height: var(--s); border-radius: 50%; filter: blur(10px); mix-blend-mode: multiply;

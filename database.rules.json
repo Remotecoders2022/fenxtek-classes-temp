@@ -313,7 +313,7 @@
         ".read": true,
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "active": {
-          ".validate": "newData.isString() && newData.val().matches(/^(normal|diwali|holi|christmas|newyear|sale)$/)"
+          ".validate": "newData.isString() && newData.val().matches(/^(normal|diwali|holi|christmas|newyear|children|sale)$/)"
         },
         "auto": {
           ".validate": "newData.isBoolean()"
@@ -323,7 +323,7 @@
         },
         "themes": {
           "$id": {
-            ".validate": "$id.matches(/^(diwali|holi|christmas|newyear|sale)$/)",
+            ".validate": "$id.matches(/^(diwali|holi|christmas|newyear|children|sale)$/)",
             "badge": {
               ".validate": "newData.isString() && newData.val().length <= 40"
             },
@@ -355,7 +355,7 @@
               ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-Fa-f]{6}$/)"
             },
             "effect": {
-              ".validate": "newData.isString() && newData.val().matches(/^(none|diya|snow|confetti|fireworks|colour)$/)"
+              ".validate": "newData.isString() && newData.val().matches(/^(none|diya|snow|confetti|fireworks|colour|balloons)$/)"
             },
             "level": {
               ".validate": "newData.isNumber() && (newData.val() === 1 || newData.val() === 2 || newData.val() === 3)"

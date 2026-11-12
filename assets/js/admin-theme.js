@@ -9,7 +9,7 @@
    ============================================================ */
 import { dbWatch, dbUpdate, dbSet, friendlyError } from "./firebase.js?v=5";
 import { PATH, esc, money, num, coursesFrom } from "./commerce.js?v=5";
-import { THEME_PATH, THEME_IDS, PRESETS, EFFECTS, LEVELS, themeOf, resolveTheme, themeStatus, heroHTML, fxHTML, ribbonHTML, themeVars, garlandHTML, marqueeHTML, shortDate, startCountdowns } from "./store-theme.js?v=1";
+import { THEME_PATH, THEME_IDS, PRESETS, EFFECTS, LEVELS, themeOf, resolveTheme, themeStatus, heroHTML, fxHTML, ribbonHTML, themeVars, garlandHTML, marqueeHTML, shortDate, startCountdowns } from "./store-theme.js?v=2";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
