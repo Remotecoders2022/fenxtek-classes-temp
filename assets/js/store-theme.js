@@ -15,14 +15,15 @@
    ============================================================ */
 
 export const THEME_PATH = "site/storeTheme";
-export const THEME_IDS = ["diwali", "holi", "christmas", "newyear", "sale"];
+export const THEME_IDS = ["diwali", "holi", "christmas", "newyear", "children", "sale"];
 export const EFFECTS = {
   none: "No effect",
   diya: "Diya glow (rising embers)",
   snow: "Snowfall",
   confetti: "Confetti",
   fireworks: "Fireworks",
-  colour: "Colour splash (Holi)"
+  colour: "Colour splash (Holi)",
+  balloons: "Balloons (floating up)"
 };
 export const LEVELS = { 1: "Subtle", 2: "Balanced", 3: "Festive" };
 
@@ -113,6 +114,27 @@ export const PRESETS = {
     ribbon: "New Year offer",
     countdown: true,
     marquee: "New Year pricing · make this the year you clear the exam",
+    garland: true,
+    glow: true
+  },
+  children: {
+    name: "Children’s Day",
+    tagline: "Balloons, kites & bright ideas",
+    badge: "Happy Children’s Day",
+    title: "Big dreams, *bright futures*",
+    subtitle: "Children’s Day special — festive prices on every shorthand and typing course. Give a skill that lasts a lifetime.",
+    cta: "Shop Children’s Day deals",
+    link: "store",
+    coupon: "",
+    c1: "#1E5FD8",
+    c2: "#7B2FF7",
+    accent: "#FFE45C",
+    text: "#FFFFFF",
+    effect: "balloons",
+    level: 2,
+    ribbon: "Children’s Day special",
+    countdown: true,
+    marquee: "Children’s Day special · festive prices on every course · give a skill that lasts a lifetime",
     garland: true,
     glow: true
   },
@@ -369,6 +391,48 @@ const ART = {
       bowl(290, "#4ADE80")
     );
   },
+  children(g) {
+    /* a balloon: `y` is where the knot sits, the string hangs below it */
+    const balloon = (x, y, s, c, d) =>
+      `<g class="ft-float" style="animation-delay:${d}s">` +
+      `<path d="M${x} ${y - 14 * s} q 7 13 0 25 q -7 12 0 25" stroke="rgba(255,255,255,.5)" stroke-width="1.3" fill="none"/>` +
+      `<ellipse cx="${x}" cy="${y - 40 * s}" rx="${20 * s}" ry="${25 * s}" fill="${c}"/>` +
+      `<ellipse cx="${x - 6 * s}" cy="${y - 48 * s}" rx="${5 * s}" ry="${7.5 * s}" fill="#fff" opacity=".5"/>` +
+      `<path d="M${x - 4 * s} ${y - 16 * s} l4 5.5 l4 -5.5 l-4 -4.5 z" fill="${c}"/>` +
+      `</g>`;
+    const kite = (x, y, c) =>
+      `<g class="ft-swing" style="transform-origin:${x}px ${y}px">` +
+      `<path d="M${x} ${y - 34} L${x + 26} ${y} L${x} ${y + 40} L${x - 26} ${y} Z" fill="${c}"/>` +
+      `<path d="M${x} ${y - 34} V${y + 40} M${x - 26} ${y} H${x + 26}" stroke="#fff" stroke-opacity=".55" stroke-width="1.4"/>` +
+      `<path d="M${x} ${y + 40} q 11 12 -2 22 q -13 10 2 22" stroke="#fff" stroke-opacity=".55" stroke-width="2" fill="none" stroke-linecap="round"/>` +
+      `</g>`;
+    const pinwheel = (x, y, s, a, b) =>
+      `<g transform="translate(${x} ${y}) scale(${s})">` +
+      `<line x1="0" y1="0" x2="0" y2="48" stroke="#fff" stroke-opacity=".45" stroke-width="2.5"/>` +
+      `<g class="ft-spin" style="animation-duration:7s">` +
+      [0, 90, 180, 270]
+        .map((r) => `<path d="M0 0 C 7 -21 26 -26 30 -6 C 30 9 12 11 0 0 Z" fill="${r % 180 ? b : a}" transform="rotate(${r})"/>`)
+        .join("") +
+      `<circle r="4" fill="#fff"/>` +
+      `</g></g>`;
+    const stars = [[52, 46], [116, 24], [360, 58], [300, 30], [34, 124], [374, 148]]
+      .map(
+        ([x, y], i) =>
+          `<path class="ft-twinkle" style="animation-delay:${i * 0.4}s" transform="translate(${x} ${y})" d="M0 -8 L2.2 -2.2 L8 0 L2.2 2.2 L0 8 L-2.2 2.2 L-8 0 L-2.2 -2.2 Z" fill="#fff" fill-opacity=".85"/>`
+      )
+      .join("");
+    return (
+      `<circle cx="286" cy="118" r="80" fill="var(--ft-ac)" fill-opacity=".13" class="ft-pulse"/>` +
+      stars +
+      kite(76, 72, "var(--ft-ac)") +
+      balloon(206, 152, 1.15, "#FF6FB5", 0) +
+      balloon(258, 180, 0.95, "#5AC8FA", 0.9) +
+      balloon(312, 150, 1.05, "#FFE45C", 1.8) +
+      balloon(236, 208, 0.8, "#7CE8B4", 2.6) +
+      balloon(290, 216, 0.7, "#C08BFF", 3.4) +
+      pinwheel(104, 236, 1, "#FF6FB5", "#5AC8FA")
+    );
+  },
   sale() {
     const tag = (x, y, r, s, big, small, c, tc) =>
       `<g class="ft-swing" style="transform-origin:${x}px ${y - 60}px"><g transform="translate(${x} ${y}) rotate(${r}) scale(${s})">` +
@@ -545,6 +609,7 @@ export function marqueeHTML(items, t = null, { label = "Offers" } = {}) {
 
 /* ---------------- particle effects ---------------- */
 const COLOURS = {
+  balloons: ["#FF6FB5", "#FFE45C", "#5AC8FA", "#7CE8B4", "#C08BFF", "#FF8A5C"],
   confetti: ["#FFD166", "#FF4D8D", "#5A4BFF", "#22D3EE", "#4ADE80", "#FFFFFF"],
   colour: ["#FF3D7F", "#FFE14D", "#22D3EE", "#4ADE80", "#A855F7", "#FF8A3D"],
   fireworks: ["#FFD166", "#FF7EB6", "#7DE2FF", "#B4FF7A", "#FFFFFF"]
@@ -559,7 +624,7 @@ function rng(seed) {
 export function fxHTML(t, { contained = false } = {}) {
   if (!t || !t.effect || t.effect === "none") return "";
   const level = t.level || 2;
-  const base = { snow: 22, diya: 16, confetti: 22, fireworks: 4, colour: 9 }[t.effect] || 16;
+  const base = { snow: 22, diya: 16, confetti: 22, fireworks: 4, colour: 9, balloons: 10 }[t.effect] || 16;
   const n = Math.round(base * [0, 0.6, 1, 1.6][level]);
   const r = rng(7 + t.id.length * 31 + level);
   const pick = (arr) => arr[Math.floor(r() * arr.length)];
@@ -578,6 +643,9 @@ export function fxHTML(t, { contained = false } = {}) {
     } else if (t.effect === "colour") {
       const s = (60 + r() * 120).toFixed(0);
       out += `<i style="--x:${x}%;--s:${s}px;--d:${(10 + r() * 10).toFixed(1)}s;--dl:${dl}s;--dx:${(r() * 80 - 40).toFixed(0)}px;--c:${pick(COLOURS.colour)}"></i>`;
+    } else if (t.effect === "balloons") {
+      const s = (15 + r() * 15).toFixed(0);
+      out += `<i style="--x:${x}%;--s:${s}px;--d:${(9 + r() * 8).toFixed(1)}s;--dl:${dl}s;--dx:${(r() * 90 - 45).toFixed(0)}px;--c:${pick(COLOURS.balloons)}"></i>`;
     } else if (t.effect === "fireworks") {
       const c = pick(COLOURS.fireworks);
       const y = (8 + r() * 38).toFixed(1);
